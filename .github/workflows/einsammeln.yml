@@ -1,0 +1,40 @@
+# Sammelt zweimal täglich neue Anzeigen ein und verschickt fällige Fristen-Erinnerungen.
+# Läuft kostenlos in GitHub Actions (öffentliches Repo: unbegrenzt, privates: 2.000 Minuten/Monat).
+# Benötigte Secrets: API_URL, INGEST_KEY; optional DEEPSEEK_API_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRAWLER_CONTACT
+
+name: Einsammeln
+
+on:
+  schedule:
+    - cron: '17 4,13 * * *' # 06:17 und 15:17 Uhr (Sommerzeit), im Winter eine Stunde früher
+  workflow_dispatch: {}
+
+concurrency:
+  group: einsammeln
+  cancel-in-progress: false
+
+jobs:
+  einsammeln:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      API_URL: ${{ secrets.API_URL }}
+      INGEST_KEY: ${{ secrets.INGEST_KEY }}
+      LLM_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+      VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+      VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+      CRAWLER_CONTACT: ${{ secrets.CRAWLER_CONTACT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Browser für den Browser-Agenten installieren
+        run: npx playwright@1.56.0 install --with-deps chromium
+      - name: Startdaten abgleichen (neue Einrichtungen aus dem Repo übernehmen)
+        run: npm run cli -w @stellen/ingest -- seed
+      - name: Anzeigen einsammeln
+        run: npm run cli -w @stellen/ingest -- ingest

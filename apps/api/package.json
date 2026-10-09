@@ -1,0 +1,26 @@
+{
+  "name": "@stellen/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "dev:node": "tsx src/node.ts",
+    "deploy": "wrangler deploy",
+    "build:check": "wrangler deploy --dry-run --outdir dist",
+    "db:migrate:local": "wrangler d1 migrations apply stellenbuechlein --local",
+    "db:migrate:remote": "wrangler d1 migrations apply stellenbuechlein --remote"
+  },
+  "dependencies": {
+    "@stellen/core": "*",
+    "@stellen/db": "*",
+    "hono": "4.13.13",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261009.1",
+    "@hono/node-server": "2.1.4",
+    "tsx": "4.23.15",
+    "wrangler": "4.149.0"
+  }
+}

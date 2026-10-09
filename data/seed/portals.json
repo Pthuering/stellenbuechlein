@@ -1,0 +1,129 @@
+[
+  {
+    "id": "psychjob",
+    "label": "PsychJob (Hogrefe) – Lehre & Forschung",
+    "url": "https://www.psychjob.eu/de/jobs/lehre-forschung",
+    "adapter": "psychjob",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": { "maxPages": 8, "note": "Stellenmarkt, über den auch DGPs-Mitglieder ihre Forschungsstellen schalten. ?page=N (ab 0), 20 je Seite, robots.txt Crawl-delay 10. Enthält auch Österreich/Schweiz – wird nachgefiltert." }
+  },
+  {
+    "id": "ba-jobsuche",
+    "label": "Bundesagentur für Arbeit – Jobsuche",
+    "url": "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service",
+    "adapter": "ba-jobsuche",
+    "gate": "psych",
+    "enabled": true,
+    "verified": false,
+    "config": {
+      "queries": ["wissenschaftlicher Mitarbeiter Psychologie", "Doktorand Psychologie", "Promotion Psychologie", "Postdoc Psychologie", "Professur Psychologie", "Psychologe Forschung"],
+      "note": "Inoffizielle, öffentliche Schnittstelle (bundesAPI/jobsuche-api), Header X-API-Key: jobboerse-jobsuche. Version und Feldnamen beim ersten Lauf prüfen."
+    }
+  },
+  {
+    "id": "mpg",
+    "label": "Max-Planck-Gesellschaft – Stellenbörse",
+    "url": "https://www.mpg.de/jobboard",
+    "adapter": "feed",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": { "feedUrl": "https://www.mpg.de/feeds/jobs.rss", "note": "RSS mit den 30 neuesten Stellen aller Institute" }
+  },
+  {
+    "id": "leibniz",
+    "label": "Leibniz-Gemeinschaft – Stellenportal",
+    "url": "https://www.leibniz-gemeinschaft.de/karriere/stellenportal",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": { "linkPattern": "/karriere/stellenportal/detail/", "note": "Alle Stellen (~95) auf einer Seite" }
+  },
+  {
+    "id": "fraunhofer",
+    "label": "Fraunhofer – Jobportal",
+    "url": "https://jobs.fraunhofer.de/search/?q=psychologie",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {
+      "ats": "successfactors",
+      "queries": ["psychologie", "psychology", "human factors", "kognitiv", "ergonomie", "nutzerforschung"],
+      "note": "Volltextsuche ohne Präfix-Treffer, daher mehrere Stichworte; /services/ ist per robots.txt gesperrt"
+    }
+  },
+  {
+    "id": "academicpositions",
+    "label": "Academic Positions – Psychology, Germany",
+    "url": "https://academicpositions.com/jobs/field/psychology/country/germany",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {}
+  },
+  {
+    "id": "aps-jobs",
+    "label": "APS Employment Network – Germany",
+    "url": "https://jobs.psychologicalscience.org/countries/jobs-in-germany/",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {}
+  },
+  {
+    "id": "bua",
+    "label": "Berlin University Alliance – Stellen",
+    "url": "https://jobs.berlin-university-alliance.de/stellenangebote",
+    "adapter": "feed",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": { "feedUrl": "https://jobs.berlin-university-alliance.de/stellenangebote.atom", "note": "Gemeinsames Portal von FU, HU, TU und Charité (nur ein Teil der Stellen)" }
+  },
+  {
+    "id": "euraxess",
+    "label": "EURAXESS – Deutschland, Psychological sciences",
+    "url": null,
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": false,
+    "verified": false,
+    "config": { "note": "Filter-URL für Land Germany + Psychological sciences im Browser ermitteln und hier eintragen." }
+  },
+  {
+    "id": "academics",
+    "label": "academics.de – Psychologie",
+    "url": null,
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": false,
+    "verified": false,
+    "config": { "note": "Liste mit Fachgebiet Psychologie im Browser öffnen und URL hier eintragen; Nutzungsbedingungen prüfen." }
+  },
+  {
+    "id": "helmholtz",
+    "label": "Helmholtz-Gemeinschaft – Stellenportal",
+    "url": "https://www.helmholtz.de/karriere/jobs/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": false,
+    "verified": false,
+    "config": { "render": true, "note": "Liste per JavaScript; robots.txt sperrt URLs mit Parametern (Crawl-delay 30). Erst nach Prüfung aktivieren." }
+  },
+  {
+    "id": "interamt",
+    "label": "Interamt – öffentlicher Dienst",
+    "url": null,
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": false,
+    "verified": false,
+    "config": { "note": "robots.txt sperrt Job-Aggregatoren ausdrücklich – vor einer Anbindung Nutzungsbedingungen prüfen." }
+  }
+]

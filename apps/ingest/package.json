@@ -1,0 +1,28 @@
+{
+  "name": "@stellen/ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cli": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@mozilla/readability": "0.6.0",
+    "@stellen/core": "*",
+    "@stellen/db": "*",
+    "cheerio": "1.2.0",
+    "fast-xml-parser": "5.11.2",
+    "linkedom": "0.18.13",
+    "playwright-core": "1.56.0",
+    "turndown": "7.2.4",
+    "unpdf": "1.8.1",
+    "web-push": "3.6.7",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/turndown": "5.0.6",
+    "@types/web-push": "3.6.4",
+    "pdf-lib": "^1.17.1",
+    "tsx": "4.23.15"
+  }
+}

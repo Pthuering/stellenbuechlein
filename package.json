@@ -1,0 +1,30 @@
+{
+  "name": "stellenbuechlein",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Private Jobsuche-App für Forschungsstellen mit Psychologie-Bezug in Deutschland (PWA + Cloudflare Worker + Einsammel-Pipeline)",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/core && tsc -p packages/db && tsc -p apps/api && tsc -p apps/ingest && tsc -p apps/web",
+    "dev:api": "npm run dev -w @stellen/api",
+    "dev:web": "npm run dev -w @stellen/web",
+    "build:web": "npm run build -w @stellen/web",
+    "build:demo": "npm run build:demo -w @stellen/web",
+    "seed:local": "npm run cli -w @stellen/ingest -- seed",
+    "ingest:local": "npm run cli -w @stellen/ingest -- ingest",
+    "deploy": "npm run build -w @stellen/web && npm run deploy -w @stellen/api"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

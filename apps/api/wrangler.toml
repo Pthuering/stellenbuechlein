@@ -1,0 +1,31 @@
+# Cloudflare Worker: API + Auslieferung der PWA (kostenloser Plan reicht).
+# Einrichtung: siehe docs/BETRIEB.md
+
+name = "stellenbuechlein"
+main = "src/worker.ts"
+compatibility_date = "2026-06-01"
+
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stellenbuechlein"
+# Nach "npx wrangler d1 create stellenbuechlein" die ausgegebene ID hier eintragen:
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "../../packages/db/migrations"
+
+[vars]
+# Öffentlicher VAPID-Schlüssel für Push-Erinnerungen (npx web-push generate-vapid-keys)
+VAPID_PUBLIC_KEY = ""
+# Optional für den Knopf "Jetzt einsammeln": Repository im Format besitzer/name
+GITHUB_REPO = ""
+GITHUB_WORKFLOW = "einsammeln.yml"
+
+# Geheimnisse (nicht hier eintragen!):
+#   npx wrangler secret put APP_KEY      – Schlüssel für die App
+#   npx wrangler secret put INGEST_KEY   – Schlüssel für die Einsammel-Pipeline
+#   npx wrangler secret put GITHUB_TOKEN – optional, Fine-grained Token mit "Actions: write"
