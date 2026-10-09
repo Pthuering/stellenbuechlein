@@ -23,3 +23,5 @@ jobs:
         env:
           CHROMIUM_PATH: ''
       - run: npm run build:web
+      - name: Demo bauen und im Browser durchklicken
+        run: npm run build:demo && npm run smoke:demo -w @stellen/web
