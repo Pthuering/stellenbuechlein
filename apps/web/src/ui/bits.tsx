@@ -59,7 +59,7 @@ export function Hearts({ value, max = 3, onChange, label }: { value: number; max
 
 /** Handgezeichneter Kreis um die Prozentzahl. */
 export function ScoreRing({ value, size = 64, className = '' }: { value: number; size?: number; className?: string }) {
-  const color = value >= 75 ? 'var(--rosa-deep)' : value >= 50 ? 'var(--lavendel-ink)' : 'var(--pencil)';
+  const color = value >= 75 ? 'var(--rosa-deep)' : value >= 50 ? 'var(--altrosa-ink)' : 'var(--pencil)';
   return (
     <div className={`score ${className}`} style={{ width: size, height: size }} aria-label={`Passt zu ${value} Prozent`} role="img">
       <svg viewBox="0 0 70 70" aria-hidden="true">
@@ -106,7 +106,7 @@ export function Doodle({ kind }: { kind: 'teacup' | 'map' | 'heart' | 'search' }
   if (kind === 'map') {
     return (
       <svg viewBox="0 0 140 120" aria-hidden="true">
-        <path d="M18 30 48 18l38 13 34-13v72l-34 13-38-13-30 12Z" fill="var(--lavendel-soft)" {...{ stroke: s.stroke, strokeWidth: s.strokeWidth, strokeLinejoin: s.strokeLinejoin }} />
+        <path d="M18 30 48 18l38 13 34-13v72l-34 13-38-13-30 12Z" fill="var(--rosa-soft)" {...{ stroke: s.stroke, strokeWidth: s.strokeWidth, strokeLinejoin: s.strokeLinejoin }} />
         <path d="M48 19v72M86 31v72" {...s} />
         <path d="M62 52s-9-9-9-16a9 9 0 1 1 18 0c0 7-9 16-9 16Z" fill="var(--rosa)" {...{ stroke: s.stroke, strokeWidth: 2 }} />
         <path d="M28 70c10 4 18-6 28 0s16 8 26 2 18-4 26 2" {...s} strokeDasharray="4 6" />
@@ -124,7 +124,7 @@ export function Doodle({ kind }: { kind: 'teacup' | 'map' | 'heart' | 'search' }
   }
   return (
     <svg viewBox="0 0 140 120" aria-hidden="true">
-      <path d="M30 52h66l-6 38c-1 8-8 13-16 13H52c-8 0-15-5-16-13Z" fill="var(--minze-soft)" {...{ stroke: s.stroke, strokeWidth: s.strokeWidth, strokeLinejoin: s.strokeLinejoin }} />
+      <path d="M30 52h66l-6 38c-1 8-8 13-16 13H52c-8 0-15-5-16-13Z" fill="var(--butter-soft)" {...{ stroke: s.stroke, strokeWidth: s.strokeWidth, strokeLinejoin: s.strokeLinejoin }} />
       <path d="M96 60c12-2 18 6 14 14s-14 9-20 7" {...s} />
       <path d="M50 40c-4-6 4-10 0-17M64 40c-4-6 4-10 0-17M78 40c-4-6 4-10 0-17" {...s} stroke="var(--pencil)" />
       <path d="M22 110h96" {...s} />

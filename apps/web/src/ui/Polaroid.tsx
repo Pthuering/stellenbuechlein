@@ -21,8 +21,10 @@ function rng(seed: number) {
   };
 }
 
-const SKIES = ['var(--rosa-soft)', 'var(--lavendel-soft)', 'var(--minze-soft)', 'var(--butter-soft)', 'var(--pfirsich-soft)'];
-const HOUSES = ['var(--rosa)', 'var(--lavendel)', 'var(--minze)', 'var(--butter)', 'var(--pfirsich)', 'var(--himmel)'];
+// Feste, helle Farben: Die Postkarte ist ein "Abzug" und sieht im hellen wie im dunklen Notizbuch gleich aus.
+const INK = '#4a2c39';
+const SKIES = ['#fce6ec', '#f7eee4', '#fff5d6', '#fdf0f3'];
+const HOUSES = ['#f3a5bc', '#f8cad7', '#e8d6c3', '#fbe6a2', '#ffffff', '#d98fa5'];
 
 /** Gezeichnete Stadt-Silhouette, je Ort immer gleich. */
 export function CityDoodle({ seed }: { seed: string }) {
@@ -38,7 +40,7 @@ export function CityDoodle({ seed }: { seed: string }) {
     const top = ground - h;
     const fill = HOUSES[Math.floor(r() * HOUSES.length)];
     const roof = r();
-    const stroke = { stroke: '#3b2741', strokeWidth: 2, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
+    const stroke = { stroke: INK, strokeWidth: 2, strokeLinejoin: 'round' as const, strokeLinecap: 'round' as const };
     parts.push(<path key={`b${i}`} d={`M${x} ${ground}V${top}h${w}V${ground}`} fill={fill} {...stroke} />);
     if (roof < 0.35) {
       parts.push(<path key={`r${i}`} d={`M${x - 3} ${top}L${x + w / 2} ${top - 16 - r() * 10}L${x + w + 3} ${top}Z`} fill="#fffdfb" {...stroke} />);
@@ -53,7 +55,7 @@ export function CityDoodle({ seed }: { seed: string }) {
     // Fenster
     for (let wy = top + 10; wy < ground - 12; wy += 15) {
       for (let wx = x + 7; wx < x + w - 8; wx += 11) {
-        if (r() < 0.75) parts.push(<rect key={`w${i}-${wx}-${wy}`} x={wx} y={wy} width={4.5} height={6} rx={1} fill="#3b2741" opacity={0.75} />);
+        if (r() < 0.75) parts.push(<rect key={`w${i}-${wx}-${wy}`} x={wx} y={wy} width={4.5} height={6} rx={1} fill={INK} opacity={0.75} />);
       }
     }
     x += w + 6 + Math.floor(r() * 8);
@@ -63,12 +65,12 @@ export function CityDoodle({ seed }: { seed: string }) {
   return (
     <svg className="polaroid__img" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Gezeichnete Stadtansicht">
       <rect width="320" height="170" fill={sky} />
-      <circle cx={sunX} cy={34} r={14} fill="var(--butter)" stroke="#3b2741" strokeWidth={2} />
-      <path d={`M${sunX - 24} 34h-6M${sunX + 24} 34h6M${sunX} 10v-6M${sunX - 17} 17l-4-4M${sunX + 17} 17l4-4`} stroke="#3b2741" strokeWidth={2} strokeLinecap="round" />
-      <path d={`M${(sunX + 130) % 300} 50q6-8 12 0 6-8 12 0`} fill="none" stroke="#3b2741" strokeWidth={2} strokeLinecap="round" />
+      <circle cx={sunX} cy={34} r={14} fill="#fbe6a2" stroke={INK} strokeWidth={2} />
+      <path d={`M${sunX - 24} 34h-6M${sunX + 24} 34h6M${sunX} 10v-6M${sunX - 17} 17l-4-4M${sunX + 17} 17l4-4`} stroke={INK} strokeWidth={2} strokeLinecap="round" />
+      <path d={`M${(sunX + 130) % 300} 50q6-8 12 0 6-8 12 0`} fill="none" stroke={INK} strokeWidth={2} strokeLinecap="round" />
       {parts}
-      <path d={`M6 ${ground}h308`} stroke="#3b2741" strokeWidth={2.2} strokeLinecap="round" />
-      <path d={`M14 ${ground + 12}q40-6 80 0t80 0 80 0 60 0`} fill="none" stroke="#3b2741" strokeWidth={1.6} strokeLinecap="round" opacity={0.5} />
+      <path d={`M6 ${ground}h308`} stroke={INK} strokeWidth={2.2} strokeLinecap="round" />
+      <path d={`M14 ${ground + 12}q40-6 80 0t80 0 80 0 60 0`} fill="none" stroke={INK} strokeWidth={1.6} strokeLinecap="round" opacity={0.5} />
     </svg>
   );
 }

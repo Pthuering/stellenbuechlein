@@ -30,7 +30,7 @@ export function applyTheme(choice: ThemeChoice = getTheme()): void {
   }
   const attr = root.getAttribute('data-theme');
   const dark = attr ? attr === 'dark' : window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#241B2B' : '#F28DB2'));
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', dark ? '#2A2025' : '#F3A5BC'));
 }
 
 export function setTheme(choice: ThemeChoice): void {

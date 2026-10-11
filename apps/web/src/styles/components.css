@@ -41,20 +41,11 @@
   height: 24px;
 }
 
-.tab:nth-child(1) {
+.tab:nth-child(odd) {
   background: var(--rosa-soft);
 }
-.tab:nth-child(2) {
-  background: var(--lavendel-soft);
-}
-.tab:nth-child(3) {
-  background: var(--minze-soft);
-}
-.tab:nth-child(4) {
-  background: var(--butter-soft);
-}
-.tab:nth-child(5) {
-  background: var(--pfirsich-soft);
+.tab:nth-child(even) {
+  background: var(--beige-soft);
 }
 
 .tab[aria-current='page'] {
@@ -239,17 +230,17 @@
 .polaroid {
   background: #fff;
   padding: 8px 8px 0;
-  box-shadow: 0 1px 2px rgba(59, 39, 65, 0.18), 0 6px 14px -8px rgba(59, 39, 65, 0.35);
+  box-shadow: 0 1px 2px rgba(74, 44, 57, 0.18), 0 6px 14px -8px rgba(74, 44, 57, 0.35);
   transform: rotate(var(--photo-tilt, -1.2deg));
   border-radius: 2px;
 }
 
 :root[data-theme='dark'] .polaroid {
-  background: #f3ece8;
+  background: #f6eee8;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .polaroid {
-    background: #f3ece8;
+    background: #f6eee8;
   }
 }
 
@@ -268,7 +259,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 0 4px;
-  color: #3b2741;
+  color: #4a2c39;
   font-size: 15px;
   font-weight: 600;
   font-variation-settings: 'INFM' 80, 'BNCE' 40;
@@ -279,7 +270,7 @@
 .polaroid__caption small {
   font-weight: 400;
   font-size: 13px;
-  color: #7a6582;
+  color: #8b7074;
 }
 
 .tape {
@@ -302,7 +293,7 @@
   top: -9px;
   right: 22px;
   transform: rotate(6deg);
-  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--lavendel) 60%, transparent) 0 8px, color-mix(in srgb, var(--lavendel) 35%, transparent) 8px 14px);
+  background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--butter) 80%, transparent) 0 8px, color-mix(in srgb, var(--butter) 50%, transparent) 8px 14px);
 }
 
 /* Stempel beim Wischen */
@@ -335,20 +326,20 @@
 
 .stamp--like {
   left: 18px;
-  color: var(--minze-ink);
+  color: var(--rosa-deep);
   transform: rotate(-14deg);
 }
 
 .stamp--nope {
   right: 18px;
-  color: var(--rosa-deep);
+  color: var(--pencil);
   transform: rotate(12deg);
 }
 
 .stamp--star {
   left: 50%;
   top: 30%;
-  color: var(--lavendel-ink);
+  color: var(--gold);
   transform: translateX(-50%) rotate(-6deg);
 }
 
@@ -398,16 +389,16 @@
 }
 
 .round-btn--nope {
-  background: var(--rosa-soft);
+  background: var(--card);
 }
 .round-btn--star {
-  background: var(--lavendel-soft);
+  background: var(--butter-soft);
   width: 54px;
   height: 54px;
 }
 .round-btn--like {
-  background: var(--minze);
-  color: #173b30;
+  background: var(--rosa);
+  color: var(--on-rosa);
 }
 
 .round-btn:disabled {
@@ -639,13 +630,13 @@ button.hearts {
   position: relative;
   margin: 18px 4px 10px;
   padding: 22px 18px 20px;
-  background: #fffefa;
-  color: #2e2233;
+  background: #fffdf9;
+  color: #3a2530;
   font-family: var(--print);
   font-size: 16.5px;
   line-height: 1.62;
   border-radius: 2px;
-  box-shadow: 0 1px 2px rgba(59, 39, 65, 0.2), 0 12px 24px -16px rgba(59, 39, 65, 0.45);
+  box-shadow: 0 1px 2px rgba(74, 44, 57, 0.2), 0 12px 24px -16px rgba(74, 44, 57, 0.45);
   transform: rotate(-0.35deg);
   overflow-wrap: anywhere;
 }
@@ -677,8 +668,8 @@ button.hearts {
 .clipping blockquote {
   margin: 0 0 1em;
   padding: 2px 0 2px 12px;
-  border-left: 3px solid #f3a6b9;
-  color: #6b5672;
+  border-left: 3px solid #f0a8bc;
+  color: #7d6266;
   font-size: 14.5px;
   font-style: italic;
 }
@@ -689,12 +680,12 @@ button.hearts {
 
 .clipping hr {
   border: 0;
-  border-top: 1.5px dashed #c9b9cc;
+  border-top: 1.5px dashed #dcc9be;
   margin: 1.4em 0;
 }
 
 .clipping a {
-  color: #b8336a;
+  color: #b9476d;
 }
 
 .clipping table {
@@ -704,7 +695,7 @@ button.hearts {
 
 .clipping td,
 .clipping th {
-  border: 1px solid #e3d8e6;
+  border: 1px solid #eadfd3;
   padding: 3px 6px;
 }
 
@@ -712,14 +703,14 @@ button.hearts {
   margin: 14px 0 0;
   padding: 10px 12px;
   border-radius: 12px;
-  background: var(--lavendel-soft);
+  background: var(--beige-soft);
   font-size: 15.5px;
 }
 
 .ai-note b {
   display: block;
   font-size: 13px;
-  color: var(--lavendel-ink);
+  color: var(--altrosa-ink);
   margin-bottom: 2px;
 }
 
@@ -923,8 +914,8 @@ button.hearts {
 }
 
 .segmented button[aria-pressed='true'] {
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--rosa);
+  color: var(--on-rosa);
 }
 
 /* Erinnerungs-Zettel */
@@ -977,11 +968,11 @@ button.hearts {
 }
 
 .map-svg .state--has {
-  fill: var(--lavendel-soft);
+  fill: var(--rosa-soft);
 }
 
 .map-svg .state--fav {
-  fill: var(--rosa-soft);
+  fill: color-mix(in srgb, var(--rosa) 70%, var(--paper));
 }
 
 .map-svg .state--active {
@@ -1011,11 +1002,11 @@ button.hearts {
 }
 
 .map-svg .bubble--city circle {
-  fill: var(--minze);
+  fill: var(--butter);
 }
 
 .map-svg .bubble text {
-  fill: #2a1530;
+  fill: var(--on-rosa);
   font-weight: 750;
   text-anchor: middle;
   dominant-baseline: central;
@@ -1126,18 +1117,19 @@ button.hearts {
 
 .status--ok,
 .status--leer {
-  background: var(--minze-soft);
+  background: var(--beige-soft);
 }
 .status--warnung {
   background: var(--butter-soft);
 }
 .status--fehler,
 .status--blockiert {
-  background: var(--pfirsich-soft);
+  background: var(--rosa-soft);
+  color: var(--rosa-deep);
 }
 .status--neu,
 .status--url-fehlt {
-  background: var(--lavendel-soft);
+  background: var(--rosa-hell);
 }
 
 .profile-item {
@@ -1260,11 +1252,11 @@ button.hearts {
 }
 
 :root[data-theme='dark'] .toast button {
-  color: #b8336a;
+  color: #a93f63;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) .toast button {
-    color: #b8336a;
+    color: #a93f63;
   }
 }
 
@@ -1508,7 +1500,7 @@ button.reminder {
 }
 
 .map-svg .bubble--inst circle {
-  fill: var(--butter);
+  fill: #fffcf6;
 }
 
 .map-svg .bubble--selected circle {
@@ -1573,10 +1565,10 @@ button.reminder {
 }
 
 .swatch--has {
-  background: var(--lavendel-soft);
+  background: var(--rosa-soft);
 }
 .swatch--fav {
-  background: var(--rosa-soft);
+  background: color-mix(in srgb, var(--rosa) 70%, var(--paper));
 }
 .swatch--home {
   background: var(--butter);
@@ -1689,7 +1681,7 @@ button.reminder {
   margin: 14px 0 6px;
   padding: 10px 14px 8px;
   border-radius: 12px;
-  background: var(--lavendel-soft);
+  background: var(--rosa-hell);
 }
 
 .preview__head {
@@ -1729,7 +1721,7 @@ button.reminder {
 }
 
 .cat-card--avoid {
-  background: color-mix(in srgb, var(--pfirsich-soft) 55%, var(--card));
+  background: color-mix(in srgb, var(--beige-soft) 70%, var(--card));
 }
 
 .cat-card__head {
@@ -1885,7 +1877,7 @@ details.help ul {
 }
 
 .status--ok {
-  background: var(--minze-soft);
+  background: var(--beige-soft);
 }
 
 .field .hearts svg {

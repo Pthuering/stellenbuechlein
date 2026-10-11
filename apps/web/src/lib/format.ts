@@ -33,15 +33,17 @@ export function kindLabel(job: Job): string | null {
   return job.kind && job.kind !== 'sonstige' ? JOB_KIND_LABELS[job.kind] : null;
 }
 
-export function factChips(job: Job): { text: string; tone: 'rosa' | 'lavendel' | 'minze' | 'butter' | 'pfirsich' }[] {
-  const out: { text: string; tone: 'rosa' | 'lavendel' | 'minze' | 'butter' | 'pfirsich' }[] = [];
+export type ChipTone = 'rosa' | 'beige' | 'gelb' | 'weiss';
+
+export function factChips(job: Job): { text: string; tone: ChipTone }[] {
+  const out: { text: string; tone: ChipTone }[] = [];
   const k = kindLabel(job);
   if (k) out.push({ text: k, tone: 'rosa' });
-  if (job.payGrade) out.push({ text: job.payGrade, tone: 'lavendel' });
-  if (job.workloadPct) out.push({ text: `${job.workloadPct} %`, tone: 'minze' });
-  else if (job.workloadText) out.push({ text: job.workloadText, tone: 'minze' });
-  if (job.isPermanent === true) out.push({ text: 'unbefristet', tone: 'butter' });
-  else if (job.fixedTerm) out.push({ text: job.fixedTerm.replace(/\s*\(.*\)$/, '').slice(0, 28), tone: 'pfirsich' });
+  if (job.payGrade) out.push({ text: job.payGrade, tone: 'beige' });
+  if (job.workloadPct) out.push({ text: `${job.workloadPct} %`, tone: 'beige' });
+  else if (job.workloadText) out.push({ text: job.workloadText, tone: 'beige' });
+  if (job.isPermanent === true) out.push({ text: 'unbefristet', tone: 'gelb' });
+  else if (job.fixedTerm) out.push({ text: job.fixedTerm.replace(/\s*\(.*\)$/, '').slice(0, 28), tone: 'weiss' });
   return out;
 }
 

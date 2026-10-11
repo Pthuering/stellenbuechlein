@@ -1,37 +1,39 @@
-/* Farben, Schrift und Maße – "gezeichnetes Notizbuch" in Pastell und Rosa. */
+/* Farben, Schrift und Maße – gezeichnetes Notizbuch in Rosa, Weiß, Beige und Hellgelb.
+   Rosa trägt die Akzente in mehreren Abstufungen, Weiß und Beige sind Papier und Karten,
+   Hellgelb ist Textmarker, Stern und Notizzettel. */
 
 :root {
   /* Papier und Tinte */
-  --paper: #fff6f7;
-  --paper-deep: #fdeef1;
-  --card: #fffdfb;
-  --rule: #e4e2f6;
-  --margin-line: #f3a6b9;
-  --ink: #3b2741;
-  --pencil: #7a6582;
-  --pencil-soft: #a896ad;
+  --paper: #fffbf7; /* warmes Weiß der Seite */
+  --paper-deep: #f6ede4; /* Beige: Tisch, Kartenflächen */
+  --card: #ffffff; /* weiße Karteikarten */
+  --rule: #f0e1d9; /* Linien, beige-rosa */
+  --margin-line: #f0a8bc;
+  --ink: #4a2c39; /* pflaumenbraune Tinte */
+  --pencil: #8b7074;
+  --pencil-soft: #bda7a9;
 
-  /* Pastelltöne */
-  --rosa: #f28db2;
-  --rosa-deep: #d9578a;
-  --rosa-soft: #fbd3e2;
-  --minze: #a8e2cf;
-  --minze-ink: #2f7a64;
-  --minze-soft: #dcf4ec;
-  --butter: #ffe58a;
-  --butter-soft: #fff3c4;
-  --lavendel: #c7b8f5;
-  --lavendel-ink: #5a47a8;
-  --lavendel-soft: #ebe5fd;
-  --pfirsich: #ffc4a3;
-  --pfirsich-soft: #ffe6d8;
-  --himmel: #bfe0f5;
+  /* Rosa in Abstufungen */
+  --rosa: #f3a5bc;
+  --rosa-deep: #b9476d; /* Beere: Links, Akzentschrift */
+  --rosa-soft: #fadde5;
+  --rosa-hell: #fdeef2;
+  --altrosa: #d98fa5;
+  --altrosa-ink: #9c5b70;
+  --on-rosa: #3a1f2b; /* Schrift auf hellen Flächen, in beiden Modi dunkel */
 
-  --shadow-paper: 0 1px 0 rgba(59, 39, 65, 0.06), 0 10px 24px -12px rgba(59, 39, 65, 0.28);
-  --shadow-lift: 0 2px 0 rgba(59, 39, 65, 0.06), 0 22px 40px -18px rgba(59, 39, 65, 0.42);
-  --tape: rgba(242, 141, 178, 0.55);
+  /* Beige und Hellgelb */
+  --beige: #e8d6c3;
+  --beige-soft: #f5eadf;
+  --butter: #fbe6a2;
+  --butter-soft: #fff5d6;
+  --gold: #b98a1c; /* Stern-Symbol */
+
+  --shadow-paper: 0 1px 0 rgba(74, 44, 57, 0.06), 0 10px 24px -12px rgba(74, 44, 57, 0.26);
+  --shadow-lift: 0 2px 0 rgba(74, 44, 57, 0.06), 0 22px 40px -18px rgba(74, 44, 57, 0.4);
+  --tape: rgba(243, 165, 188, 0.55);
   --tape-stripe: rgba(255, 255, 255, 0.45);
-  --scrim: rgba(59, 39, 65, 0.36);
+  --scrim: rgba(74, 44, 57, 0.34);
 
   /* Schrift */
   --hand: 'Shantell', 'Comic Neue', 'Segoe Print', 'Bradley Hand', ui-rounded, system-ui, sans-serif;
@@ -51,64 +53,60 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --paper: #241b2b;
-    --paper-deep: #2b2133;
-    --card: #2f2437;
-    --rule: #3a2e44;
-    --margin-line: #8c4a66;
-    --ink: #f8eaf1;
-    --pencil: #c4b3cb;
-    --pencil-soft: #8f7f98;
-    --rosa: #f49ac0;
-    --rosa-deep: #ff7fb0;
-    --rosa-soft: #5a3048;
-    --minze: #7fcfb5;
-    --minze-ink: #9be6cd;
-    --minze-soft: #23443c;
-    --butter: #e9cf6e;
-    --butter-soft: #4a3f1f;
-    --lavendel: #a898e8;
-    --lavendel-ink: #cbbfff;
-    --lavendel-soft: #352c55;
-    --pfirsich: #f0a983;
-    --pfirsich-soft: #4a2f25;
-    --himmel: #5f88a8;
+    --paper: #2a2025;
+    --paper-deep: #211a1e;
+    --card: #33282d;
+    --rule: #40323a;
+    --margin-line: #8f4c64;
+    --ink: #f7ece6;
+    --pencil: #cdb9b5;
+    --pencil-soft: #958282;
+    --rosa: #efa2b9;
+    --rosa-deep: #ff94b4;
+    --rosa-soft: #5c3343;
+    --rosa-hell: #41303a;
+    --altrosa: #c98299;
+    --altrosa-ink: #edb3c4;
+    --on-rosa: #3a1f2b;
+    --beige: #6e5d4e;
+    --beige-soft: #3e3431;
+    --butter: #e7cf82;
+    --butter-soft: #4b3e2e;
+    --gold: #e9c55e;
     --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.3), 0 12px 26px -12px rgba(0, 0, 0, 0.7);
     --shadow-lift: 0 2px 0 rgba(0, 0, 0, 0.3), 0 24px 44px -18px rgba(0, 0, 0, 0.8);
-    --tape: rgba(244, 154, 192, 0.42);
+    --tape: rgba(239, 162, 185, 0.42);
     --tape-stripe: rgba(255, 255, 255, 0.16);
-    --scrim: rgba(10, 6, 14, 0.6);
+    --scrim: rgba(12, 6, 9, 0.6);
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --paper: #241b2b;
-  --paper-deep: #2b2133;
-  --card: #2f2437;
-  --rule: #3a2e44;
-  --margin-line: #8c4a66;
-  --ink: #f8eaf1;
-  --pencil: #c4b3cb;
-  --pencil-soft: #8f7f98;
-  --rosa: #f49ac0;
-  --rosa-deep: #ff7fb0;
-  --rosa-soft: #5a3048;
-  --minze: #7fcfb5;
-  --minze-ink: #9be6cd;
-  --minze-soft: #23443c;
-  --butter: #e9cf6e;
-  --butter-soft: #4a3f1f;
-  --lavendel: #a898e8;
-  --lavendel-ink: #cbbfff;
-  --lavendel-soft: #352c55;
-  --pfirsich: #f0a983;
-  --pfirsich-soft: #4a2f25;
-  --himmel: #5f88a8;
+  --paper: #2a2025;
+  --paper-deep: #211a1e;
+  --card: #33282d;
+  --rule: #40323a;
+  --margin-line: #8f4c64;
+  --ink: #f7ece6;
+  --pencil: #cdb9b5;
+  --pencil-soft: #958282;
+  --rosa: #efa2b9;
+  --rosa-deep: #ff94b4;
+  --rosa-soft: #5c3343;
+  --rosa-hell: #41303a;
+  --altrosa: #c98299;
+  --altrosa-ink: #edb3c4;
+  --on-rosa: #3a1f2b;
+  --beige: #6e5d4e;
+  --beige-soft: #3e3431;
+  --butter: #e7cf82;
+  --butter-soft: #4b3e2e;
+  --gold: #e9c55e;
   --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.3), 0 12px 26px -12px rgba(0, 0, 0, 0.7);
   --shadow-lift: 0 2px 0 rgba(0, 0, 0, 0.3), 0 24px 44px -18px rgba(0, 0, 0, 0.8);
-  --tape: rgba(244, 154, 192, 0.42);
+  --tape: rgba(239, 162, 185, 0.42);
   --tape-stripe: rgba(255, 255, 255, 0.16);
-  --scrim: rgba(10, 6, 14, 0.6);
+  --scrim: rgba(12, 6, 9, 0.6);
   color-scheme: dark;
 }

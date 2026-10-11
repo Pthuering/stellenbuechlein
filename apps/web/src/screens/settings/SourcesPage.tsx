@@ -587,7 +587,7 @@ export function SourcesPage() {
                     <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
                       <button
                         type="button"
-                        className="btn btn--small btn--mint"
+                        className="btn btn--small btn--primary"
                         onClick={async () => {
                           await store.api.resolveSuggestion(sg.id, true);
                           store.toast('Übernommen.');

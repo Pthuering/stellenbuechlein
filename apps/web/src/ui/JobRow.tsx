@@ -8,7 +8,7 @@ import { deadlineInfo, institutionName, shortDate } from '../lib/format';
 import { IconHeart, IconStar } from './icons';
 
 export function scoreTone(score: number): string {
-  return score >= 75 ? 'var(--rosa-deep)' : score >= 50 ? 'var(--lavendel-ink)' : 'var(--pencil)';
+  return score >= 75 ? 'var(--rosa-deep)' : score >= 50 ? 'var(--altrosa-ink)' : 'var(--pencil)';
 }
 
 export function JobRow({ v, showDecision = false, faded = false }: { v: JobView; showDecision?: boolean; faded?: boolean }) {
@@ -45,7 +45,7 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
         }}
       >
         {mark?.star ? (
-          <IconStar filled style={{ color: 'var(--lavendel-ink)' }} />
+          <IconStar filled style={{ color: 'var(--gold)' }} />
         ) : (
           <IconHeart filled={saved} style={{ color: saved ? 'var(--rosa-deep)' : 'var(--pencil-soft)' }} />
         )}

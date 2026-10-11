@@ -198,12 +198,16 @@ img {
 
 .btn--primary {
   background: var(--rosa);
-  color: #2a1530;
+  color: var(--on-rosa);
 }
 
-.btn--mint {
-  background: var(--minze);
-  color: #173b30;
+.btn--yellow {
+  background: var(--butter);
+  color: var(--on-rosa);
+}
+
+.btn--beige {
+  background: var(--beige);
 }
 
 .btn--quiet {
@@ -288,21 +292,20 @@ img {
   background: var(--rosa-soft);
   border-color: transparent;
 }
-.chip--minze {
-  background: var(--minze-soft);
-  border-color: transparent;
-}
-.chip--lavendel {
-  background: var(--lavendel-soft);
+.chip--beige {
+  background: var(--beige-soft);
   border-color: transparent;
 }
 .chip--butter {
   background: var(--butter-soft);
   border-color: transparent;
 }
-.chip--pfirsich {
-  background: var(--pfirsich-soft);
+.chip--gelb {
+  background: var(--butter-soft);
   border-color: transparent;
+}
+.chip--weiss {
+  background: var(--card);
 }
 
 button.chip {
@@ -312,9 +315,10 @@ button.chip {
 }
 
 .chip[aria-pressed='true'] {
-  background: var(--ink);
-  color: var(--paper);
-  border-color: var(--ink);
+  background: var(--rosa);
+  color: var(--on-rosa);
+  border-color: var(--rosa-deep);
+  font-weight: 600;
 }
 
 /* Textmarker */
@@ -407,7 +411,7 @@ button.chip {
 }
 
 .toggle input:checked {
-  background: var(--minze);
+  background: var(--rosa);
 }
 
 .toggle input:checked::after {
@@ -425,23 +429,23 @@ button.chip {
 }
 
 .notice--warn {
-  border-color: var(--pfirsich);
-  background: var(--pfirsich-soft);
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: var(--butter-soft);
 }
 
 .notice--good {
-  border-color: var(--minze);
-  background: var(--minze-soft);
+  border-color: var(--rosa);
+  background: var(--rosa-hell);
 }
 
 .demo-banner {
   position: relative;
   z-index: 5;
-  background: var(--lavendel-soft);
+  background: var(--butter-soft);
   color: var(--ink);
   font-size: 13px;
   padding: 5px 14px 5px calc(var(--margin-x) + 12px);
-  border-bottom: 1.5px dashed var(--lavendel);
+  border-bottom: 1.5px dashed var(--beige);
 }
 
 @media (prefers-reduced-motion: reduce) {

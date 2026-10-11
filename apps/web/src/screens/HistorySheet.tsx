@@ -57,7 +57,7 @@ export function HistorySheet({ onClose, onUndo }: { onClose: () => void; onUndo:
             return (
               <li key={v.job.id} className={`row ${tab === 'abgelehnt' ? 'row--faded' : ''}`} onClick={() => openJob(v.job.id)}>
                 <span className="row__mark" aria-hidden="true">
-                  {v.mark?.star ? <IconStar filled style={{ color: 'var(--lavendel-ink)' }} /> : tab === 'gemerkt' ? <IconHeart filled style={{ color: 'var(--rosa)' }} /> : <IconX />}
+                  {v.mark?.star ? <IconStar filled style={{ color: 'var(--gold)' }} /> : tab === 'gemerkt' ? <IconHeart filled style={{ color: 'var(--rosa-deep)' }} /> : <IconX />}
                 </span>
                 <div className="row__main">
                   <p className="row__title">{v.job.title}</p>

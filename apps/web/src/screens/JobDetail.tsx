@@ -122,17 +122,17 @@ export function JobDetail({ id }: { id: string }) {
       <p className="detail-place">
         <IconPin width={16} height={16} /> {city?.name ?? job.locationText ?? 'Ort unbekannt'}
         {inst && <span className="chip">{INSTITUTION_KIND_LABELS[inst.kind]}</span>}
-        {job.status === 'abgelaufen' && <span className="chip chip--pfirsich">abgelaufen</span>}
+        {job.status === 'abgelaufen' && <span className="chip chip--beige">abgelaufen</span>}
       </p>
 
       <div className="detail-actions">
-        <button type="button" className={`btn ${saved ? 'btn--mint' : ''}`} aria-pressed={saved} onClick={() => store.decide(job.id, saved ? null : 'gemerkt')}>
+        <button type="button" className={`btn ${saved ? 'btn--primary' : ''}`} aria-pressed={saved} onClick={() => store.decide(job.id, saved ? null : 'gemerkt')}>
           <IconHeart filled={saved} width={20} height={20} /> {saved ? 'Gemerkt' : 'Merken'}
         </button>
-        <button type="button" className="btn" aria-pressed={!!mark?.star} style={mark?.star ? { background: 'var(--lavendel)' } : undefined} onClick={() => store.setStar(job.id, !mark?.star)}>
-          <IconStar filled={!!mark?.star} width={20} height={20} /> Herzensjob
+        <button type="button" className={`btn ${mark?.star ? 'btn--yellow' : ''}`} aria-pressed={!!mark?.star} onClick={() => store.setStar(job.id, !mark?.star)}>
+          <IconStar filled={!!mark?.star} width={20} height={20} style={mark?.star ? { color: 'var(--gold)' } : undefined} /> Herzensjob
         </button>
-        <button type="button" className="btn" aria-pressed={!!mark?.appliedAt} style={mark?.appliedAt ? { background: 'var(--butter)' } : undefined} onClick={() => store.setApplied(job.id, !mark?.appliedAt)}>
+        <button type="button" className={`btn ${mark?.appliedAt ? 'btn--beige' : ''}`} aria-pressed={!!mark?.appliedAt} onClick={() => store.setApplied(job.id, !mark?.appliedAt)}>
           <IconCheck width={20} height={20} /> {mark?.appliedAt ? `Beworben am ${formatDateDe(mark.appliedAt.slice(0, 10))}` : 'Beworben'}
         </button>
         <button type="button" className="btn" aria-pressed={rejected} onClick={() => store.decide(job.id, rejected ? null : 'abgelehnt')}>
