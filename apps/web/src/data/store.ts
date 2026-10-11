@@ -34,7 +34,8 @@ export interface Settings {
   reminders: { days: number[]; push: boolean };
   gateTerms: string[];
   sort: { all: SortKey; saved: SavedSort };
-  ui: { mapMode: 'gemerkt' | 'alle' };
+  /** cardImages: Fotos bzw. Skizze auf den Karten im Stapel zeigen */
+  ui: { mapMode: 'gemerkt' | 'alle'; cardImages: boolean };
 }
 
 export function defaultSettings(): Settings {
@@ -45,7 +46,7 @@ export function defaultSettings(): Settings {
     reminders: { days: DEFAULT_REMINDER_DAYS, push: true },
     gateTerms: DEFAULT_GATE_TERMS,
     sort: { all: 'empfohlen', saved: 'frist' },
-    ui: { mapMode: 'gemerkt' },
+    ui: { mapMode: 'gemerkt', cardImages: true },
   };
 }
 

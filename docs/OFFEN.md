@@ -25,7 +25,8 @@ Diese Arbeitsumgebung konnte keine Hochschul-Websites abrufen. Die Pipeline ist 
 - [ ] **Adapter nach Dokumentation gebaut, live zu prüfen:** Jobsuche-API der Bundesagentur für Arbeit (Version, Feldnamen), Workday, Softgarden, Personio, Linkmuster von PsychJob und den übrigen Portalen.
 - [ ] **Laufzeit eines kompletten Laufs** messen. Wichtig bei privatem GitHub-Repository (2.000 Minuten im Monat).
 - [ ] **robots.txt:** Wie viele Seiten den Abruf verbieten, zeigt erst der echte Lauf. Pro Quelle entscheiden, ob du sie bewusst übergehen willst; sonst decken die Portale sie ab.
-- [ ] **Bilder:** Die Reihenfolge Anzeige → Einrichtung → Stadt ist eingebaut, die Fotos kommen aus Wikipedia/Wikimedia. Die Abfrage ist nicht live getestet, und die Lizenzangaben unter den Bildern sollten einmal stichprobenartig geprüft werden.
+- [ ] **Bilder:** Die Reihenfolge Anzeige → Einrichtung → Stadt ist eingebaut, die Fotos kommen aus Wikipedia/Wikimedia. Die Abfrage ist nicht live getestet, und die Lizenzangaben unter den Bildern sollten einmal stichprobenartig geprüft werden. Die Demo hat keine echten Fotos, weil Wikimedia aus der Arbeitsumgebung nicht erreichbar war; dafür gibt es dort die Testfotos.
+- [ ] **Entscheidung Fotos auf den Karten:** Mit Testfotos ausprobieren, ob Bilder im Stapel helfen oder zu unruhig sind. Der Schalter unter *Ich → Aussehen* steht auf „an“; bei „aus“ zeigt die Karte Ort und Score in einer Kopfzeile.
 
 ## 4. Quellenliste unvollständig
 

@@ -45,7 +45,7 @@ export function PlacesPage() {
               <h2 className="section-title">{g.title}</h2>
               <div className="chips">
                 {list.map((f) => (
-                  <span key={f.ref} className="chip chip--rosa chip--removable">
+                  <span key={f.ref} className="chip chip--primary chip--removable">
                     <IconHeart filled width={14} height={14} /> {nameOf(f.kind, f.ref)}
                     <button type="button" onClick={() => toggle(f.kind, f.ref)} aria-label={`${nameOf(f.kind, f.ref)} entfernen`}>
                       <IconX width={14} height={14} />
@@ -81,7 +81,7 @@ export function PlacesPage() {
             return (
               <li key={`c${c.id}`} className="pick">
                 <button type="button" className="pick__btn" aria-pressed={on} onClick={() => toggle('city', c.id)}>
-                  <IconHeart filled={on} width={20} height={20} style={{ color: on ? 'var(--rosa-deep)' : 'var(--pencil-soft)' }} />
+                  <IconHeart filled={on} width={20} height={20} style={{ color: on ? 'var(--primary-strong)' : 'var(--text-subtle)' }} />
                   <span>
                     {c.name} <small>Stadt, {STATES[c.state]}</small>
                   </span>
@@ -94,7 +94,7 @@ export function PlacesPage() {
             return (
               <li key={`i${i.id}`} className="pick">
                 <button type="button" className="pick__btn" aria-pressed={on} onClick={() => toggle('institution', i.id)}>
-                  <IconHeart filled={on} width={20} height={20} style={{ color: on ? 'var(--rosa-deep)' : 'var(--pencil-soft)' }} />
+                  <IconHeart filled={on} width={20} height={20} style={{ color: on ? 'var(--primary-strong)' : 'var(--text-subtle)' }} />
                   <span>
                     {i.name}{' '}
                     <small>

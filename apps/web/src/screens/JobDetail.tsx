@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { CATEGORY_LABELS, formatDateDe, formatKm, INSTITUTION_KIND_LABELS, JOB_KIND_LABELS, type ScoreResult } from '@stellen/core';
 import { useAppState, useStore, useViews } from '../data/hooks';
 import { closeOverlay } from '../lib/router';
-import { deadlineInfo, imageFor, institutionName } from '../lib/format';
+import { deadlineInfo, institutionName, jobImage, shortDate } from '../lib/format';
+import { useTestPhotos } from '../data/testPhotos';
 import { renderMarkdown } from '../lib/markdown';
 import { Sheet } from '../ui/Sheet';
 import { Polaroid } from '../ui/Polaroid';
@@ -34,8 +35,8 @@ function Why({ score }: { score: ScoreResult }) {
               <span aria-hidden="true">{h.state === 'ja' ? '✓' : h.state === 'unbekannt' ? '?' : '–'}</span>
               <span>
                 {h.item.label}
-                {h.state === 'ja' && h.via ? <span style={{ color: 'var(--pencil)' }}> ({h.via})</span> : null}
-                {h.state === 'unbekannt' ? <span style={{ color: 'var(--pencil)' }}> (steht nicht in der Anzeige, zählt halb)</span> : null}
+                {h.state === 'ja' && h.via ? <span style={{ color: 'var(--text-muted)' }}> ({h.via})</span> : null}
+                {h.state === 'unbekannt' ? <span style={{ color: 'var(--text-muted)' }}> (steht nicht in der Anzeige, zählt halb)</span> : null}
               </span>
             </div>
           ))}
@@ -64,6 +65,7 @@ export function JobDetail({ id }: { id: string }) {
   const s = useAppState();
   const store = useStore();
   const views = useViews();
+  const testPhotos = useTestPhotos();
   const v = views.get(id);
   const [showWhy, setShowWhy] = useState(false);
   const [note, setNote] = useState(v?.mark?.note ?? '');
@@ -80,15 +82,15 @@ export function JobDetail({ id }: { id: string }) {
   const { job, mark } = v;
   const inst = job.institutionId ? s.institutions.get(job.institutionId) : undefined;
   const city = v.place.cityId ? s.cities.get(v.place.cityId) : undefined;
-  const img = imageFor(job, inst, city);
+  const img = jobImage(job, inst, city, testPhotos);
   const dl = deadlineInfo(job.deadline);
   const saved = mark?.decision === 'gemerkt';
   const rejected = mark?.decision === 'abgelehnt';
   const instFav = inst ? store.isFavorite('institution', inst.id) : false;
 
   const facts: [string, React.ReactNode][] = [];
-  if (dl) facts.push(['Frist', <><span className={dl.urgent ? 'marker' : ''}>{dl.date}</span> <span style={{ color: 'var(--pencil)' }}>{dl.left}</span></>]);
-  else facts.push(['Frist', <span style={{ color: 'var(--pencil)' }}>keine angegeben</span>]);
+  if (dl) facts.push(['Frist', <><span className={dl.urgent ? 'marker' : ''}>{dl.date}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span></>]);
+  else facts.push(['Frist', <span style={{ color: 'var(--text-muted)' }}>keine angegeben</span>]);
   if (job.kind) facts.push(['Stellenart', JOB_KIND_LABELS[job.kind]]);
   if (job.payGrade) facts.push(['Entgelt', job.payGrade]);
   if (job.workloadPct || job.workloadText) facts.push(['Umfang', job.workloadPct ? `${job.workloadPct} %${job.workloadText && !job.workloadText.includes('%') ? ` (${job.workloadText})` : ''}` : job.workloadText]);
@@ -122,18 +124,18 @@ export function JobDetail({ id }: { id: string }) {
       <p className="detail-place">
         <IconPin width={16} height={16} /> {city?.name ?? job.locationText ?? 'Ort unbekannt'}
         {inst && <span className="chip">{INSTITUTION_KIND_LABELS[inst.kind]}</span>}
-        {job.status === 'abgelaufen' && <span className="chip chip--beige">abgelaufen</span>}
+        {job.status === 'abgelaufen' && <span className="chip chip--neutral">abgelaufen</span>}
       </p>
 
       <div className="detail-actions">
         <button type="button" className={`btn ${saved ? 'btn--primary' : ''}`} aria-pressed={saved} onClick={() => store.decide(job.id, saved ? null : 'gemerkt')}>
           <IconHeart filled={saved} width={20} height={20} /> {saved ? 'Gemerkt' : 'Merken'}
         </button>
-        <button type="button" className={`btn ${mark?.star ? 'btn--yellow' : ''}`} aria-pressed={!!mark?.star} onClick={() => store.setStar(job.id, !mark?.star)}>
-          <IconStar filled={!!mark?.star} width={20} height={20} style={mark?.star ? { color: 'var(--gold)' } : undefined} /> Herzensjob
+        <button type="button" className={`btn ${mark?.star ? 'btn--accent' : ''}`} aria-pressed={!!mark?.star} onClick={() => store.setStar(job.id, !mark?.star)}>
+          <IconStar filled={!!mark?.star} width={20} height={20} style={mark?.star ? { color: 'var(--accent-strong)' } : undefined} /> Herzensjob
         </button>
-        <button type="button" className={`btn ${mark?.appliedAt ? 'btn--beige' : ''}`} aria-pressed={!!mark?.appliedAt} onClick={() => store.setApplied(job.id, !mark?.appliedAt)}>
-          <IconCheck width={20} height={20} /> {mark?.appliedAt ? `Beworben am ${formatDateDe(mark.appliedAt.slice(0, 10))}` : 'Beworben'}
+        <button type="button" className={`btn ${mark?.appliedAt ? 'btn--secondary' : ''}`} aria-pressed={!!mark?.appliedAt} onClick={() => store.setApplied(job.id, !mark?.appliedAt)}>
+          <IconCheck width={20} height={20} /> {mark?.appliedAt ? `Beworben ${shortDate(mark.appliedAt)}` : 'Beworben'}
         </button>
         <button type="button" className="btn" aria-pressed={rejected} onClick={() => store.decide(job.id, rejected ? null : 'abgelehnt')}>
           <IconX width={20} height={20} /> {rejected ? 'Weggelegt' : 'Weglegen'}

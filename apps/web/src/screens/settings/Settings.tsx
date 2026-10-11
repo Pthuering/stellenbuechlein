@@ -1,9 +1,10 @@
 // "Ich": Suchprofil, Lieblingsorte, Zuhause, Erinnerungen, Quellen, Aussehen.
 
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { CATEGORY_LABELS, CATEGORY_ORDER, formatDateDe } from '@stellen/core';
 import { useAppState, useStore } from '../../data/hooks';
 import { lsDel } from '../../data/local';
+import { addTestPhotos, clearTestPhotos, useTestPhotos } from '../../data/testPhotos';
 import { navigate } from '../../lib/router';
 import { plural, relativeTime } from '../../lib/format';
 import { getTheme, setTheme, type ThemeChoice } from '../../lib/theme';
@@ -109,6 +110,55 @@ function ProfileCard() {
   );
 }
 
+/** Nur in der Demo: eigene Fotos auf die Beispielanzeigen legen. */
+function TestPhotos() {
+  const store = useStore();
+  const photos = useTestPhotos();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="notice notice--info" style={{ margin: '8px 0 4px' }}>
+      <b>Testfotos für die Demo</b>
+      <p style={{ margin: '4px 0 0' }}>
+        Die Beispielanzeigen haben noch keine Fotos. Wähl ein paar Bilder aus deiner Galerie, die Demo verteilt sie auf alle Einrichtungen. Sie bleiben nur in diesem Browser.
+      </p>
+      {photos.length > 0 && (
+        <div className="photo-strip" aria-label={`${photos.length} Testfotos`}>
+          {photos.map((p, i) => (
+            <img key={i} src={p} alt="" />
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
+        <button type="button" className="btn btn--small" disabled={busy} onClick={() => input.current?.click()}>
+          {busy ? 'wird geladen …' : photos.length ? 'Weitere Fotos wählen' : 'Fotos wählen'}
+        </button>
+        {photos.length > 0 && (
+          <button type="button" className="btn btn--quiet btn--small" onClick={() => void clearTestPhotos().then(() => store.toast('Testfotos entfernt.'))}>
+            Testfotos entfernen
+          </button>
+        )}
+      </div>
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        multiple
+        hidden
+        onChange={async (e) => {
+          const files = Array.from(e.target.files ?? []);
+          e.target.value = '';
+          if (files.length === 0) return;
+          setBusy(true);
+          const r = await addTestPhotos(files);
+          setBusy(false);
+          store.toast(r.failed ? `${r.added} Fotos übernommen, ${r.failed} ließen sich nicht lesen.` : `${r.added} Fotos übernommen. Schau in den Stapel.`);
+        }}
+      />
+    </div>
+  );
+}
+
 function SettingsHome() {
   const s = useAppState();
   const store = useStore();
@@ -168,7 +218,16 @@ function SettingsHome() {
 
       <div className="group">
         <h2 className="section-title">Aussehen</h2>
-        <div className="segmented" role="group" aria-label="Farbschema">
+        <label className="toggle">
+          <span>
+            Bilder auf den Karten im Stapel
+            <br />
+            <small className="hint">Foto aus der Anzeige, von der Einrichtung oder der Stadt, sonst eine Skizze. Aus: mehr Platz für den Text.</small>
+          </span>
+          <input type="checkbox" checked={s.settings.ui.cardImages !== false} onChange={(e) => store.updateSettings('ui', { ...s.settings.ui, cardImages: e.target.checked })} />
+        </label>
+        {s.demo && <TestPhotos />}
+        <div className="segmented" role="group" aria-label="Farbschema" style={{ marginTop: 10 }}>
           {(['auto', 'hell', 'dunkel'] as ThemeChoice[]).map((t) => (
             <button
               key={t}

@@ -201,7 +201,7 @@ function ItemEditor({ item, target, onSave, onDelete, onClose }: { item: Profile
       )}
       {condition && <p className="hint">Steht die Angabe nicht in der Anzeige, zählt der Eintrag halb.</p>}
 
-      <div className="notice" style={{ marginTop: 14 }} aria-live="polite">
+      <div className="notice notice--info" style={{ marginTop: 14 }} aria-live="polite">
         <b>Ausprobieren:</b> passt auf {test.yes} von {test.total} offenen Anzeigen
         {test.unknown ? `, bei ${test.unknown} unklar (zählt halb)` : ''}.
         {test.examples.length > 0 && (

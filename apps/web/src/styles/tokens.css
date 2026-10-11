@@ -1,33 +1,101 @@
-/* Farben, Schrift und Maße – gezeichnetes Notizbuch in Rosa, Weiß, Beige und Hellgelb.
-   Rosa trägt die Akzente in mehreren Abstufungen, Weiß und Beige sind Papier und Karten,
-   Hellgelb ist Textmarker, Stern und Notizzettel. */
+/* Farbsystem des Stellenbüchleins – zwei Stufen, wie in einem modernen Corporate Design:
+
+   Stufe 1, Palette: die einzigen Farbwerte. Komponenten benutzen sie nie direkt.
+   Stufe 2, Rollen: Was eine Farbe bedeutet. Nur diese Namen stehen in den Komponenten.
+
+   Rollen und Anteil auf einem Bildschirm (Richtwert 60 / 30 / 10):
+     Fläche  (Weiß, Papier, Beige)  ~60 %  Papier, Karten, Reiter, neutrale Chips
+     Primär  (Rosa)                 ~30 %  Marke, Hauptaktionen, Auswahl, Score, Lieblingsorte
+     Sekundär (Lavendel)            sparsam  Orientierung: Hinweise der App, KI-Kurzfassung,
+                                             Zuhause und Umkreis, Status wie „beworben“
+     Akzent  (Hellgelb, Gold)       sparsam  nur Fristen und Herzensjobs
+   Regeln: höchstens eine Akzentrolle pro Bauteil; Lavendel und Gelb nie für Hauptaktionen;
+   helle Töne (-soft, -tint) für Flächen, kräftige (-strong) nur für Schrift und Symbole.
+   Ausführlich: docs/GESTALTUNG.md */
 
 :root {
-  /* Papier und Tinte */
-  --paper: #fffbf7; /* warmes Weiß der Seite */
-  --paper-deep: #f6ede4; /* Beige: Tisch, Kartenflächen */
-  --card: #ffffff; /* weiße Karteikarten */
-  --rule: #f0e1d9; /* Linien, beige-rosa */
-  --margin-line: #f0a8bc;
-  --ink: #4a2c39; /* pflaumenbraune Tinte */
-  --pencil: #8b7074;
-  --pencil-soft: #bda7a9;
+  /* ---------------------------------------------------------------- Stufe 1: Palette */
+  --pal-weiss: #ffffff;
+  --pal-papier: #fffbf7;
+  --pal-sand: #f6ede4;
+  --pal-beige-100: #f5eadf;
+  --pal-beige-300: #e8d6c3;
+  --pal-linie: #f0e1d9;
+  --pal-randlinie: #f0a8bc;
+  --pal-tinte: #4a2c39;
+  --pal-tinte-tief: #3a1f2b;
+  --pal-bleistift: #7f6468;
+  --pal-bleistift-hell: #bda7a9;
+  --pal-rosa-50: #fdeef2;
+  --pal-rosa-100: #fadde5;
+  --pal-rosa-300: #f3a5bc;
+  --pal-rosa-400: #d98fa5;
+  --pal-rosa-700: #b9476d;
+  --pal-rosa-800: #9c5b70;
+  --pal-lavendel-100: #ece7fa;
+  --pal-lavendel-300: #c9bef0;
+  --pal-lavendel-700: #6650b3;
+  --pal-gelb-100: #fff5d6;
+  --pal-gelb-300: #fbe6a2;
+  --pal-gold-700: #b98a1c;
 
-  /* Rosa in Abstufungen */
-  --rosa: #f3a5bc;
-  --rosa-deep: #b9476d; /* Beere: Links, Akzentschrift */
-  --rosa-soft: #fadde5;
-  --rosa-hell: #fdeef2;
-  --altrosa: #d98fa5;
-  --altrosa-ink: #9c5b70;
-  --on-rosa: #3a1f2b; /* Schrift auf hellen Flächen, in beiden Modi dunkel */
+  /* Nachtpalette (dunkles Notizbuch) */
+  --pal-nacht-papier: #2a2025;
+  --pal-nacht-tief: #211a1e;
+  --pal-nacht-karte: #33282d;
+  --pal-nacht-linie: #40323a;
+  --pal-nacht-randlinie: #8f4c64;
+  --pal-nacht-tinte: #f7ece6;
+  --pal-nacht-bleistift: #cdb9b5;
+  --pal-nacht-bleistift-hell: #958282;
+  --pal-nacht-rosa-50: #41303a;
+  --pal-nacht-rosa-100: #5c3343;
+  --pal-nacht-rosa-300: #efa2b9;
+  --pal-nacht-rosa-400: #c98299;
+  --pal-nacht-rosa-700: #ff94b4;
+  --pal-nacht-rosa-800: #edb3c4;
+  --pal-nacht-lavendel-100: #3a3352;
+  --pal-nacht-lavendel-300: #afa2e6;
+  --pal-nacht-lavendel-700: #cec4ff;
+  --pal-nacht-beige-100: #3e3431;
+  --pal-nacht-beige-300: #6e5d4e;
+  --pal-nacht-gelb-100: #4b3e2e;
+  --pal-nacht-gelb-300: #e7cf82;
+  --pal-nacht-gold: #e9c55e;
 
-  /* Beige und Hellgelb */
-  --beige: #e8d6c3;
-  --beige-soft: #f5eadf;
-  --butter: #fbe6a2;
-  --butter-soft: #fff5d6;
-  --gold: #b98a1c; /* Stern-Symbol */
+  /* ---------------------------------------------------------------- Stufe 2: Rollen (Tag) */
+  /* Flächen und Schrift */
+  --surface: var(--pal-papier);
+  --surface-sunken: var(--pal-sand);
+  --surface-raised: var(--pal-weiss);
+  --ruling: var(--pal-linie);
+  --margin-line: var(--pal-randlinie);
+  --text: var(--pal-tinte);
+  --text-muted: var(--pal-bleistift);
+  --text-subtle: var(--pal-bleistift-hell);
+  --on-light: var(--pal-tinte-tief); /* Schrift auf hellen Farbflächen, in beiden Modi dunkel */
+
+  /* Primär: Rosa */
+  --primary: var(--pal-rosa-300);
+  --primary-strong: var(--pal-rosa-700);
+  --primary-soft: var(--pal-rosa-100);
+  --primary-tint: var(--pal-rosa-50);
+  --primary-muted: var(--pal-rosa-400);
+  --primary-muted-strong: var(--pal-rosa-800);
+
+  /* Sekundär: Lavendel (Orientierung) */
+  --secondary: var(--pal-lavendel-300);
+  --secondary-strong: var(--pal-lavendel-700);
+  --secondary-soft: var(--pal-lavendel-100);
+
+  /* Akzent: Hellgelb (Fristen, Herzensjobs) */
+  --accent: var(--pal-gelb-300);
+  --accent-soft: var(--pal-gelb-100);
+  --accent-strong: var(--pal-gold-700);
+
+  /* Neutral: Beige */
+  --neutral: var(--pal-beige-300);
+  --neutral-soft: var(--pal-beige-100);
 
   --shadow-paper: 0 1px 0 rgba(74, 44, 57, 0.06), 0 10px 24px -12px rgba(74, 44, 57, 0.26);
   --shadow-lift: 0 2px 0 rgba(74, 44, 57, 0.06), 0 22px 40px -18px rgba(74, 44, 57, 0.4);
@@ -51,28 +119,33 @@
   color-scheme: light;
 }
 
+/* ---------------------------------------------------------------- Stufe 2: Rollen (Nacht)
+   Nur Rollen werden umgehängt, die Palette bleibt. Zweimal, damit die Wahl in der App
+   ("hell"/"dunkel") in beide Richtungen gegen die Geräteeinstellung gewinnt. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --paper: #2a2025;
-    --paper-deep: #211a1e;
-    --card: #33282d;
-    --rule: #40323a;
-    --margin-line: #8f4c64;
-    --ink: #f7ece6;
-    --pencil: #cdb9b5;
-    --pencil-soft: #958282;
-    --rosa: #efa2b9;
-    --rosa-deep: #ff94b4;
-    --rosa-soft: #5c3343;
-    --rosa-hell: #41303a;
-    --altrosa: #c98299;
-    --altrosa-ink: #edb3c4;
-    --on-rosa: #3a1f2b;
-    --beige: #6e5d4e;
-    --beige-soft: #3e3431;
-    --butter: #e7cf82;
-    --butter-soft: #4b3e2e;
-    --gold: #e9c55e;
+    --surface: var(--pal-nacht-papier);
+    --surface-sunken: var(--pal-nacht-tief);
+    --surface-raised: var(--pal-nacht-karte);
+    --ruling: var(--pal-nacht-linie);
+    --margin-line: var(--pal-nacht-randlinie);
+    --text: var(--pal-nacht-tinte);
+    --text-muted: var(--pal-nacht-bleistift);
+    --text-subtle: var(--pal-nacht-bleistift-hell);
+    --primary: var(--pal-nacht-rosa-300);
+    --primary-strong: var(--pal-nacht-rosa-700);
+    --primary-soft: var(--pal-nacht-rosa-100);
+    --primary-tint: var(--pal-nacht-rosa-50);
+    --primary-muted: var(--pal-nacht-rosa-400);
+    --primary-muted-strong: var(--pal-nacht-rosa-800);
+    --secondary: var(--pal-nacht-lavendel-300);
+    --secondary-strong: var(--pal-nacht-lavendel-700);
+    --secondary-soft: var(--pal-nacht-lavendel-100);
+    --accent: var(--pal-nacht-gelb-300);
+    --accent-soft: var(--pal-nacht-gelb-100);
+    --accent-strong: var(--pal-nacht-gold);
+    --neutral: var(--pal-nacht-beige-300);
+    --neutral-soft: var(--pal-nacht-beige-100);
     --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.3), 0 12px 26px -12px rgba(0, 0, 0, 0.7);
     --shadow-lift: 0 2px 0 rgba(0, 0, 0, 0.3), 0 24px 44px -18px rgba(0, 0, 0, 0.8);
     --tape: rgba(239, 162, 185, 0.42);
@@ -83,26 +156,28 @@
 }
 
 :root[data-theme='dark'] {
-  --paper: #2a2025;
-  --paper-deep: #211a1e;
-  --card: #33282d;
-  --rule: #40323a;
-  --margin-line: #8f4c64;
-  --ink: #f7ece6;
-  --pencil: #cdb9b5;
-  --pencil-soft: #958282;
-  --rosa: #efa2b9;
-  --rosa-deep: #ff94b4;
-  --rosa-soft: #5c3343;
-  --rosa-hell: #41303a;
-  --altrosa: #c98299;
-  --altrosa-ink: #edb3c4;
-  --on-rosa: #3a1f2b;
-  --beige: #6e5d4e;
-  --beige-soft: #3e3431;
-  --butter: #e7cf82;
-  --butter-soft: #4b3e2e;
-  --gold: #e9c55e;
+  --surface: var(--pal-nacht-papier);
+  --surface-sunken: var(--pal-nacht-tief);
+  --surface-raised: var(--pal-nacht-karte);
+  --ruling: var(--pal-nacht-linie);
+  --margin-line: var(--pal-nacht-randlinie);
+  --text: var(--pal-nacht-tinte);
+  --text-muted: var(--pal-nacht-bleistift);
+  --text-subtle: var(--pal-nacht-bleistift-hell);
+  --primary: var(--pal-nacht-rosa-300);
+  --primary-strong: var(--pal-nacht-rosa-700);
+  --primary-soft: var(--pal-nacht-rosa-100);
+  --primary-tint: var(--pal-nacht-rosa-50);
+  --primary-muted: var(--pal-nacht-rosa-400);
+  --primary-muted-strong: var(--pal-nacht-rosa-800);
+  --secondary: var(--pal-nacht-lavendel-300);
+  --secondary-strong: var(--pal-nacht-lavendel-700);
+  --secondary-soft: var(--pal-nacht-lavendel-100);
+  --accent: var(--pal-nacht-gelb-300);
+  --accent-soft: var(--pal-nacht-gelb-100);
+  --accent-strong: var(--pal-nacht-gold);
+  --neutral: var(--pal-nacht-beige-300);
+  --neutral-soft: var(--pal-nacht-beige-100);
   --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.3), 0 12px 26px -12px rgba(0, 0, 0, 0.7);
   --shadow-lift: 0 2px 0 rgba(0, 0, 0, 0.3), 0 24px 44px -18px rgba(0, 0, 0, 0.8);
   --tape: rgba(239, 162, 185, 0.42);

@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { countActiveFilters, topReasons } from '@stellen/core';
 import { useAppState, useDeck, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
-import { deadlineInfo, factChips, imageFor, institutionName, placeLabel } from '../lib/format';
+import { deadlineInfo, factChips, institutionName, jobImage, placeLabel } from '../lib/format';
+import { useTestPhotos } from '../data/testPhotos';
 import { Polaroid } from '../ui/Polaroid';
 import { Empty, ScoreRing } from '../ui/bits';
-import { IconArrowUp, IconFilter, IconHeart, IconHistory, IconStar, IconUndo, IconX } from '../ui/icons';
+import { IconArrowUp, IconFilter, IconHeart, IconHistory, IconPin, IconStar, IconUndo, IconX } from '../ui/icons';
 import { FilterSheet } from './FilterSheet';
 import { HistorySheet } from './HistorySheet';
 
@@ -35,6 +36,7 @@ function DeckCard({
   onDecide?: (dir: Dir) => void;
 }) {
   const s = useAppState();
+  const testPhotos = useTestPhotos();
   const ref = useRef<HTMLElement>(null);
   const likeRef = useRef<HTMLSpanElement>(null);
   const nopeRef = useRef<HTMLSpanElement>(null);
@@ -43,7 +45,8 @@ function DeckCard({
   const { job } = view;
   const inst = job.institutionId ? s.institutions.get(job.institutionId) : undefined;
   const city = view.place.cityId ? s.cities.get(view.place.cityId) : undefined;
-  const img = imageFor(job, inst, city);
+  const img = jobImage(job, inst, city, testPhotos);
+  const showPhoto = s.settings.ui.cardImages !== false;
   const place = placeLabel(city, view.place.distanceKm);
   const dl = deadlineInfo(job.deadline);
   const reasons = topReasons(view.score, 3);
@@ -148,21 +151,41 @@ function DeckCard({
       aria-hidden={!top}
       aria-label={top ? `${job.title}, ${institutionName(inst)}` : undefined}
     >
-      <div className="card__photo">
-        <Polaroid
-          src={img.src}
-          credit={img.credit}
-          seed={view.place.cityId ?? job.institutionId ?? job.id}
-          caption={place.city}
-          sub={place.km ? `${place.km} von zu Hause` : undefined}
-          tilt={-tilt * 0.8}
-        />
-      </div>
-      <ScoreRing className="card__score" value={view.score.score} size={68} />
-      {view.favorite && (
-        <span className="card__fav chip chip--rosa">
-          <IconHeart filled width={14} height={14} /> Lieblingsort
-        </span>
+      {showPhoto ? (
+        <>
+          <div className="card__photo">
+            <Polaroid
+              src={img.src}
+              credit={img.credit}
+              seed={view.place.cityId ?? job.institutionId ?? job.id}
+              caption={place.city}
+              sub={place.km ? `${place.km} von zu Hause` : undefined}
+              tilt={-tilt * 0.8}
+            />
+          </div>
+          <ScoreRing className="card__score" value={view.score.score} size={68} />
+          {view.favorite && (
+            <span className="card__fav chip chip--primary">
+              <IconHeart filled width={14} height={14} /> Lieblingsort
+            </span>
+          )}
+        </>
+      ) : (
+        // Ohne Bild: Ort und Score in einer Kopfzeile, mehr Platz für den Text
+        <div className="card__head">
+          <div className="card__where">
+            <span className="card__place">
+              <IconPin width={16} height={16} /> {place.city}
+              {place.km ? `, ${place.km}` : ''}
+            </span>
+            {view.favorite && (
+              <span className="chip chip--primary chip--tiny">
+                <IconHeart filled width={12} height={12} /> Lieblingsort
+              </span>
+            )}
+          </div>
+          <ScoreRing value={view.score.score} size={58} />
+        </div>
       )}
       <div className="card__body">
         <p className="card__inst">
@@ -179,10 +202,10 @@ function DeckCard({
         </div>
         {dl ? (
           <p className="card__deadline">
-            <span className={dl.urgent ? 'marker' : 'marker marker--rosa'}>Frist {dl.date}</span> {dl.left}
+            <span className={dl.urgent ? 'marker' : ''}>Frist {dl.date}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span>
           </p>
         ) : (
-          <p className="card__deadline" style={{ color: 'var(--pencil)' }}>
+          <p className="card__deadline" style={{ color: 'var(--text-muted)' }}>
             Keine Frist angegeben
           </p>
         )}

@@ -8,7 +8,7 @@ import { deadlineInfo, institutionName, shortDate } from '../lib/format';
 import { IconHeart, IconStar } from './icons';
 
 export function scoreTone(score: number): string {
-  return score >= 75 ? 'var(--rosa-deep)' : score >= 50 ? 'var(--altrosa-ink)' : 'var(--pencil)';
+  return score >= 75 ? 'var(--primary-strong)' : score >= 50 ? 'var(--primary-muted-strong)' : 'var(--text-muted)';
 }
 
 export function JobRow({ v, showDecision = false, faded = false }: { v: JobView; showDecision?: boolean; faded?: boolean }) {
@@ -45,9 +45,9 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
         }}
       >
         {mark?.star ? (
-          <IconStar filled style={{ color: 'var(--gold)' }} />
+          <IconStar filled style={{ color: 'var(--accent-strong)' }} />
         ) : (
-          <IconHeart filled={saved} style={{ color: saved ? 'var(--rosa-deep)' : 'var(--pencil-soft)' }} />
+          <IconHeart filled={saved} style={{ color: saved ? 'var(--primary-strong)' : 'var(--text-subtle)' }} />
         )}
       </button>
       <div className="row__main">
@@ -55,8 +55,8 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
         <p className="row__sub">{where}</p>
         {(showDecision && rejected) || mark?.appliedAt || v.favorite ? (
           <p className="row__tags">
-            {v.favorite && <span className="chip chip--rosa chip--tiny">Lieblingsort</span>}
-            {mark?.appliedAt && <span className="chip chip--butter chip--tiny">beworben</span>}
+            {v.favorite && <span className="chip chip--primary chip--tiny">Lieblingsort</span>}
+            {mark?.appliedAt && <span className="chip chip--secondary chip--tiny">beworben</span>}
             {showDecision && rejected && <span className="chip chip--tiny">weggelegt</span>}
           </p>
         ) : null}
@@ -66,7 +66,7 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
           {v.score.score}
           <small>%</small>
         </span>
-        {dl ? <span className={dl.urgent ? 'marker' : ''}>{expired ? 'abgelaufen' : `bis ${shortDate(job.deadline)}`}</span> : <span style={{ color: 'var(--pencil-soft)' }}>ohne Frist</span>}
+        {dl ? <span className={dl.urgent ? 'marker' : ''}>{expired ? 'abgelaufen' : `bis ${shortDate(job.deadline)}`}</span> : <span style={{ color: 'var(--text-subtle)' }}>ohne Frist</span>}
       </div>
     </li>
   );

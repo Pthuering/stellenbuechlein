@@ -1,6 +1,7 @@
 // Anzeige-Texte für Fristen, Orte, Fakten.
 
 import { daysUntil, formatDateDe, formatKm, JOB_KIND_LABELS, todayBerlin, type City, type Institution, type Job } from '@stellen/core';
+import { TEST_PHOTO_CREDIT, testPhotoFor } from '../data/testPhotos';
 
 export function deadlineInfo(deadline: string | null | undefined, today = todayBerlin()): { date: string; left: string; urgent: boolean; past: boolean } | null {
   if (!deadline) return null;
@@ -33,18 +34,26 @@ export function kindLabel(job: Job): string | null {
   return job.kind && job.kind !== 'sonstige' ? JOB_KIND_LABELS[job.kind] : null;
 }
 
-export type ChipTone = 'rosa' | 'beige' | 'gelb' | 'weiss';
+export type ChipTone = 'primary' | 'neutral' | 'plain';
 
+/** Höchstens drei Chips auf der Karte: Stellenart (Primärrolle), Entgelt und Umfang zusammen, Befristung. */
 export function factChips(job: Job): { text: string; tone: ChipTone }[] {
   const out: { text: string; tone: ChipTone }[] = [];
   const k = kindLabel(job);
-  if (k) out.push({ text: k, tone: 'rosa' });
-  if (job.payGrade) out.push({ text: job.payGrade, tone: 'beige' });
-  if (job.workloadPct) out.push({ text: `${job.workloadPct} %`, tone: 'beige' });
-  else if (job.workloadText) out.push({ text: job.workloadText, tone: 'beige' });
-  if (job.isPermanent === true) out.push({ text: 'unbefristet', tone: 'gelb' });
-  else if (job.fixedTerm) out.push({ text: job.fixedTerm.replace(/\s*\(.*\)$/, '').slice(0, 28), tone: 'weiss' });
+  if (k) out.push({ text: k, tone: 'primary' });
+  const workload = job.workloadPct ? `${job.workloadPct} %` : job.workloadText;
+  const frame = [job.payGrade, workload].filter(Boolean).join(', ');
+  if (frame) out.push({ text: frame, tone: 'neutral' });
+  if (job.isPermanent === true) out.push({ text: 'unbefristet', tone: 'neutral' });
+  else if (job.fixedTerm) out.push({ text: job.fixedTerm.replace(/\s*\(.*\)$/, '').slice(0, 28), tone: 'plain' });
   return out;
+}
+
+/** Bild in der Reihenfolge Anzeige → Einrichtung → Stadt → (nur Demo) Testfoto; null = Skizze zeigen. */
+export function jobImage(job: Job, inst: Institution | undefined, city: City | undefined, testPhotos: string[]): { src: string | null; credit: string | null } {
+  const base = imageFor(job, inst, city);
+  if (base.src || testPhotos.length === 0) return base;
+  return { src: testPhotoFor(testPhotos, inst?.id ?? city?.id ?? job.id), credit: TEST_PHOTO_CREDIT };
 }
 
 export function imageFor(job: Job, inst: Institution | undefined, city: City | undefined): { src: string | null; credit: string | null } {

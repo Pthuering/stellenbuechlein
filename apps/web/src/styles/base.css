@@ -9,7 +9,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  background: var(--paper-deep);
+  background: var(--surface-sunken);
   height: 100%;
 }
 
@@ -20,8 +20,8 @@ body,
 
 body {
   margin: 0;
-  background: var(--paper-deep);
-  color: var(--ink);
+  background: var(--surface-sunken);
+  color: var(--text);
   font-family: var(--hand);
   font-size: 16px;
   line-height: 1.45;
@@ -39,7 +39,7 @@ textarea {
 }
 
 a {
-  color: var(--rosa-deep);
+  color: var(--primary-strong);
   text-decoration-thickness: 1.5px;
   text-underline-offset: 3px;
 }
@@ -50,7 +50,7 @@ img {
 }
 
 :focus-visible {
-  outline: 2.5px dashed var(--rosa-deep);
+  outline: 2.5px dashed var(--primary-strong);
   outline-offset: 3px;
   border-radius: 6px;
 }
@@ -73,7 +73,7 @@ img {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  background: var(--paper);
+  background: var(--surface);
   overflow: hidden;
 }
 
@@ -94,17 +94,17 @@ img {
     left: 40px;
     right: 40px;
     height: 20px;
-    background: radial-gradient(circle at 10px 10px, var(--paper-deep) 0 5px, var(--pencil-soft) 5.5px 7px, transparent 7.5px) 0 0 / 34px 20px repeat-x;
+    background: radial-gradient(circle at 10px 10px, var(--surface-sunken) 0 5px, var(--text-subtle) 5.5px 7px, transparent 7.5px) 0 0 / 34px 20px repeat-x;
     pointer-events: none;
   }
 }
 
 /* Liniertes Papier mit rosa Randlinie – scrollt mit dem Inhalt */
 .paper {
-  background-color: var(--paper);
+  background-color: var(--surface);
   background-image:
     linear-gradient(90deg, transparent calc(var(--margin-x) - 1px), var(--margin-line) calc(var(--margin-x) - 1px), var(--margin-line) calc(var(--margin-x) + 1px), transparent calc(var(--margin-x) + 1px)),
-    repeating-linear-gradient(180deg, transparent 0, transparent calc(var(--line) - 1px), var(--rule) calc(var(--line) - 1px), var(--rule) var(--line));
+    repeating-linear-gradient(180deg, transparent 0, transparent calc(var(--line) - 1px), var(--ruling) calc(var(--line) - 1px), var(--ruling) var(--line));
   background-attachment: local;
 }
 
@@ -147,7 +147,7 @@ img {
 
 .page-sub {
   margin: 2px 0 0;
-  color: var(--pencil);
+  color: var(--text-muted);
   font-size: 15px;
 }
 
@@ -159,7 +159,7 @@ img {
 }
 
 .hint {
-  color: var(--pencil);
+  color: var(--text-muted);
   font-size: 14px;
   margin: 4px 0 0;
 }
@@ -173,9 +173,9 @@ img {
 
 .btn {
   appearance: none;
-  border: 2px solid var(--ink);
-  background: var(--card);
-  color: var(--ink);
+  border: 2px solid var(--text);
+  background: var(--surface-raised);
+  color: var(--text);
   min-height: 44px;
   padding: 8px 16px;
   border-radius: 255px 18px 225px 16px / 16px 225px 18px 255px;
@@ -188,33 +188,34 @@ img {
   gap: 8px;
   text-decoration: none;
   transition: transform 0.12s ease, background-color 0.12s ease;
-  box-shadow: 2px 3px 0 var(--ink);
+  box-shadow: 2px 3px 0 var(--text);
 }
 
 .btn:active {
   transform: translate(1px, 2px);
-  box-shadow: 1px 1px 0 var(--ink);
+  box-shadow: 1px 1px 0 var(--text);
 }
 
 .btn--primary {
-  background: var(--rosa);
-  color: var(--on-rosa);
+  background: var(--primary);
+  color: var(--on-light);
 }
 
-.btn--yellow {
-  background: var(--butter);
-  color: var(--on-rosa);
+.btn--accent {
+  background: var(--accent);
+  color: var(--on-light);
 }
 
-.btn--beige {
-  background: var(--beige);
+.btn--secondary {
+  background: var(--secondary);
+  color: var(--on-light);
 }
 
 .btn--quiet {
   border-color: transparent;
   box-shadow: none;
   background: transparent;
-  color: var(--rosa-deep);
+  color: var(--primary-strong);
   padding-inline: 8px;
   text-decoration: underline;
   text-decoration-thickness: 1.5px;
@@ -242,12 +243,12 @@ img {
   place-items: center;
   border-radius: 50%;
   cursor: pointer;
-  color: var(--ink);
+  color: var(--text);
   position: relative;
 }
 
 .icon-btn:hover {
-  background: var(--rosa-soft);
+  background: var(--primary-soft);
 }
 
 .badge {
@@ -258,7 +259,7 @@ img {
   height: 20px;
   padding: 0 5px;
   border-radius: 10px;
-  background: var(--rosa-deep);
+  background: var(--primary-strong);
   color: #fff;
   font-size: 12px;
   font-weight: 700;
@@ -281,31 +282,34 @@ img {
   gap: 4px;
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1.5px solid color-mix(in srgb, var(--ink) 25%, transparent);
-  background: var(--card);
+  border: 1.5px solid color-mix(in srgb, var(--text) 25%, transparent);
+  background: var(--surface-raised);
   font-size: 14px;
   line-height: 1.35;
   white-space: nowrap;
 }
 
-.chip--rosa {
-  background: var(--rosa-soft);
+/* Chips nach Rolle: primary = Stellenart und Lieblingsort, neutral = Eckdaten,
+   secondary = Status (beworben), accent = Frist/Herzensjob, plain = Nebensache */
+.chip--primary {
+  background: var(--primary-soft);
   border-color: transparent;
 }
-.chip--beige {
-  background: var(--beige-soft);
+.chip--neutral {
+  background: var(--neutral-soft);
   border-color: transparent;
 }
-.chip--butter {
-  background: var(--butter-soft);
+.chip--secondary {
+  background: var(--secondary-soft);
+  border-color: transparent;
+  color: var(--secondary-strong);
+}
+.chip--accent {
+  background: var(--accent-soft);
   border-color: transparent;
 }
-.chip--gelb {
-  background: var(--butter-soft);
-  border-color: transparent;
-}
-.chip--weiss {
-  background: var(--card);
+.chip--plain {
+  background: var(--surface-raised);
 }
 
 button.chip {
@@ -315,24 +319,20 @@ button.chip {
 }
 
 .chip[aria-pressed='true'] {
-  background: var(--rosa);
-  color: var(--on-rosa);
-  border-color: var(--rosa-deep);
+  background: var(--primary);
+  color: var(--on-light);
+  border-color: var(--primary-strong);
   font-weight: 600;
 }
 
 /* Textmarker */
 .marker {
-  background: linear-gradient(100deg, transparent 2%, var(--butter) 4%, var(--butter) 94%, transparent 97%);
+  background: linear-gradient(100deg, transparent 2%, var(--accent) 4%, var(--accent) 94%, transparent 97%);
   background-size: 100% 70%;
   background-position: 0 70%;
   background-repeat: no-repeat;
   padding: 0 3px;
   border-radius: 3px;
-}
-
-.marker--rosa {
-  background-image: linear-gradient(100deg, transparent 2%, var(--rosa-soft) 4%, var(--rosa-soft) 94%, transparent 97%);
 }
 
 /* ------------------------------------------------------------------ Formulare */
@@ -354,9 +354,9 @@ button.chip {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
-  border: 2px solid color-mix(in srgb, var(--ink) 55%, transparent);
+  border: 2px solid color-mix(in srgb, var(--text) 55%, transparent);
   border-radius: 10px 14px 12px 9px;
-  background: var(--card);
+  background: var(--surface-raised);
   font-size: 16px;
 }
 
@@ -372,8 +372,8 @@ button.chip {
 .textarea:focus,
 .select:focus {
   outline: none;
-  border-color: var(--rosa-deep);
-  box-shadow: 0 0 0 3px var(--rosa-soft);
+  border-color: var(--primary-strong);
+  box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
 .toggle {
@@ -390,8 +390,8 @@ button.chip {
   width: 50px;
   height: 30px;
   border-radius: 15px;
-  border: 2px solid var(--ink);
-  background: var(--card);
+  border: 2px solid var(--text);
+  background: var(--surface-raised);
   position: relative;
   flex: none;
   cursor: pointer;
@@ -406,12 +406,12 @@ button.chip {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--ink);
+  background: var(--text);
   transition: transform 0.15s;
 }
 
 .toggle input:checked {
-  background: var(--rosa);
+  background: var(--primary);
 }
 
 .toggle input:checked::after {
@@ -421,31 +421,37 @@ button.chip {
 /* ------------------------------------------------------------------ Hinweise */
 
 .notice {
-  border: 2px dashed color-mix(in srgb, var(--ink) 35%, transparent);
+  border: 2px dashed color-mix(in srgb, var(--text) 35%, transparent);
   border-radius: 12px;
   padding: 10px 12px;
-  background: color-mix(in srgb, var(--card) 80%, transparent);
+  background: color-mix(in srgb, var(--surface-raised) 80%, transparent);
   font-size: 15px;
 }
 
 .notice--warn {
-  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
-  background: var(--butter-soft);
+  border-color: color-mix(in srgb, var(--accent-strong) 55%, transparent);
+  background: var(--accent-soft);
 }
 
 .notice--good {
-  border-color: var(--rosa);
-  background: var(--rosa-hell);
+  border-color: var(--primary);
+  background: var(--primary-tint);
+}
+
+/* Hinweis der App (Sekundärrolle) */
+.notice--info {
+  border-color: color-mix(in srgb, var(--secondary) 80%, transparent);
+  background: var(--secondary-soft);
 }
 
 .demo-banner {
   position: relative;
   z-index: 5;
-  background: var(--butter-soft);
-  color: var(--ink);
+  background: var(--secondary-soft);
+  color: var(--text);
   font-size: 13px;
   padding: 5px 14px 5px calc(var(--margin-x) + 12px);
-  border-bottom: 1.5px dashed var(--beige);
+  border-bottom: 1.5px dashed color-mix(in srgb, var(--secondary) 70%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {

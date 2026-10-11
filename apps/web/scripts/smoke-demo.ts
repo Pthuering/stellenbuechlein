@@ -102,6 +102,21 @@ try {
   await page.waitForTimeout(800);
   assert.ok((await page.locator('.map-svg .bubble').count()) > 3, 'Keine Markierungen auf der Karte');
 
+  // Testfotos: ein Bild wählen, die Karte im Stapel zeigt dann ein Foto statt der Skizze
+  const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await page.goto(`${url}#/ich`);
+  await page.setInputFiles('input[type=file][accept="image/*"]', { name: 'test.png', mimeType: 'image/png', buffer: pixel });
+  await page.waitForSelector('.photo-strip img');
+  await page.click('.tab:nth-child(1)');
+  await page.waitForSelector('.card--top img.polaroid__img');
+
+  // Bilder aus: Ort und Score stehen in der Kopfzeile
+  await page.goto(`${url}#/ich`);
+  await page.click('text=Bilder auf den Karten im Stapel');
+  await page.click('.tab:nth-child(1)');
+  await page.waitForSelector('.card--top .card__head');
+  assert.equal(await page.locator('.card--top .polaroid').count(), 0, 'Bild trotz ausgeschaltetem Schalter');
+
   assert.deepEqual(errors, [], `Laufzeitfehler:\n${errors.join('\n')}`);
   console.log('Rauchtest bestanden.');
 } finally {

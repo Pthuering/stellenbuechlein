@@ -10,7 +10,9 @@ Private App für die Suche nach Forschungsstellen mit Psychologie-Bezug in Deuts
 - **Karte:** gemerkte (oder alle offenen) Anzeigen auf einer gezeichneten Deutschlandkarte. Tippen zoomt von Deutschland über Bundesland und Stadt bis zur Einrichtung. Orte lassen sich dort direkt als Lieblingsort markieren.
 - **Gemerkt:** sortierbare Liste (Frist, Score, neu, Nähe), Fristen-Zettel für Herzensjobs, abgelaufene Gemerkte bleiben erhalten.
 - **Alle:** jede offene Anzeige, unabhängig vom Wischen, mit Suche, Filtern und Sortierung.
-- **Ich:** Suchprofil mit Herzchen-Score, Steckbrief-Import, Lieblingsorte, Zuhause und Umkreis (Standard: Halle (Saale)), Fristen-Erinnerungen (1 Monat, 1 Woche, 1 Tag vorher, änderbar, auch als Push), Quellen mit Zustand, Vorschlägen, Aussortiertem und Lauf-Protokollen, helles und dunkles Notizbuch.
+- **Ich:** Suchprofil mit Herzchen-Score, Steckbrief-Import, Lieblingsorte, Zuhause und Umkreis (Standard: Halle (Saale)), Fristen-Erinnerungen (1 Monat, 1 Woche, 1 Tag vorher, änderbar, auch als Push), Quellen mit Zustand, Vorschlägen, Aussortiertem und Lauf-Protokollen, Bilder auf den Karten an oder aus, helles und dunkles Notizbuch.
+
+Gestaltung: Weiß und Beige als Fläche, Rosa als Primärfarbe, Lavendel sparsam für Orientierung, Hellgelb nur für Fristen und Herzensjobs. Die Regeln stehen in [docs/GESTALTUNG.md](docs/GESTALTUNG.md).
 
 Grundsätze: Lieber eine unnötige Anzeige mehr als eine passende zu wenig. Das Suchprofil sortiert nur, es filtert nie etwas weg. Wischen ist nur Anzeige und verändert den Score nicht. Mehr dazu in [docs/KONZEPT.md](docs/KONZEPT.md).
 
@@ -36,7 +38,7 @@ npm run build:demo            # eine einzelne HTML-Datei mit echten Beispielanze
 open apps/web/dist-demo/index.html
 ```
 
-Die Demo braucht keinen Server, alles bleibt im Browser.
+Die Demo braucht keinen Server, alles bleibt im Browser. Die Beispielanzeigen haben keine Fotos; unter *Ich → Aussehen → Testfotos* lassen sich eigene Bilder darauf verteilen.
 
 ## Lokal entwickeln
 

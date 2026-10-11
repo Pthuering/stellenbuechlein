@@ -326,7 +326,7 @@ export function MapScreen() {
             {/* Markierungen in Bildschirmgröße: wandern mit dem Zoom mit, bleiben aber gleich groß */}
             <g className="home" style={{ transform: `translate(${hx}px, ${hy}px)` }} aria-hidden="true">
               <path d={`M${u(-9)} ${u(2)}L0 ${u(-8)}L${u(9)} ${u(2)}V${u(10)}H${u(-9)}Z`} strokeWidth={u(1.8)} strokeLinejoin="round" />
-              <path d={`M${u(-2.5)} ${u(10)}v${u(-6)}h${u(5)}v${u(6)}`} fill="none" stroke="var(--ink)" strokeWidth={u(1.6)} />
+              <path d={`M${u(-2.5)} ${u(10)}v${u(-6)}h${u(5)}v${u(6)}`} fill="none" stroke="var(--text)" strokeWidth={u(1.6)} />
             </g>
 
             {selCity &&
@@ -381,8 +381,20 @@ export function MapScreen() {
           </svg>
         )}
         <p className="map-legend hint" aria-hidden="true">
-          <span className="swatch swatch--has" /> mit Anzeigen <span className="swatch swatch--fav" /> Lieblingsort <span className="swatch swatch--home" /> Zuhause
-          {radius != null ? `, Kreis: ${radius} km` : ''}
+          <span className="legend-item">
+            <span className="swatch swatch--has" /> mit Anzeigen
+          </span>
+          <span className="legend-item">
+            <span className="swatch swatch--fav" /> Lieblingsort
+          </span>
+          <span className="legend-item">
+            <span className="swatch swatch--home" /> Zuhause
+          </span>
+          {radius != null && (
+            <span className="legend-item">
+              <span className="swatch swatch--radius" /> Umkreis {radius} km
+            </span>
+          )}
         </p>
       </div>
 

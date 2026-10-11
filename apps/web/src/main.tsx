@@ -11,6 +11,7 @@ import type { Backend } from './data/backend';
 import { StoreContext } from './data/hooks';
 import { lsGet, lsSet } from './data/local';
 import { Store } from './data/store';
+import { loadTestPhotos } from './data/testPhotos';
 import { applyTheme } from './lib/theme';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -47,6 +48,7 @@ async function start(): Promise<void> {
   if (__DEMO__) {
     const { DemoBackend } = await import('./data/demo');
     backend = new DemoBackend();
+    void loadTestPhotos();
   } else {
     const fromLink = keyFromLink();
     if (fromLink) lsSet('sb.key', fromLink);
