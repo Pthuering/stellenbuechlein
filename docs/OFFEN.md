@@ -1,10 +1,11 @@
 # Was noch offen ist
 
-Stand: 12. Oktober 2026. Gebaut und getestet sind App, API, Datenbank und Einsammel-Pipeline, seit diesem Stand auch Horizont mit Brücken und Weite, die Fristen-Prüfung, die Erkundung neuer Websites und der Probelauf für neue Quellen (110 automatische Tests, dazu ein Browser-Durchlauf der Demo). Offen ist vor allem alles, was echte Websites, deine Konten oder deine Entscheidungen braucht.
+Stand: 12. Oktober 2026. Gebaut und getestet sind App, API, Datenbank und Einsammel-Pipeline, seit diesem Stand auch Horizont mit Brücken und Weite, die Fristen-Prüfung, die Erkundung neuer Websites und der Probelauf für neue Quellen. Für die Veröffentlichung unter eigener Domain ist alles vorbereitet, samt Sicherheits-Kopfzeilen und Sperre für Suchmaschinen (118 automatische Tests, dazu Browser-Durchläufe der Demo und der echten App). Offen ist vor allem alles, was echte Websites, deine Konten oder deine Entscheidungen braucht.
 
 ## 0. Kurz entscheiden
 
 - [ ] **„Morgens um 12“:** Eingestellt ist 12 Uhr mittags (deutsche Zeit) plus der Knopf „Jetzt einsammeln“. War Mitternacht gemeint, sind es zwei Zeilen in `.github/workflows/einsammeln.yml` (siehe [BETRIEB.md](BETRIEB.md)).
+- [ ] **Domain:** eine eigene nur für die App oder eine Subdomain einer Domain, die du ohnehin nutzen willst (zum Beispiel `stellen.deine-domain.de`). Eingetragen wird sie in `apps/api/wrangler.toml` (Schritt 2a in [BETRIEB.md](BETRIEB.md)).
 
 ## 1. Bewusst später, als eigene Schritte
 
@@ -16,6 +17,7 @@ Stand: 12. Oktober 2026. Gebaut und getestet sind App, API, Datenbank und Einsam
 ## 2. Braucht dich zum Einrichten (etwa 30 Minuten, Anleitung in [BETRIEB.md](BETRIEB.md))
 
 - [ ] Cloudflare-Konto, Datenbank anlegen, ID in `wrangler.toml` eintragen, `APP_KEY` und `INGEST_KEY` setzen, Migrationen anwenden, veröffentlichen.
+- [ ] **Eigene Domain** (empfohlen): besorgen, bei Cloudflare hinzufügen (Nameserver umstellen, kann bis zu einem Tag dauern), Adresse in `wrangler.toml` eintragen, erneut veröffentlichen, GitHub-Secret `API_URL` auf die neue Adresse setzen.
 - [ ] Code in ein GitHub-Repository, Secrets `API_URL` und `INGEST_KEY` eintragen, ersten Lauf starten.
 - [ ] **DeepSeek-Schlüssel** (empfohlen): als GitHub-Secret `DEEPSEEK_API_KEY` für die Pipeline und als Worker-Secret `LLM_API_KEY` für die Brücken-Vorschläge. Ohne ihn läuft alles regelbasiert; es fehlen dann Kurzfassungen, KI-Urteile im Horizont, die Weite, die KI-Nachprüfung von Fristen und das KI-Urteil im Probelauf.
 - [ ] **GitHub-Token im Worker** (empfohlen): für „Jetzt einsammeln“ und damit Probeläufe sofort starten statt mit dem nächsten Tageslauf.
@@ -65,4 +67,5 @@ Diese Arbeitsumgebung konnte weder Hochschul-Websites noch die Arbeitsagentur od
 - An die KI gehen Anzeigentexte und für Horizont, Weite und Vorschläge Stichworte aus dem Suchprofil (Themen, Methoden, Interessen, Brücken), keine Namen oder Kontaktdaten von dir.
 - Die Karte ist stilisiert: Einrichtungen ohne eigene Koordinaten liegen am Stadtmittelpunkt und werden dort im Kreis verteilt.
 - Die Demo enthält Anzeigen vom 9. und 12. Oktober 2026 als Kurzfassung in eigenen Worten. Ihre Fristen laufen nach und nach ab. Probelauf und KI-Vorschläge sind dort nur nachgestellt.
-- Die App speichert Anzeigentexte für dich privat. Soll sie später auch anderen zugänglich sein, wäre vorher zu klären, wie Anzeigentexte und Ausnahmen von der robots.txt dann zu handhaben sind.
+- Die App speichert Anzeigentexte für dich privat. Soll sie später auch anderen zugänglich sein, wäre vorher zu klären, wie Anzeigentexte und Ausnahmen von der robots.txt dann zu handhaben sind und ob die Seite dann Impressum und Datenschutzerklärung braucht.
+- Unter der eigenen Domain ist die App öffentlich erreichbar, zeigt ohne Schlüssel aber nur die Anmeldung und ist für Suchmaschinen gesperrt.

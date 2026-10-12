@@ -32,7 +32,7 @@ packages/db   Datenbankschema und -zugriff (D1, SQLite lokal, Fernzugriff für d
 data/seed     Startliste: 73 Städte, 158 Einrichtungen, Portale
 ```
 
-Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Nur die KI kostet etwas, je nach Anzahl neuer Anzeigen Cent-Beträge pro Lauf (DeepSeek-API, austauschbar). Ohne KI läuft alles regelbasiert, nur die Weite und die KI-Urteile fallen weg.
+Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Die Website liefert Cloudflare aus, auf Wunsch unter eigener Domain; GitHub hält nur den Code und die Sammel-Läufe. Geld kosten nur die KI, je nach Anzahl neuer Anzeigen Cent-Beträge pro Lauf (DeepSeek-API, austauschbar), und gegebenenfalls die Domain. Ohne KI läuft alles regelbasiert, nur die Weite und die KI-Urteile fallen weg.
 
 ## Schnell ausprobieren
 
@@ -65,7 +65,7 @@ npm run cli -w @stellen/ingest -- agent https://www.example-uni.de/stellen/123
 
 ## Einrichten für den echten Betrieb
 
-Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Datenbank, Schlüssel, GitHub-Secrets, App aufs Handy.
+Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Datenbank, Schlüssel, eigene Domain, GitHub-Secrets, App aufs Handy.
 
 ## Prüfen
 

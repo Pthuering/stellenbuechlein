@@ -4,13 +4,15 @@ Die App läuft komplett in kostenlosen Kontingenten:
 
 | Teil | Wo | Wofür |
 |---|---|---|
-| App (PWA) und API | Cloudflare Worker mit statischen Dateien | Oberfläche, Abgleich, Einstellungen |
+| App (PWA) und API | Cloudflare Worker mit statischen Dateien, unter eigener Domain oder `….workers.dev` | die Website selbst: Oberfläche, Abgleich, Einstellungen |
 | Datenbank | Cloudflare D1 | Anzeigen, Markierungen, Quellen, Läufe |
 | Einsammeln | GitHub Actions, täglich gegen 12 Uhr und per Knopf | Anzeigen holen, gezielt neue Websites erkunden, Erinnerungen verschicken |
 | Probelauf neuer Quellen | GitHub Actions, per Knopf in der App | eine Website prüfen, bevor sie ins Register kommt |
 | KI (optional, empfohlen) | DeepSeek-API oder ein anderer OpenAI-kompatibler Dienst | schwierige Seiten auswerten, Kurzfassungen, unplausible Fristen nachprüfen, Horizont und Weite beurteilen, neue Quellen prüfen |
 
-Du brauchst: ein GitHub-Konto, ein Cloudflare-Konto, Node.js 22 auf dem Rechner (nur für die Einrichtung) und optional einen DeepSeek-API-Schlüssel.
+Die Website, die du im Browser öffnest, liefert Cloudflare aus. GitHub hostet keine Seite: Dort liegen nur der Code und die Abläufe zum Einsammeln und Prüfen.
+
+Du brauchst: ein GitHub-Konto, ein Cloudflare-Konto, Node.js 22 auf dem Rechner (nur für die Einrichtung), für eine eigene Adresse eine Domain (Schritt 2a) und optional einen DeepSeek-API-Schlüssel.
 
 ## 1. Code in ein eigenes GitHub-Repository
 
@@ -39,6 +41,25 @@ npm run deploy                        # baut die App und lädt den Worker hoch
 
 Am Ende steht die Adresse da, etwa `https://stellenbuechlein.<dein-name>.workers.dev`.
 
+## 2a. Eigene Adresse (empfohlen)
+
+Mit einer eigenen Domain heißt die App zum Beispiel `https://stellen.deine-domain.de` statt `….workers.dev`. Am Hosting ändert sich nichts: Cloudflare liefert sie weiter im kostenlosen Plan aus, Kosten hat nur die Domain selbst.
+
+1. **Domain besorgen.** `.de` gibt es bei Cloudflare nicht, dafür einen beliebigen Domain-Anbieter nehmen. Endungen wie `.com`, `.org`, `.app` oder `.dev` lassen sich auch direkt bei Cloudflare registrieren (zum Selbstkostenpreis); dann liegt die Domain schon dort, und der nächste Punkt entfällt.
+2. **Domain bei Cloudflare verwalten lassen.** Im Cloudflare-Dashboard *Domain hinzufügen*, den kostenlosen Plan wählen und die gefundenen DNS-Einträge übernehmen. Läuft unter der Domain schon eine Website oder kommen E-Mails an, prüfen, ob deren Einträge vollständig dabei sind (zum Beispiel MX für E-Mail); beides läuft danach weiter wie bisher. Zum Schluss beim Domain-Anbieter die zwei Nameserver von Cloudflare eintragen. Bis Cloudflare die Domain als aktiv meldet, dauert es meist Minuten, selten bis zu einem Tag.
+3. **Nur falls die App schon unter `workers.dev` auf dem Handy läuft:** sie dort einmal mit Internet öffnen, damit keine Entscheidung in der Warteschlange hängt, und unter *Ich → Fristen-Erinnerungen* „Auf diesem Gerät ausschalten“ tippen. Nach dem nächsten Punkt ist die alte Adresse nicht mehr erreichbar.
+4. **Adresse eintragen.** In `apps/api/wrangler.toml` die drei Zeilen unter „Eigene Adresse“ aktivieren und die Adresse eintragen. Eine Subdomain wie `stellen.deine-domain.de` hält die Domain selbst frei für anderes. Dann:
+
+   ```bash
+   npm run deploy
+   ```
+
+   DNS-Eintrag und Zertifikat legt Cloudflare selbst an; nach ein paar Minuten ist die App unter der neuen Adresse erreichbar.
+5. **Pipeline umstellen.** Mit eigener Adresse schaltet Cloudflare die `workers.dev`-Adresse ab. Deshalb in GitHub das Secret `API_URL` (Schritt 4) auf die neue Adresse ändern. Sollen beide Adressen erreichbar bleiben, in `wrangler.toml` oben `workers_dev = true` eintragen.
+6. **Aufs Handy** wie in Schritt 7, mit der neuen Adresse. Für den Browser ist sie eine neue App: Schlüssel eingeben, installieren, Erinnerungen einschalten und eine alte Installation löschen. Markierungen, Suchprofil und Einstellungen liegen auf dem Server und sind sofort da; nur hell oder dunkel ist gegebenenfalls neu zu wählen.
+
+Die App ist für Suchmaschinen gesperrt (`robots.txt` und Kopfzeile `X-Robots-Tag`), damit sie unter der eigenen Domain nicht gefunden wird. Weitere Sicherheits-Kopfzeilen, darunter eine Content-Security-Policy, stehen in `apps/web/public/_headers`; Cloudflare und der Node-Server wenden sie an.
+
 ## 3. Schlüssel für Benachrichtigungen (optional, für Push-Erinnerungen)
 
 ```bash
@@ -56,7 +77,7 @@ Im Repository unter *Settings → Secrets and variables → Actions → New repo
 
 | Secret | Pflicht | Inhalt |
 |---|---|---|
-| `API_URL` | ja | Adresse des Workers aus Schritt 2 |
+| `API_URL` | ja | Adresse der App: eigene Domain aus Schritt 2a, sonst die `workers.dev`-Adresse aus Schritt 2 |
 | `INGEST_KEY` | ja | derselbe Wert wie im Worker |
 | `DEEPSEEK_API_KEY` | nein, aber empfohlen | KI für Kurzfassungen, Fristen-Nachprüfung, Horizont und Weite, Probeläufe; ohne läuft alles regelbasiert, die Weite fällt dann weg |
 | `BRAVE_API_KEY` | nein | Websuche (Brave Search API) als zusätzliche Quelle für die Erkundung neuer Websites; ohne sucht die Erkundung nur bei der Arbeitsagentur |
@@ -100,7 +121,7 @@ Der Workflow „Veröffentlichen“ lädt bei jedem Push auf `main` App und Work
 
 ## 7. Aufs Handy
 
-1. Die Worker-Adresse im Browser öffnen und den `APP_KEY` eingeben. Bequemer: einmal `https://…workers.dev/#key=DEIN_APP_KEY` öffnen, die App übernimmt den Schlüssel und entfernt ihn sofort aus der Adresse.
+1. Die Adresse der App im Browser öffnen (eigene Domain oder `workers.dev`) und den `APP_KEY` eingeben. Bequemer: einmal `https://stellen.deine-domain.de/#key=DEIN_APP_KEY` öffnen, die App übernimmt den Schlüssel und entfernt ihn sofort aus der Adresse.
 2. **Android (Chrome):** Menü → *App installieren*.
    **iPhone/iPad (Safari):** Teilen → *Zum Home-Bildschirm*.
 3. Für Benachrichtigungen die installierte App öffnen: *Ich → Fristen-Erinnerungen → Auf diesem Gerät einschalten*. Auf dem iPhone geht das nur in der installierten App (ab iOS 16.4).
@@ -157,11 +178,13 @@ npm run ingest:local
 npm run cli -w @stellen/ingest -- check-sources
 ```
 
-Von unterwegs erreichbar wird das erst mit einer HTTPS-Adresse (z. B. über einen Tunnel). Ohne HTTPS gibt es keinen Service Worker und keine Benachrichtigungen.
+Von unterwegs erreichbar wird das erst mit einer HTTPS-Adresse (z. B. über einen Tunnel). Ohne HTTPS gibt es keinen Service Worker und keine Benachrichtigungen. Dasselbe geht auf einem gemieteten kleinen Server, etwa bei einem deutschen Anbieter; HTTPS übernimmt dann ein vorgeschalteter Webserver wie Caddy. Der Node-Server schickt dieselben Sicherheits-Kopfzeilen wie Cloudflare (aus `_headers`).
 
 ## Wenn etwas nicht klappt
 
 - **„Der Schlüssel passt nicht“:** In der App ist ein anderer Wert als `APP_KEY` im Worker. Unter *Ich → Abmelden* neu eingeben.
+- **`npm run deploy` lehnt die eigene Adresse ab:** Die Domain ist bei Cloudflare noch nicht aktiv (Nameserver beim Domain-Anbieter prüfen), oder für die Subdomain gibt es schon einen CNAME-Eintrag. Den Eintrag im Cloudflare-Dashboard löschen und erneut veröffentlichen.
+- **Seit dem Umzug auf die eigene Domain bricht das Einsammeln ab:** Das Secret `API_URL` zeigt noch auf die `workers.dev`-Adresse (Schritt 2a, Punkt 5).
 - **Pipeline bricht mit 401 ab:** `INGEST_KEY` in GitHub und im Worker unterscheiden sich.
 - **Quelle steht auf „blockiert“:** Die robots.txt verbietet den Abruf. Unter *Ich → Quellen* lässt sich das pro Quelle bewusst übergehen, die Portale decken sie sonst mit ab.
 - **Viele Quellen „ohne Adresse“:** Die Pipeline sucht nach und nach selbst und legt Vorschläge an (*Quellen → Neu*). Bis dahin finden die Portale deren Anzeigen.

@@ -5,11 +5,12 @@
 
 import { serve } from '@hono/node-server';
 import { readFile } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { extname, join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openSqlite } from '@stellen/db/sqlite';
 import { createApp } from './app';
+import { headersFor, parseHeadersFile, type HeaderRule } from './headers';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.DB_PATH ?? resolve(here, '../../../stellen.sqlite');
@@ -46,13 +47,28 @@ const MIME: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+/** Dieselben Kopfzeilen wie bei Cloudflare (apps/web/public/_headers, landet beim Bauen in dist/). */
+let headerRules: HeaderRule[] | null = null;
+function rules(): HeaderRule[] {
+  if (headerRules) return headerRules;
+  const file = join(webDist, '_headers');
+  if (!existsSync(file)) return [];
+  headerRules = parseHeadersFile(readFileSync(file, 'utf8'));
+  return headerRules;
+}
+
+/** Steuerdateien liefert auch Cloudflare nicht aus. */
+const HIDDEN = new Set(['/_headers', '/_redirects']);
+
 async function staticFile(pathname: string): Promise<Response> {
   const clean = decodeURIComponent(pathname).replace(/\.\.+/g, '');
   let file = join(webDist, clean);
-  if (!existsSync(file) || clean.endsWith('/')) file = join(webDist, 'index.html');
+  if (!existsSync(file) || clean.endsWith('/') || HIDDEN.has(clean)) file = join(webDist, 'index.html');
   if (!existsSync(file)) return new Response('Die App ist noch nicht gebaut (npm run build:web).', { status: 404 });
   const body = await readFile(file);
-  return new Response(body, { headers: { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' } });
+  return new Response(body, {
+    headers: { ...headersFor(rules(), pathname), 'content-type': MIME[extname(file)] ?? 'application/octet-stream' },
+  });
 }
 
 serve({

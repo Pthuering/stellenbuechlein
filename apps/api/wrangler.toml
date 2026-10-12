@@ -1,4 +1,5 @@
 # Cloudflare Worker: API + Auslieferung der PWA (kostenloser Plan reicht).
+# Ohne eigene Domain läuft die App unter https://stellenbuechlein.<dein-name>.workers.dev.
 # Einrichtung: siehe docs/BETRIEB.md
 
 name = "stellenbuechlein"
@@ -10,6 +11,15 @@ directory = "../web/dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
+
+# Eigene Adresse (docs/BETRIEB.md, Schritt 2a): Die Domain muss bei Cloudflare verwaltet
+# werden (kostenloser Plan). Dann die drei Zeilen unten aktivieren, Adresse eintragen
+# und "npm run deploy". DNS-Eintrag und Zertifikat legt Cloudflare selbst an.
+# Mit eigener Adresse schaltet Cloudflare die workers.dev-Adresse ab; deshalb danach
+# das GitHub-Secret API_URL auf die neue Adresse umstellen.
+# [[routes]]
+# pattern = "stellen.deine-domain.de"
+# custom_domain = true
 
 [[d1_databases]]
 binding = "DB"
