@@ -1,0 +1,38 @@
+# Probelauf für neue Quellen: startet, wenn in der App eine Website zum Prüfen eingetragen wird
+# (Ich → Quellen → Website hinzufügen). Liest die Seite und ein paar Anzeigen, die KI beurteilt das Ergebnis.
+# Das Ergebnis steht danach in der App; übernommen wird die Quelle erst nach deiner Bestätigung.
+# Benötigte Secrets wie beim Einsammeln: API_URL, INGEST_KEY, optional DEEPSEEK_API_KEY.
+
+name: Quelle prüfen
+
+on:
+  workflow_dispatch:
+    inputs:
+      check_id:
+        description: Nummer des Probelaufs (nur zur Anzeige; abgearbeitet werden alle wartenden)
+        required: false
+
+concurrency:
+  group: quelle-pruefen
+  cancel-in-progress: false
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      API_URL: ${{ secrets.API_URL }}
+      INGEST_KEY: ${{ secrets.INGEST_KEY }}
+      LLM_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      CRAWLER_CONTACT: ${{ secrets.CRAWLER_CONTACT }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Browser installieren
+        run: npx playwright@1.56.0 install --with-deps chromium
+      - name: Wartende Probeläufe abarbeiten
+        run: npm run cli -w @stellen/ingest -- check-sources

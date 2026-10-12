@@ -24,7 +24,7 @@ const waiting = async (page: Page): Promise<number> => {
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 // Fester Tag, damit der Test nicht von abgelaufenen Fristen der Beispielanzeigen abhängt
-await page.clock.setFixedTime(new Date('2026-10-10T08:00:00Z'));
+await page.clock.setFixedTime(new Date('2026-10-12T08:00:00Z'));
 const errors: string[] = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -77,12 +77,15 @@ try {
 
   // Gemerkt: Herzensjob ist da
   await page.click('.tab:nth-child(3)');
+  await page.waitForSelector('#saved-title, .screen [id$="title"]');
   await page.waitForSelector('.list .row');
   assert.ok((await page.locator('.list .row').count()) >= 1);
 
   // Alle: Weggelegte bleiben in der Liste
   await page.click('.tab:nth-child(4)');
+  await page.waitForSelector('#all-title');
   await page.waitForSelector('.list .row');
+  await page.waitForTimeout(200);
   assert.equal(await page.locator('.list .row').count(), Math.min(40, start), 'Alle-Liste ist nicht vollständig');
   assert.ok((await page.locator('text=weggelegt').count()) >= 1, 'Weggelegte fehlt in „Alle“');
 
@@ -116,6 +119,47 @@ try {
   await page.click('.tab:nth-child(1)');
   await page.waitForSelector('.card--top .card__head');
   assert.equal(await page.locator('.card--top .polaroid').count(), 0, 'Bild trotz ausgeschaltetem Schalter');
+
+  // Horizont: Filter auf den Ring „Horizont“ zeigt nur Horizont-Karten
+  await page.click('.tab:nth-child(1)');
+  await page.waitForSelector('.card--top');
+  await page.click('[aria-label^="Filter"]');
+  await page.click('.sheet >> text=/^Horizont$/');
+  await page.click('text=Fertig');
+  await page.waitForTimeout(300);
+  assert.ok((await page.locator('.card--top .lane-tag').count()) === 1, 'Keine Horizont-Karte im Stapel');
+  assert.ok(((await page.locator('.card--top .card__why').textContent()) ?? '').includes('Warum das passen könnte'), 'Begründung fehlt auf der Horizont-Karte');
+  await page.click('[aria-label^="Filter"]');
+  await page.click('text=Alle Filter zurücksetzen');
+  await page.click('text=Fertig');
+
+  // Horizont-Seite: Brücken aus dem Steckbrief, KI-Vorschlag übernehmen
+  await page.goto(`${url}#/ich/horizont`);
+  await page.waitForSelector('.rings');
+  const bridges = await page.locator('.bridge-list > .bridge').count();
+  assert.equal(bridges, 2, 'Brücken aus dem Steckbrief fehlen');
+  await page.click('text=Brücken vorschlagen lassen');
+  await page.waitForSelector('.bridge--suggested');
+  await page.locator('.bridge--suggested >> text=Übernehmen').first().click();
+  await page.waitForTimeout(300);
+  assert.equal(await page.locator('.bridge-list > .bridge:not(.bridge--suggested)').count(), 3, 'KI-Vorschlag wurde nicht übernommen');
+
+  // Neue Website per Probelauf ins Register
+  await page.goto(`${url}#/ich/quellen`);
+  await page.click('text=Website hinzufügen');
+  await page.fill('.sheet input[type=url]', 'https://career.cispa.de/jobs');
+  await page.click('text=Probelauf starten');
+  await page.waitForSelector('.verdict', { timeout: 10_000 });
+  assert.ok((await page.locator('.check-sample').count()) >= 1, 'Probe-Anzeigen fehlen');
+  await page.click('text=Als Quelle übernehmen');
+  await page.waitForTimeout(400);
+  await page.click('[role=tab] >> text=/^Neu/');
+  assert.ok((await page.locator('.suggestion').count()) >= 3, 'Neu entdeckte Websites fehlen');
+
+  // Neue Websites: mindestens drei Anzeigen in „Alle“ markiert
+  await page.goto(`${url}#/alle`);
+  await page.waitForSelector('.list .row');
+  assert.ok((await page.locator('.row .chip >> text=neue Website').count()) >= 3, 'Markierung „neue Website“ fehlt');
 
   assert.deepEqual(errors, [], `Laufzeitfehler:\n${errors.join('\n')}`);
   console.log('Rauchtest bestanden.');

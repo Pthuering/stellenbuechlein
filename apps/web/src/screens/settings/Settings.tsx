@@ -1,7 +1,7 @@
 // "Ich": Suchprofil, Lieblingsorte, Zuhause, Erinnerungen, Quellen, Aussehen.
 
 import { useRef, useState, type ReactNode } from 'react';
-import { CATEGORY_LABELS, CATEGORY_ORDER, formatDateDe } from '@stellen/core';
+import { CATEGORY_LABELS, CATEGORY_ORDER, DOSIS_LABELS, formatDateDe, horizontOf } from '@stellen/core';
 import { useAppState, useStore } from '../../data/hooks';
 import { lsDel } from '../../data/local';
 import { addTestPhotos, clearTestPhotos, useTestPhotos } from '../../data/testPhotos';
@@ -18,6 +18,7 @@ import { HomePage } from './HomePage';
 import { RemindersPage } from './RemindersPage';
 import { SourcesPage } from './SourcesPage';
 import { AboutPage } from './AboutPage';
+import { HorizontPage } from './HorizontPage';
 
 export function SubPage({ title, sub, children, labelId }: { title: string; sub?: ReactNode; children: ReactNode; labelId?: string }) {
   const id = labelId ?? `sub-${title.replace(/\W+/g, '-').toLowerCase()}`;
@@ -97,10 +98,23 @@ function ProfileCard() {
             <span className="index-card__items">{p.avoid.map((a) => a.label).join(', ')}</span>
           </li>
         )}
+        <li>
+          <span className="index-card__cat">Horizont</span>
+          <span className="index-card__items">
+            {(() => {
+              const h = horizontOf(p);
+              const on = h.bruecken.filter((b) => b.aktiv);
+              return on.length ? `${on.length} Brücken (${on.slice(0, 3).map((b) => b.name).join(', ')}${on.length > 3 ? ' …' : ''})` : 'keine Brücken';
+            })()}
+          </span>
+        </li>
       </ul>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
         <button type="button" className="btn btn--primary btn--small" onClick={() => navigate('/ich/profil')}>
           Profil anpassen
+        </button>
+        <button type="button" className="btn btn--small" onClick={() => navigate('/ich/horizont')}>
+          Horizont
         </button>
         <button type="button" className="btn btn--small" onClick={() => navigate('/ich/steckbrief')}>
           Steckbrief importieren
@@ -167,6 +181,19 @@ function SettingsHome() {
   const days = [...s.settings.reminders.days].sort((a, b) => b - a);
   const sum = s.sourceSummary;
   const lastRun = s.runs[0];
+  const h = horizontOf(s.settings.profile);
+  const [triggering, setTriggering] = useState(false);
+  const trigger = async () => {
+    setTriggering(true);
+    try {
+      await store.api.triggerIngest();
+      store.toast('Einsammeln gestartet. Neue Anzeigen sind in etwa 15 bis 30 Minuten da.');
+    } catch (e) {
+      store.toast(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTriggering(false);
+    }
+  };
 
   return (
     <section className="screen paper" aria-labelledby="me-title">
@@ -176,6 +203,12 @@ function SettingsHome() {
       <div className="group">
         <h2 className="section-title">Suche</h2>
         <div className="group__card">
+          <Row
+            label="Horizont"
+            sub="Stellen außerhalb des Kernbereichs über Brücken, im Stapel eingestreut"
+            value={h.dosis === 'aus' ? 'aus' : `${DOSIS_LABELS[h.dosis]} Karte`}
+            onClick={() => navigate('/ich/horizont')}
+          />
           <Row label="Lieblingsorte" sub="Bundesländer, Städte, Einrichtungen: stehen immer oben" value={favs ? String(favs) : 'keine'} onClick={() => navigate('/ich/orte')} />
           <Row label="Zuhause & Umkreis" sub={s.settings.home.label} value={s.settings.filter.radiusKm ? `${s.settings.filter.radiusKm} km` : 'ganz DE'} onClick={() => navigate('/ich/zuhause')} />
           <Row
@@ -196,6 +229,23 @@ function SettingsHome() {
             value={lastRun ? relativeTime(lastRun.finishedAt ?? lastRun.startedAt) : s.demo ? 'Demo' : 'noch kein Lauf'}
             onClick={() => navigate('/ich/quellen')}
           />
+          <div className="setting setting--static">
+            <span className="setting__label">
+              Einsammeln
+              <small>
+                {s.demo
+                  ? 'Täglich gegen 12 Uhr, in der Demo nicht'
+                  : s.ingestTrigger
+                    ? 'Täglich gegen 12 Uhr, mit mindestens drei Anzeigen von neuen Websites. Oder jetzt sofort.'
+                    : 'Täglich gegen 12 Uhr. Für „Jetzt“ braucht der Worker ein GitHub-Token.'}
+              </small>
+            </span>
+            {!s.demo && s.ingestTrigger && (
+              <button type="button" className="btn btn--small" disabled={triggering} onClick={() => void trigger()}>
+                {triggering ? 'startet …' : 'Jetzt'}
+              </button>
+            )}
+          </div>
           <div className="setting setting--static">
             <span className="setting__label">
               Abgleich mit dem Server
@@ -298,6 +348,8 @@ export function SettingsScreen({ sub }: { sub: string | null }) {
       return <RemindersPage />;
     case 'quellen':
       return <SourcesPage />;
+    case 'horizont':
+      return <HorizontPage />;
     case 'ueber':
       return <AboutPage />;
     default:

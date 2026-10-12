@@ -142,6 +142,113 @@ export class Llm {
     );
   }
 
+  /**
+   * Bewerbungsfrist nachprüfen, wenn die Regeln etwas Unplausibles gefunden haben.
+   * Das Zitat wird danach gegen den Text geprüft (verifyDeadlineQuote), damit nichts erfunden ist.
+   */
+  checkDeadline(text: string, today: string, found: string | null) {
+    const schema = z.object({
+      deadline: z.string().nullable(),
+      quote: z.string().nullable(),
+      still_open: z.boolean().nullable(),
+    });
+    return this.json(
+      schema,
+      [
+        {
+          role: 'system',
+          content:
+            `Du prüfst die Bewerbungsfrist einer Stellenausschreibung. Heute ist der ${today}. Antworte nur mit JSON {"deadline": "YYYY-MM-DD"|null, "quote": "…"|null, "still_open": bool|null}. ` +
+            'deadline ist das Datum, bis zu dem Bewerbungen eingehen müssen. Wurde die Frist verlängert, gilt die neue. Steht im Text kein Jahr, ergänze das Jahr, das zur Anzeige passt. ' +
+            'Ein Vertragsende, Eintrittsdatum, Beginn oder Veröffentlichungsdatum ist keine Frist. quote ist die Textstelle mit der Frist, wörtlich kopiert (höchstens 160 Zeichen). ' +
+            'Steht keine Frist im Text, sind deadline und quote null. still_open: ist die Bewerbung laut Text heute noch möglich?',
+        },
+        { role: 'user', content: `Bisher erkannt: ${found ?? 'keine Frist'}\n\nText der Anzeige:\n${text.slice(0, 12_000)}` },
+      ],
+      300,
+    );
+  }
+
+  /**
+   * Horizont und Weite: Könnte die Person sich hier realistisch bewerben, auch wenn die Stelle
+   * außerhalb ihres Kernbereichs liegt? Offen urteilen, aber völlig Fremdes ausschließen.
+   */
+  horizonVerdict(profile: string, posting: { title: string; org: string | null; text: string }, bridge: { name: string; warum?: string | null } | null) {
+    const schema = z.object({
+      verdict: z.enum(['passt', 'eher', 'nein']),
+      reason_de: z.string(),
+      label: z.string().nullable(),
+    });
+    return this.json(
+      schema,
+      [
+        {
+          role: 'system',
+          content:
+            'Du hilfst einer Person mit Psychologie-Hintergrund, Stellen außerhalb ihres engeren Suchbereichs zu entdecken, auf die sie sich trotzdem realistisch bewerben könnte. ' +
+            'Sei offen: Auch Stellen außerhalb der Forschung und außerhalb der Psychologie zählen, wenn ihr Wissen über Menschen, Verhalten, Lernen oder Gesundheit oder ihre Methoden dort gebraucht werden. ' +
+            'Nicht passend sind Stellen, für die eine ganz andere Ausbildung nötig ist (zum Beispiel Hotelfach, Handwerk, Pflegefachkraft, Steuerrecht, Elektrotechnik) oder in denen nichts von ihrem Wissen gebraucht wird. ' +
+            'verdict: "passt" (gute Chancen, inhaltlich naheliegend), "eher" (möglich, mit Lücken), "nein" (fremd). ' +
+            'reason_de: ein konkreter Satz auf Deutsch, warum die Stelle passen könnte (bei "nein": warum nicht), mit Bezug auf die Anzeige und das Profil, ohne Floskeln. ' +
+            'label: 2 bis 4 Wörter für die Verbindung, z. B. "IT-Sicherheit × Verhalten". Antworte nur mit JSON.',
+        },
+        {
+          role: 'user',
+          content:
+            `Profil:\n${profile}\n\n${bridge ? `Brücke: ${bridge.name}${bridge.warum ? ` (${bridge.warum})` : ''}\n\n` : ''}` +
+            `Anzeige: ${posting.title}${posting.org ? `, ${posting.org}` : ''}\n${posting.text.slice(0, 6000)}`,
+        },
+      ],
+      250,
+    );
+  }
+
+  /** Probelauf einer neuen Quelle: Ist das eine Stellenliste, wer schreibt aus, was ist zu beachten? */
+  reviewSource(input: {
+    url: string;
+    pageTitle: string;
+    pageText: string;
+    links: { i: number; text: string; url: string }[];
+    samples: { i: number; title: string; url: string; text: string; fields: string }[];
+  }) {
+    const schema = z.object({
+      is_job_list: z.boolean(),
+      institution_name: z.string().nullable(),
+      city: z.string().nullable(),
+      institution_type: z.enum(['universitaet', 'ph', 'hochschule', 'privat', 'mpg', 'leibniz', 'helmholtz', 'fraunhofer', 'klinik', 'ressort', 'sonstige']).nullable(),
+      is_department_page: z.boolean(),
+      sample_checks: z.array(z.object({ index: z.number().int(), is_posting: z.boolean(), problems: z.array(z.string()) })),
+      link_pattern: z.string().nullable(),
+      needs_browser: z.boolean(),
+      verdict: z.enum(['gut', 'mit_einschraenkungen', 'ungeeignet']),
+      summary_de: z.string(),
+    });
+    return this.json(
+      schema,
+      [
+        {
+          role: 'system',
+          content:
+            'Du prüfst, ob eine Webseite als Quelle für Stellenanzeigen taugt, die ein Programm täglich einsammelt. Antworte nur mit JSON. ' +
+            'is_job_list: Listet die Seite aktuelle Stellenausschreibungen? institution_name, city, institution_type: wer schreibt aus (Typ aus der vorgegebenen Liste)? ' +
+            'is_department_page: Gehört die Liste zu einem Fachbereich, Institut oder Lehrstuhl (statt zur zentralen Stellenbörse einer ganzen Einrichtung)? ' +
+            'sample_checks: Ist jede Probe-Anzeige wirklich eine einzelne, vollständig gelesene Stellenausschreibung (Titel, Aufgaben, Profil, Bewerbung)? problems: kurze deutsche Stichworte. ' +
+            'link_pattern: ein regulärer Ausdruck, der auf die Adressen der Anzeigen passt und Navigation ausschließt, oder null, wenn nicht nötig. ' +
+            'needs_browser: erscheinen die Anzeigen erst per JavaScript? verdict: "gut", "mit_einschraenkungen" oder "ungeeignet". ' +
+            'summary_de: 2 bis 3 Sätze in einfachem Deutsch: was gefunden wurde und worauf zu achten ist.',
+        },
+        {
+          role: 'user',
+          content:
+            `Adresse: ${input.url}\nSeitentitel: ${input.pageTitle}\n\nSeitentext (gekürzt):\n${input.pageText.slice(0, 2500)}\n\n` +
+            `Gefundene Anzeigen-Links:\n${input.links.map((l) => `[${l.i}] ${l.text.slice(0, 100)} -> ${l.url}`).join('\n').slice(0, 5000)}\n\n` +
+            `Probe-Anzeigen:\n${input.samples.map((s) => `[${s.i}] ${s.title}\n${s.url}\nErkannt: ${s.fields}\n${s.text.slice(0, 1200)}`).join('\n\n---\n\n')}`,
+        },
+      ],
+      900,
+    );
+  }
+
   /** Welche Seite ist die Stellenbörse einer Einrichtung? */
   pickJobsPage(institution: string, links: { i: number; text: string; url: string }[]) {
     const schema = z.object({ index: z.number().int().nullable(), confidence: z.enum(['hoch', 'mittel', 'niedrig']) });

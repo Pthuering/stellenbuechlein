@@ -49,6 +49,12 @@ export function closeOverlay(): void {
   }
 }
 
+/** Verlässt eine geöffnete Anzeige direkt in Richtung einer anderen Seite (ersetzt den Verlaufseintrag). */
+export function leaveOverlayTo(to: string): void {
+  if (inAppNavigations > 0) inAppNavigations--;
+  navigate(to, true);
+}
+
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => parseHash(location.hash));
   useEffect(() => {

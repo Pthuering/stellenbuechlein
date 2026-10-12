@@ -112,6 +112,45 @@ export function findDates(text: string): FoundDate[] {
   return dedup;
 }
 
+export interface YearlessDate {
+  index: number;
+  end: number;
+  day: number;
+  month: number;
+  raw: string;
+}
+
+/**
+ * Datumsangaben ohne Jahr: "15.11.", "15. 11.", "15. November", "November 15".
+ * Nur für die Frist gedacht (direkt nach "Bewerbungsfrist", "bis zum" …), weil Zahlen wie "3.2." sonst
+ * zu leicht etwas anderes sind.
+ */
+export function findYearlessDates(text: string): YearlessDate[] {
+  const out: YearlessDate[] = [];
+  const valid = (d: number, m: number) => isoDate(2028, m, d) !== null; // Schaltjahr, damit 29.02. gilt
+  let m: RegExpExecArray | null;
+
+  const numeric = /(?<![\d.])(\d{1,2})\.\s?(\d{1,2})\.(?!\s?\d)/g;
+  while ((m = numeric.exec(text))) {
+    const d = +m[1];
+    const mo = +m[2];
+    if (valid(d, mo)) out.push({ index: m.index, end: m.index + m[0].length, day: d, month: mo, raw: m[0].trim() });
+  }
+  const dm = new RegExp(`(?<!\\d)(\\d{1,2})(?:\\.|st|nd|rd|th)?\\s+(${MONTH_NAMES})\\b\\.?(?!,?\\s*\\d{2,4})`, 'gi');
+  while ((m = dm.exec(text))) {
+    const mo = MONTHS[m[2].toLowerCase().replace('ä', 'ae')] ?? MONTHS[m[2].toLowerCase()];
+    const d = +m[1];
+    if (mo && valid(d, mo)) out.push({ index: m.index, end: m.index + m[0].length, day: d, month: mo, raw: m[0].trim() });
+  }
+  const md = new RegExp(`\\b(${MONTH_NAMES})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?!,?\\s*\\d{2,4})`, 'gi');
+  while ((m = md.exec(text))) {
+    const mo = MONTHS[m[1].toLowerCase().replace('ä', 'ae')] ?? MONTHS[m[1].toLowerCase()];
+    const d = +m[2];
+    if (mo && valid(d, mo)) out.push({ index: m.index, end: m.index + m[0].length, day: d, month: mo, raw: m[0].trim() });
+  }
+  return out.sort((a, b) => a.index - b.index);
+}
+
 /** Datum für die Anzeige: "15.11.2026". */
 export function formatDateDe(iso: string | null | undefined): string {
   if (!iso) return '';

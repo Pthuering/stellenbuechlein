@@ -78,7 +78,7 @@ export function App() {
       <SvgDefs />
       {s.demo && (
         <p className="demo-banner">
-          Demo mit echten Anzeigen vom 9. Oktober 2026, alles bleibt in diesem Browser. Eigene Testfotos: unter „Ich“.
+          Demo mit echten Anzeigen vom 9. und 12. Oktober 2026, alles bleibt in diesem Browser. Eigene Testfotos: unter „Ich“.
         </p>
       )}
       <main className="main" key={`${route.tab}/${route.sub ?? ''}`}>

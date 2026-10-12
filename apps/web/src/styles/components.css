@@ -1943,3 +1943,393 @@ details.help ul {
   border: 2px solid var(--surface-raised);
   box-shadow: var(--shadow-paper);
 }
+
+/* ------------------------------------------------------------------ Horizont, Fristen-Prüfung, neue Websites */
+
+/* Etikett für Horizont und Weite: Sekundärrolle, weil die App hier einordnet */
+.card__tags,
+.row__tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.card__tags {
+  margin: 0 0 -2px;
+}
+
+.lane-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1.5px solid color-mix(in srgb, var(--secondary) 75%, transparent);
+  background: var(--secondary-soft);
+  color: var(--secondary-strong);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lane-tag::before {
+  content: '';
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  box-shadow: 0 0 0 2px var(--secondary-soft), 0 0 0 3.2px color-mix(in srgb, currentColor 55%, transparent);
+}
+
+.lane-tag--tiny {
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.lane-tag--tiny::before {
+  width: 7px;
+  height: 7px;
+}
+
+.card__why {
+  margin: 0;
+  padding: 2px 0 2px 10px;
+  border-left: 3px solid var(--secondary);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.card__why b {
+  color: var(--secondary-strong);
+  font-weight: 600;
+}
+
+/* Unsichere Frist: Akzentrolle (Fristen), nie still falsch */
+.card__deadline--unsure {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  border: 1.5px dashed color-mix(in srgb, var(--accent-strong) 60%, transparent);
+}
+
+.card__deadline--unsure span {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.deadline-unsure {
+  text-decoration: underline wavy color-mix(in srgb, var(--accent-strong) 80%, transparent);
+  text-underline-offset: 3px;
+}
+
+.facts__note {
+  display: block;
+  margin-top: 2px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.facts__note--warn {
+  color: var(--text);
+}
+
+.horizon-note {
+  margin: 14px 0 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--secondary-soft);
+  border: 1.5px solid color-mix(in srgb, var(--secondary) 60%, transparent);
+  font-size: 15px;
+}
+
+.horizon-note p {
+  margin: 4px 0;
+}
+
+.horizon-note__head {
+  font-weight: 650;
+  color: var(--secondary-strong);
+}
+
+.horizon-note__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Drei Ringe auf der Horizont-Seite */
+.rings {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  margin: 4px auto 10px;
+}
+
+.rings__label {
+  font-family: var(--hand);
+  font-size: 13px;
+  font-weight: 600;
+  fill: var(--primary-strong);
+}
+
+.rings__label--h {
+  fill: var(--secondary-strong);
+}
+
+.rings__label--w {
+  fill: var(--text-muted);
+}
+
+.cat-card--horizon {
+  background: color-mix(in srgb, var(--secondary-soft) 55%, var(--surface-raised));
+}
+
+.bridge-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.bridge {
+  padding: 8px 12px 10px;
+  border-radius: 12px;
+  border: 1.5px solid color-mix(in srgb, var(--text) 14%, transparent);
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+}
+
+.bridge--off {
+  opacity: 0.62;
+}
+
+.bridge--suggested {
+  background: var(--surface-raised);
+  border-style: dashed;
+}
+
+.bridge__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bridge__name {
+  flex: 1;
+  margin: 0;
+  font-weight: 650;
+  font-size: 17px;
+  text-align: left;
+}
+
+.bridge__terms,
+.bridge__why,
+.bridge__meta {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.bridge__terms {
+  color: var(--text-muted);
+}
+
+.bridge__why {
+  font-style: italic;
+}
+
+.bridge__meta {
+  color: var(--secondary-strong);
+  font-size: 13px;
+}
+
+/* Kleiner Schalter ohne Beschriftung (wie .toggle input) */
+.switch {
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.switch input {
+  appearance: none;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  border: 2px solid var(--text);
+  background: var(--surface-raised);
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.switch input::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text);
+  transition: transform 0.15s;
+}
+
+.switch input:checked {
+  background: var(--primary);
+}
+
+.switch input:checked::after {
+  transform: translateX(18px);
+}
+
+.switch input:focus-visible {
+  outline: 3px solid var(--primary-strong);
+  outline-offset: 2px;
+}
+
+/* Probelauf für neue Quellen */
+.verdict {
+  display: inline-block;
+  margin: 0 0 4px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-weight: 650;
+  font-size: 15px;
+}
+
+.verdict--gut {
+  background: var(--secondary-soft);
+  color: var(--secondary-strong);
+  border: 1.5px solid color-mix(in srgb, var(--secondary) 70%, transparent);
+}
+
+.verdict--mit_einschraenkungen {
+  background: var(--accent-soft);
+  color: var(--text);
+  border: 1.5px dashed color-mix(in srgb, var(--accent-strong) 60%, transparent);
+}
+
+.verdict--ungeeignet {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  border: 1.5px solid var(--primary);
+}
+
+.check__notes {
+  margin: 10px 0 0;
+  padding-left: 1.1em;
+  font-size: 14.5px;
+  color: var(--text-muted);
+}
+
+.check__samples {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.check-sample {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-raised);
+  border: 1.5px solid color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.check-sample__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.check-sample__facts {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.check-sample__excerpt {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.check-sample__problems {
+  margin: 6px 0 0;
+  font-size: 13.5px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.check-wait {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--secondary-soft);
+  overflow-wrap: anywhere;
+}
+
+.check-wait__dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-top: 4px;
+  border-radius: 50%;
+  border: 2.5px solid var(--secondary-strong);
+  border-right-color: transparent;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-wait__dot {
+    animation: none;
+  }
+}
+
+.skip__note {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.card__tags .lane-tag {
+  font-size: 12.5px;
+  padding: 1px 9px;
+}
+
+.card__tags .chip--tiny {
+  font-size: 12px;
+}
+
+/* Auf der Karte bleiben die Etiketten in einer Zeile; die Brücke wird notfalls gekürzt */
+.card__tags {
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.card__tags .lane-tag {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.card__tags .chip {
+  flex: none;
+}

@@ -23,6 +23,11 @@ const env = {
   VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY,
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
   GITHUB_REPO: process.env.GITHUB_REPO,
+  GITHUB_WORKFLOW: process.env.GITHUB_WORKFLOW,
+  GITHUB_CHECK_WORKFLOW: process.env.GITHUB_CHECK_WORKFLOW,
+  LLM_API_KEY: process.env.LLM_API_KEY ?? process.env.DEEPSEEK_API_KEY,
+  LLM_BASE_URL: process.env.LLM_BASE_URL,
+  LLM_MODEL: process.env.LLM_MODEL,
   ALLOWED_ORIGIN: process.env.ALLOWED_ORIGIN,
 };
 

@@ -1,10 +1,10 @@
 // Der Stapel: Karteikarten zum Wischen. Rechts = merken, links = weglegen, hoch/tippen = alles lesen.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { countActiveFilters, topReasons } from '@stellen/core';
+import { bridgeExplanation, countActiveFilters, topReasons } from '@stellen/core';
 import { useAppState, useDeck, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
-import { deadlineInfo, factChips, institutionName, jobImage, placeLabel } from '../lib/format';
+import { deadlineOf, employerName, factChips, jobImage, laneLabel, placeLabel } from '../lib/format';
 import { useTestPhotos } from '../data/testPhotos';
 import { Polaroid } from '../ui/Polaroid';
 import { Empty, ScoreRing } from '../ui/bits';
@@ -48,8 +48,10 @@ function DeckCard({
   const img = jobImage(job, inst, city, testPhotos);
   const showPhoto = s.settings.ui.cardImages !== false;
   const place = placeLabel(city, view.place.distanceKm);
-  const dl = deadlineInfo(job.deadline);
+  const dl = deadlineOf(job);
   const reasons = topReasons(view.score, 3);
+  const lane = view.lane.promoted || view.lane.lane !== 'kern' ? laneLabel(view.lane) : null;
+  const why = view.lane.lane !== 'kern' ? (view.lane.reason ?? (view.lane.bridge ? bridgeExplanation(view.lane.bridge) : null)) : null;
   const tilt = tiltOf(job.id);
   const top = depth === 0;
 
@@ -149,7 +151,7 @@ function DeckCard({
       onPointerUp={onUp}
       onPointerCancel={onUp}
       aria-hidden={!top}
-      aria-label={top ? `${job.title}, ${institutionName(inst)}` : undefined}
+      aria-label={top ? `${job.title}, ${employerName(job, inst)}` : undefined}
     >
       {showPhoto ? (
         <>
@@ -188,8 +190,14 @@ function DeckCard({
         </div>
       )}
       <div className="card__body">
+        {(lane || job.newSite) && (
+          <p className="card__tags">
+            {lane && <span className="lane-tag">{lane}</span>}
+            {job.newSite && <span className="chip chip--neutral chip--tiny">neue Website</span>}
+          </p>
+        )}
         <p className="card__inst">
-          {institutionName(inst)}
+          {employerName(job, inst)}
           {job.department ? `, ${job.department}` : ''}
         </p>
         <h2 className="card__title">{job.title}</h2>
@@ -201,16 +209,31 @@ function DeckCard({
           ))}
         </div>
         {dl ? (
-          <p className="card__deadline">
-            <span className={dl.urgent ? 'marker' : ''}>Frist {dl.date}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span>
-          </p>
+          dl.unsure ? (
+            <p className="card__deadline card__deadline--unsure">
+              {dl.date ? `Frist ${dl.date}?` : 'Frist unklar'} <span>bitte im Original prüfen</span>
+            </p>
+          ) : (
+            <p className="card__deadline">
+              <span className={dl.urgent ? 'marker' : ''}>Frist {dl.date}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span>
+            </p>
+          )
         ) : (
           <p className="card__deadline" style={{ color: 'var(--text-muted)' }}>
             Keine Frist angegeben
           </p>
         )}
-        {job.summary && <p className="card__summary print">{job.summary}</p>}
-        {reasons.length > 0 && <p className="card__reasons">passt wegen {reasons.join(', ')}</p>}
+        {why ? (
+          // Horizont-Karte: Die Begründung ist wichtiger als die Kurzfassung (die steht in der Anzeige)
+          <p className="card__why">
+            <b>Warum das passen könnte:</b> {why}
+          </p>
+        ) : (
+          <>
+            {job.summary && <p className="card__summary print">{job.summary}</p>}
+            {reasons.length > 0 && <p className="card__reasons">passt wegen {reasons.join(', ')}</p>}
+          </>
+        )}
       </div>
       {top && (
         <button type="button" className="card__more" onClick={() => openJob(job.id)}>
@@ -323,8 +346,8 @@ export function DeckScreen() {
               s.jobs.size === 0
                 ? s.sync.error ?? 'Sobald die Einsammel-Pipeline gelaufen ist, liegen hier die ersten Karten.'
                 : activeFilters
-                  ? 'Mit den aktuellen Filtern ist nichts mehr übrig. Neue Anzeigen kommen zweimal am Tag.'
-                  : 'Neue Anzeigen kommen zweimal am Tag dazu.'
+                  ? 'Mit den aktuellen Filtern ist nichts mehr übrig. Neue Anzeigen kommen täglich gegen 12 Uhr.'
+                  : 'Neue Anzeigen kommen täglich gegen 12 Uhr dazu, oder per „Jetzt einsammeln“ unter „Ich“.'
             }
           >
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>

@@ -1,10 +1,11 @@
 // Die ganze Anzeige: Foto, Eckdaten, warum sie passt, Merken/Herzensjob/beworben, Notiz, vollständiger Text.
 
 import { useEffect, useMemo, useState } from 'react';
-import { CATEGORY_LABELS, formatDateDe, formatKm, INSTITUTION_KIND_LABELS, JOB_KIND_LABELS, type ScoreResult } from '@stellen/core';
-import { useAppState, useStore, useViews } from '../data/hooks';
-import { closeOverlay } from '../lib/router';
-import { deadlineInfo, institutionName, jobImage, shortDate } from '../lib/format';
+import { bridgeExplanation, CATEGORY_LABELS, formatDateDe, formatKm, horizontOf, INSTITUTION_KIND_LABELS, isAggregatorUrl, JOB_KIND_LABELS, type ScoreResult } from '@stellen/core';
+import { useAppState, useStore, useViews, type JobView } from '../data/hooks';
+import { closeOverlay, leaveOverlayTo } from '../lib/router';
+import { deadlineCheckText, deadlineOf, employerName, jobImage, laneLabel, shortDate } from '../lib/format';
+import { setIntent } from '../lib/intent';
 import { useTestPhotos } from '../data/testPhotos';
 import { renderMarkdown } from '../lib/markdown';
 import { Sheet } from '../ui/Sheet';
@@ -61,6 +62,60 @@ function Why({ score }: { score: ScoreResult }) {
   );
 }
 
+/** Horizont und Weite: warum die Anzeige trotz fehlendem Psychologie-Bezug hier ist, und Knöpfe dafür. */
+function HorizonNote({ v }: { v: JobView }) {
+  const s = useAppState();
+  const store = useStore();
+  const l = v.lane;
+  if (l.lane === 'kern') return null;
+  const bridge = l.bridge?.bridge ?? null;
+  const verdict = l.verdict === 'passt' ? 'Die KI hält die Stelle für gut machbar.' : l.verdict === 'eher' ? 'Die KI hält die Stelle für möglich, mit Lücken.' : null;
+  const pause = () => {
+    if (!bridge) return;
+    const prev = s.settings.profile;
+    const h = horizontOf(prev);
+    store.updateSettings('profile', { ...prev, horizont: { ...h, bruecken: h.bruecken.map((b) => (b.id === bridge.id ? { ...b, aktiv: false } : b)) }, updatedAt: new Date().toISOString() });
+    store.toast(`Brücke „${bridge.name}“ pausiert. Solche Anzeigen kommen nicht mehr in den Stapel.`, { label: 'Rückgängig', run: () => store.updateSettings('profile', prev) }, 7000);
+  };
+  return (
+    <div className="horizon-note">
+      <p className="horizon-note__head">{laneLabel(l)}</p>
+      <p>
+        {l.lane === 'weite'
+          ? 'Außerhalb deiner Kernthemen und ohne Brücke, aber deine Fähigkeiten könnten hier tragen.'
+          : 'Außerhalb deiner Kernthemen, aber eine deiner Brücken passt.'}{' '}
+        {verdict}
+      </p>
+      {l.reason && (
+        <p>
+          <b>Warum das passen könnte:</b> {l.reason}
+        </p>
+      )}
+      {l.bridge && <p className="hint">{bridgeExplanation(l.bridge)}</p>}
+      {!l.promoted && l.lane === 'horizont' && <p className="hint">Die Brücke ist pausiert, darum kommt die Anzeige nicht mehr in den Stapel.</p>}
+      <div className="horizon-note__actions">
+        {bridge && (
+          <button
+            type="button"
+            className="btn btn--small"
+            onClick={() => {
+              setIntent('editBridge', bridge.id);
+              leaveOverlayTo('/ich/horizont');
+            }}
+          >
+            Brücke bearbeiten
+          </button>
+        )}
+        {bridge && bridge.aktiv && (
+          <button type="button" className="btn btn--small btn--quiet" onClick={pause}>
+            Brücke passt nicht, pausieren
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function JobDetail({ id }: { id: string }) {
   const s = useAppState();
   const store = useStore();
@@ -83,13 +138,29 @@ export function JobDetail({ id }: { id: string }) {
   const inst = job.institutionId ? s.institutions.get(job.institutionId) : undefined;
   const city = v.place.cityId ? s.cities.get(v.place.cityId) : undefined;
   const img = jobImage(job, inst, city, testPhotos);
-  const dl = deadlineInfo(job.deadline);
+  const dl = deadlineOf(job);
+  const dlText = dl ? deadlineCheckText(dl) : null;
   const saved = mark?.decision === 'gemerkt';
   const rejected = mark?.decision === 'abgelehnt';
   const instFav = inst ? store.isFavorite('institution', inst.id) : false;
 
   const facts: [string, React.ReactNode][] = [];
-  if (dl) facts.push(['Frist', <><span className={dl.urgent ? 'marker' : ''}>{dl.date}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span></>]);
+  if (dl && dl.date)
+    facts.push([
+      'Frist',
+      <>
+        <span className={dl.unsure ? 'deadline-unsure' : dl.urgent ? 'marker' : ''}>{dl.date}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span>
+        {dlText && <small className={`facts__note ${dl.unsure ? 'facts__note--warn' : ''}`}>{dlText}</small>}
+      </>,
+    ]);
+  else if (dl)
+    facts.push([
+      'Frist',
+      <>
+        <span className="deadline-unsure">unklar</span>
+        {dlText && <small className="facts__note facts__note--warn">{dlText}</small>}
+      </>,
+    ]);
   else facts.push(['Frist', <span style={{ color: 'var(--text-muted)' }}>keine angegeben</span>]);
   if (job.kind) facts.push(['Stellenart', JOB_KIND_LABELS[job.kind]]);
   if (job.payGrade) facts.push(['Entgelt', job.payGrade]);
@@ -116,7 +187,7 @@ export function JobDetail({ id }: { id: string }) {
       </div>
       {img.credit && <p className="hint" style={{ margin: '-6px 0 8px' }}>{img.credit}</p>}
 
-      <p className="detail-inst">{institutionName(inst)}</p>
+      <p className="detail-inst">{employerName(job, inst)}</p>
       {job.department && <p className="detail-dept">{job.department}</p>}
       <h1 className="detail-title" id="detail-title">
         {job.title}
@@ -141,7 +212,33 @@ export function JobDetail({ id }: { id: string }) {
           <IconX width={20} height={20} /> {rejected ? 'Weggelegt' : 'Weglegen'}
         </button>
       </div>
-      {mark?.star && dl && !dl.past && <p className="hint">Erinnerung {s.settings.reminders.days.map((d) => (d === 1 ? '1 Tag' : `${d} Tage`)).join(', ')} vor der Frist.</p>}
+      {mark?.star && dl && dl.date && !dl.past && <p className="hint">Erinnerung {s.settings.reminders.days.map((d) => (d === 1 ? '1 Tag' : `${d} Tage`)).join(', ')} vor der Frist.</p>}
+
+      <HorizonNote v={v} />
+      {job.newSite && (
+        <div className="notice" style={{ marginTop: 12 }}>
+          <b>Von einer neuen Website.</b> {job.employer ? `${job.employer} steht` : 'Diese Website steht'} noch nicht im Quellen-Register
+          {job.foundVia === 'erkundung' ? ' (gefunden bei der Suche nach blinden Flecken)' : job.foundVia === 'portal' ? ' (gefunden über ein Portal)' : ''}.
+          {!isAggregatorUrl(job.url) && !s.demo ? (
+            <div style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn btn--small"
+                onClick={() => {
+                  setIntent('checkUrl', new URL(job.url).origin + '/');
+                  leaveOverlayTo('/ich/quellen');
+                }}
+              >
+                Website als Quelle prüfen
+              </button>
+            </div>
+          ) : !isAggregatorUrl(job.url) ? (
+            <p className="hint" style={{ margin: '6px 0 0' }}>In der eingerichteten App lässt sich die Website hier direkt per KI-Probelauf ins Register aufnehmen.</p>
+          ) : (
+            <p className="hint" style={{ margin: '6px 0 0' }}>Die Anzeige liegt bei einer Jobbörse; die Website des Arbeitgebers ist noch nicht bekannt.</p>
+          )}
+        </div>
+      )}
 
       <h2 className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span>Passt zu {v.score.score} %</span>

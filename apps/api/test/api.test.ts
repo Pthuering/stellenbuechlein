@@ -1,6 +1,8 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createServer, type Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { SqliteDb, migrateSqlite } from '@stellen/db/sqlite';
-import { upsertJobStmt, type JobWrite } from '@stellen/db';
+import { discoveryStmt, finishSourceCheck, upsertJobStmt, type JobWrite } from '@stellen/db';
 import { canonicalUrl, contentHash, jobIdForUrl } from '@stellen/core';
 import { applySeed } from '../../ingest/src/seed';
 import { createApp } from '../src/app';
@@ -104,5 +106,84 @@ describe('API', () => {
     expect((await app.request('/api/ingest/sql', { method: 'POST', headers: auth, body })).status).toBe(401);
     const r = await app.request('/api/ingest/sql', { method: 'POST', headers: { authorization: `Bearer ${env.INGEST_KEY}`, 'content-type': 'application/json' }, body });
     expect(((await r.json()) as { row: { n: number } }).row.n).toBe(25);
+  });
+});
+
+describe('Probelauf, Funde und Horizont', () => {
+  let llm: Server;
+  let llmUrl = '';
+  beforeAll(async () => {
+    // Nachgebaute KI (OpenAI-kompatibel) für die Brücken-Vorschläge im Worker
+    llm = createServer((req, res) => {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', () => {
+        const answer = {
+          bruecken: [
+            { name: 'Mensch & KI', feld: ['ki', 'machine learning'], anker: [], suche: ['KI Akzeptanz'], warum: 'gibt es schon' },
+            { name: 'Kinder & Medien', feld: ['medienkompetenz', 'kinderfernsehen', 'jugendmedienschutz'], anker: [], suche: ['Medienpädagogik'], warum: 'Entwicklungspsychologie trifft Medien.' },
+          ],
+        };
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(answer) } }] }));
+      });
+    });
+    await new Promise<void>((r) => llm.listen(0, '127.0.0.1', r));
+    llmUrl = `http://127.0.0.1:${(llm.address() as AddressInfo).port}`;
+  });
+  afterAll(async () => {
+    await new Promise<void>((r) => llm.close(() => r()));
+  });
+
+  it('legt einen Probelauf an und übernimmt das Ergebnis als Quelle', async () => {
+    const r = await app.request('/api/sources/checks', { method: 'POST', headers: auth, body: JSON.stringify({ url: 'https://www.beispiel-institut.de/karriere' }) });
+    const { check, started } = (await r.json()) as { check: { id: number; status: string }; started: boolean };
+    expect(check.status).toBe('wartet');
+    expect(started).toBe(false); // ohne GitHub-Token: der nächste Lauf arbeitet ihn ab
+    // gleiche Adresse nochmal: kein zweiter Probelauf
+    const again = (await (await app.request('/api/sources/checks', { method: 'POST', headers: auth, body: JSON.stringify({ url: 'https://www.beispiel-institut.de/karriere' }) })).json()) as { check: { id: number } };
+    expect(again.check.id).toBe(check.id);
+
+    // Übernehmen erst, wenn fertig
+    const early = await app.request(`/api/sources/checks/${check.id}/accept`, { method: 'POST', headers: auth, body: JSON.stringify({ kind: 'zentral', gate: 'psych', institution: { name: 'Beispiel-Institut', cityId: 'leipzig', kind: 'sonstige' } }) });
+    expect(early.status).toBe(409);
+
+    await finishSourceCheck(db, check.id, { listUrl: 'https://www.beispiel-institut.de/karriere/stellen', config: { render: true }, verdict: 'gut', ai: { verdict: 'gut' } }, null);
+    await db.batch([discoveryStmt('beispiel-institut.de', 'Beispiel-Institut', 'https://www.beispiel-institut.de/karriere/stellen/1')]);
+    const ok = await app.request(`/api/sources/checks/${check.id}/accept`, { method: 'POST', headers: auth, body: JSON.stringify({ kind: 'zentral', gate: 'psych', institution: { name: 'Beispiel-Institut', cityId: 'leipzig', kind: 'sonstige' } }) });
+    expect(ok.status).toBe(200);
+    const data = (await (await app.request('/api/sources', { headers: auth })).json()) as {
+      sources: { url: string; config: { render?: boolean; note?: string }; verified: boolean; institutionId: string }[];
+      checks: { id: number; status: string }[];
+      discoveries: unknown[];
+    };
+    const src = data.sources.find((x) => x.url === 'https://www.beispiel-institut.de/karriere/stellen')!;
+    expect(src.config.render).toBe(true);
+    expect(src.config.note).toMatch(/Per Probelauf geprüft/);
+    expect(src.verified).toBe(true);
+    expect(data.checks.find((c) => c.id === check.id)?.status).toBe('uebernommen');
+    // Der passende Fund der Erkundung ist damit erledigt
+    expect(data.discoveries).toHaveLength(0);
+  });
+
+  it('Funde ignorieren', async () => {
+    await db.batch([discoveryStmt('arbeitgeber:stiftung x', 'Stiftung X', null)]);
+    let d = (await (await app.request('/api/discoveries', { headers: auth })).json()) as { discoveries: { siteKey: string }[] };
+    expect(d.discoveries.map((x) => x.siteKey)).toContain('arbeitgeber:stiftung x');
+    const r = await app.request('/api/discoveries/status', { method: 'POST', headers: auth, body: JSON.stringify({ siteKey: 'arbeitgeber:stiftung x', status: 'ignoriert' }) });
+    expect(r.status).toBe(200);
+    d = (await (await app.request('/api/discoveries', { headers: auth })).json()) as { discoveries: { siteKey: string }[] };
+    expect(d.discoveries.map((x) => x.siteKey)).not.toContain('arbeitgeber:stiftung x');
+  });
+
+  it('Brücken-Vorschläge der KI (ohne schon vorhandene)', async () => {
+    const off = await app.request('/api/horizont/vorschlaege', { method: 'POST', headers: auth, body: '{}' });
+    expect(off.status).toBe(501);
+    const withAi = createApp({ db: () => db, env: () => ({ ...env, LLM_API_KEY: 'test', LLM_BASE_URL: llmUrl }) });
+    const r = await withAi.request('/api/horizont/vorschlaege', { method: 'POST', headers: auth, body: '{}' });
+    expect(r.status).toBe(200);
+    const { bruecken } = (await r.json()) as { bruecken: { name: string; herkunft: string; aktiv: boolean }[] };
+    expect(bruecken.map((b) => b.name)).toEqual(['Kinder & Medien']);
+    expect(bruecken[0].herkunft).toBe('ki');
   });
 });

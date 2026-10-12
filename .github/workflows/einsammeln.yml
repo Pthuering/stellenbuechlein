@@ -1,12 +1,18 @@
-# Sammelt zweimal täglich neue Anzeigen ein und verschickt fällige Fristen-Erinnerungen.
+# Sammelt täglich gegen 12 Uhr (deutsche Zeit) neue Anzeigen ein, sucht gezielt nach Anzeigen von Websites,
+# die noch nicht im Register stehen, und verschickt fällige Fristen-Erinnerungen. Zusätzlich jederzeit per
+# Knopf in der App („Jetzt einsammeln“) oder hier über „Run workflow“.
 # Läuft kostenlos in GitHub Actions (öffentliches Repo: unbegrenzt, privates: 2.000 Minuten/Monat).
-# Benötigte Secrets: API_URL, INGEST_KEY; optional DEEPSEEK_API_KEY, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRAWLER_CONTACT
+# Benötigte Secrets: API_URL, INGEST_KEY; optional DEEPSEEK_API_KEY, BRAVE_API_KEY, VAPID_PUBLIC_KEY,
+# VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRAWLER_CONTACT
 
 name: Einsammeln
 
 on:
   schedule:
-    - cron: '17 4,13 * * *' # 06:17 und 15:17 Uhr (Sommerzeit), im Winter eine Stunde früher
+    # GitHub rechnet in UTC. Beide Zeiten sind 12 Uhr in Deutschland: die erste im Sommer, die zweite im Winter.
+    # Der Schritt „Uhrzeit prüfen“ lässt jeweils nur die passende laufen.
+    - cron: '0 10 * * *'
+    - cron: '0 11 * * *'
   workflow_dispatch: {}
 
 concurrency:
@@ -14,13 +20,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  uhrzeit:
+    runs-on: ubuntu-latest
+    outputs:
+      los: ${{ steps.check.outputs.los }}
+    steps:
+      - id: check
+        name: Uhrzeit prüfen (12 Uhr deutscher Zeit)
+        run: |
+          offset=$(TZ=Europe/Berlin date +%z)
+          los=0
+          if [ "${{ github.event_name }}" != "schedule" ]; then los=1
+          elif [ "${{ github.event.schedule }}" = "0 10 * * *" ] && [ "$offset" = "+0200" ]; then los=1
+          elif [ "${{ github.event.schedule }}" = "0 11 * * *" ] && [ "$offset" = "+0100" ]; then los=1
+          fi
+          echo "Deutsche Zeit: $(TZ=Europe/Berlin date '+%d.%m.%Y %H:%M') (UTC$offset), Start: $los"
+          echo "los=$los" >> "$GITHUB_OUTPUT"
+
   einsammeln:
+    needs: uhrzeit
+    if: needs.uhrzeit.outputs.los == '1'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
       API_URL: ${{ secrets.API_URL }}
       INGEST_KEY: ${{ secrets.INGEST_KEY }}
       LLM_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
       VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
       VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
       VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
@@ -36,5 +62,5 @@ jobs:
         run: npx playwright@1.56.0 install --with-deps chromium
       - name: Startdaten abgleichen (neue Einrichtungen aus dem Repo übernehmen)
         run: npm run cli -w @stellen/ingest -- seed
-      - name: Anzeigen einsammeln
+      - name: Anzeigen einsammeln (mit Erkundung neuer Websites)
         run: npm run cli -w @stellen/ingest -- ingest

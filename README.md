@@ -1,16 +1,20 @@
 # Stellenbüchlein
 
-Private App für die Suche nach Forschungsstellen mit Psychologie-Bezug in Deutschland: Universitäten, Hochschulen, Unikliniken und außeruniversitäre Institute (Max-Planck, Leibniz, Helmholtz, Fraunhofer, Ressortforschung). Die Anzeigen werden zweimal am Tag eingesammelt, nach einem einstellbaren Suchprofil sortiert und im Notizbuch-Look angezeigt.
+Private App für die Suche nach Forschungsstellen mit Psychologie-Bezug in Deutschland: Universitäten, Hochschulen, Unikliniken und außeruniversitäre Institute (Max-Planck, Leibniz, Helmholtz, Fraunhofer, Ressortforschung). Die Anzeigen werden täglich gegen 12 Uhr (oder per Knopf) eingesammelt, nach einem einstellbaren Suchprofil sortiert und im Notizbuch-Look angezeigt. Dazu kommen Stellen außerhalb des Kernbereichs, die über eine „Brücke“ zu dir passen könnten, und in jedem Lauf mindestens drei Anzeigen von Websites, die noch nicht im Quellen-Register stehen.
 
 „Stellenbüchlein“ ist ein Arbeitstitel.
 
 ## Was die App kann
 
-- **Stapel:** Karteikarten zum Wischen. Rechts merken, links weglegen, Stern für Herzensjobs, hochwischen oder tippen für die ganze Anzeige. Jede Karte zeigt Foto (Anzeige, sonst Einrichtung, sonst Stadt, sonst eine gezeichnete Postkarte), Score, Eckdaten und Frist. Der Verlauf zeigt alle gemerkten und weggelegten Anzeigen, jede Entscheidung lässt sich ändern.
+- **Stapel:** Karteikarten zum Wischen. Rechts merken, links weglegen, Stern für Herzensjobs, hochwischen oder tippen für die ganze Anzeige. Jede Karte zeigt Foto (Anzeige, sonst Einrichtung, sonst Stadt, sonst eine gezeichnete Postkarte), Score, Eckdaten und Frist. Etwa jede 3. bis 5. Karte kommt aus dem **Horizont** (lavendelfarbenes Etikett, „Warum das passen könnte“). Der Verlauf zeigt alle gemerkten und weggelegten Anzeigen, jede Entscheidung lässt sich ändern.
+- **Horizont:** Brücken in andere Felder (z. B. IT-Sicherheit, Mensch & KI, UX), auch außerhalb der Forschung. Die KI prüft jede Brücken-Anzeige auf Plausibilität und schreibt einen Satz, warum sie passen könnte; in der **Weite** schlägt sie auch Stellen ohne Brücke vor, in denen deine Fähigkeiten tragen. Brücken kommen aus dem Steckbrief, aus KI-Vorschlägen oder von dir, und lassen sich in jeder Anzeige pausieren.
+- **Fristen:** Offen ist nur, was nicht abgelaufen ist. Fristen ohne Jahr werden ergänzt, verlängerte Fristen erkannt, unplausible Daten von der KI mit wörtlichem Zitat nachgeprüft; was unsicher bleibt, ist gelb markiert.
+- **Blinde Flecken:** Jeder Lauf erkundet mit wechselnden Suchwörtern Websites außerhalb des Registers und bringt mindestens drei Anzeigen von dort mit. Neue Websites stehen unter *Quellen → Neu* und kommen per Probelauf ins Register.
+- **Neue Quellen mit Probelauf:** Website eingeben, die Pipeline liest Liste und Probe-Anzeigen, die KI beurteilt das Ergebnis (Stellenliste? wer schreibt aus? vollständig gelesen? nötige Einstellungen?). Übernommen wird erst nach deiner Bestätigung.
 - **Karte:** gemerkte (oder alle offenen) Anzeigen auf einer gezeichneten Deutschlandkarte. Tippen zoomt von Deutschland über Bundesland und Stadt bis zur Einrichtung. Orte lassen sich dort direkt als Lieblingsort markieren.
 - **Gemerkt:** sortierbare Liste (Frist, Score, neu, Nähe), Fristen-Zettel für Herzensjobs, abgelaufene Gemerkte bleiben erhalten.
 - **Alle:** jede offene Anzeige, unabhängig vom Wischen, mit Suche, Filtern und Sortierung.
-- **Ich:** Suchprofil mit Herzchen-Score, Steckbrief-Import, Lieblingsorte, Zuhause und Umkreis (Standard: Halle (Saale)), Fristen-Erinnerungen (1 Monat, 1 Woche, 1 Tag vorher, änderbar, auch als Push), Quellen mit Zustand, Vorschlägen, Aussortiertem und Lauf-Protokollen, Bilder auf den Karten an oder aus, helles und dunkles Notizbuch.
+- **Ich:** Suchprofil mit Herzchen-Score, Horizont, Steckbrief-Import, Lieblingsorte, Zuhause und Umkreis (Standard: Halle (Saale)), Fristen-Erinnerungen (1 Monat, 1 Woche, 1 Tag vorher, änderbar, auch als Push), Quellen mit Zustand, Vorschlägen, Aussortiertem und Lauf-Protokollen, Bilder auf den Karten an oder aus, helles und dunkles Notizbuch.
 
 Gestaltung: Weiß und Beige als Fläche, Rosa als Primärfarbe, Lavendel sparsam für Orientierung, Hellgelb nur für Fristen und Herzensjobs. Die Regeln stehen in [docs/GESTALTUNG.md](docs/GESTALTUNG.md).
 
@@ -25,10 +29,10 @@ apps/ingest   Einsammel-Pipeline (Node, läuft in GitHub Actions) – Kaskade au
               Bewerbungsportalen, Sitemaps, KI-Auswertung und Browser-Agent (Playwright)
 packages/core Gemeinsame Logik: Score, Felder (Entgelt, Umfang, Befristung, Frist), Dubletten, Filter
 packages/db   Datenbankschema und -zugriff (D1, SQLite lokal, Fernzugriff für die Pipeline)
-data/seed     Startliste: 72 Städte, 158 Einrichtungen, Portale
+data/seed     Startliste: 73 Städte, 158 Einrichtungen, Portale
 ```
 
-Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Nur die optionale KI-Auswertung kostet ein paar Cent pro Lauf (DeepSeek-API, austauschbar).
+Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Nur die KI kostet etwas, je nach Anzahl neuer Anzeigen Cent-Beträge pro Lauf (DeepSeek-API, austauschbar). Ohne KI läuft alles regelbasiert, nur die Weite und die KI-Urteile fallen weg.
 
 ## Schnell ausprobieren
 
@@ -38,7 +42,7 @@ npm run build:demo            # eine einzelne HTML-Datei mit echten Beispielanze
 open apps/web/dist-demo/index.html
 ```
 
-Die Demo braucht keinen Server, alles bleibt im Browser. Die Beispielanzeigen haben keine Fotos; unter *Ich → Aussehen → Testfotos* lassen sich eigene Bilder darauf verteilen.
+Die Demo braucht keinen Server, alles bleibt im Browser. Sie enthält echte Anzeigen vom 9. und 12. Oktober 2026, darunter drei Horizont-Anzeigen und fünf von Websites außerhalb des Registers. Probelauf und KI-Vorschläge sind in der Demo nur nachgestellt. Die Beispielanzeigen haben keine Fotos; unter *Ich → Aussehen → Testfotos* lassen sich eigene Bilder darauf verteilen.
 
 ## Lokal entwickeln
 
@@ -55,6 +59,7 @@ Einzelne Quelle testen, ohne etwas zu speichern:
 
 ```bash
 npm run cli -w @stellen/ingest -- test-source https://www.example-uni.de/stellen --render
+npm run cli -w @stellen/ingest -- check-source https://www.example-uni.de/      # Probelauf mit KI-Urteil
 npm run cli -w @stellen/ingest -- agent https://www.example-uni.de/stellen/123
 ```
 

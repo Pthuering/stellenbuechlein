@@ -59,6 +59,13 @@ export interface JobRow {
   method: string | null;
   psych_terms: string | null;
   extra: string;
+  deadline_check: string | null;
+  deadline_note: string | null;
+  lane: string | null;
+  horizon: string | null;
+  new_site: number | null;
+  found_via: string | null;
+  employer: string | null;
 }
 
 export const JOB_COLUMNS = [
@@ -67,6 +74,7 @@ export const JOB_COLUMNS = [
   'fixed_term', 'is_permanent', 'start_text', 'deadline', 'deadline_text', 'reference_no', 'contact', 'language',
   'image_url', 'image_kind', 'image_credit', 'pdf_url', 'posted_at', 'first_seen_at', 'last_seen_at', 'updated_at',
   'content_hash', 'fuzzy_key', 'status', 'completeness', 'method', 'psych_terms', 'extra',
+  'deadline_check', 'deadline_note', 'lane', 'horizon', 'new_site', 'found_via', 'employer',
 ] as const;
 
 export function rowToJob(r: JobRow, sources?: JobSourceRef[]): Job {
@@ -109,6 +117,13 @@ export function rowToJob(r: JobRow, sources?: JobSourceRef[]): Job {
     method: r.method,
     psychTerms: parseJson<string[]>(r.psych_terms, []),
     sources,
+    deadlineCheck: (r.deadline_check as Job['deadlineCheck']) ?? null,
+    deadlineNote: r.deadline_note ?? null,
+    lane: (r.lane as Job['lane']) ?? null,
+    horizon: parseJson<Job['horizon']>(r.horizon, null),
+    newSite: !!r.new_site,
+    foundVia: (r.found_via as Job['foundVia']) ?? null,
+    employer: r.employer ?? null,
   };
 }
 
@@ -163,6 +178,13 @@ export function jobToRowValues(j: JobWrite): unknown[] {
     method: j.method ?? null,
     psych_terms: JSON.stringify(j.psychTerms ?? []),
     extra: JSON.stringify(j.extra ?? {}),
+    deadline_check: j.deadlineCheck ?? null,
+    deadline_note: j.deadlineNote ?? null,
+    lane: j.lane ?? null,
+    horizon: j.horizon ? JSON.stringify(j.horizon) : null,
+    new_site: j.newSite ? 1 : 0,
+    found_via: j.foundVia ?? null,
+    employer: j.employer ?? null,
   };
   return JOB_COLUMNS.map((c) => map[c]);
 }
@@ -565,7 +587,7 @@ export function markSeenStmt(jobId: string, now = nowIso()): Stmt {
  * Setzt Anzeigen auf "abgelaufen": Frist vorbei, oder seit `goneDays` Tagen in keiner Quelle mehr gesehen
  * (aber nur, wenn ihre Quellen inzwischen erfolgreich gelaufen sind – sonst wäre ein Quellenausfall ein falscher Ablauf).
  */
-export async function expireJobs(db: Db, today: string, goneBeforeIso: string, now = nowIso()): Promise<number> {
+export async function expireJobs(db: Db, today: string, goneBeforeIso: string, now = nowIso(), exploredGoneBeforeIso?: string): Promise<number> {
   const a = await db.run(
     "UPDATE jobs SET status = 'abgelaufen', updated_at = ? WHERE status = 'aktiv' AND deadline IS NOT NULL AND deadline < ?",
     [now, today],
@@ -578,7 +600,25 @@ export async function expireJobs(db: Db, today: string, goneBeforeIso: string, n
      )`,
     [now, goneBeforeIso, goneBeforeIso],
   );
-  return a.changes + b.changes;
+  // Über die Erkundung gefundene Anzeigen ohne Frist werden nicht jeden Tag wieder gelistet:
+  // Sie gelten nach längerer Zeit ohne neuen Fund als abgelaufen.
+  let c = { changes: 0 };
+  if (exploredGoneBeforeIso) {
+    c = await db.run(
+      `UPDATE jobs SET status = 'abgelaufen', updated_at = ? WHERE status = 'aktiv' AND deadline IS NULL AND found_via = 'erkundung'
+       AND last_seen_at < ? AND NOT EXISTS (SELECT 1 FROM job_sources js WHERE js.job_id = jobs.id AND js.source_id <> 'erkundung')`,
+      [now, exploredGoneBeforeIso],
+    );
+  }
+  return a.changes + b.changes + c.changes;
+}
+
+/** Eine Anzeige, die zuerst ohne Einrichtung gefunden wurde, taucht jetzt in einer Quelle mit Einrichtung auf. */
+export function linkJobInstitutionStmt(jobId: string, institutionId: string, now = nowIso()): Stmt {
+  return {
+    sql: 'UPDATE jobs SET institution_id = ?, new_site = 0, updated_at = ? WHERE id = ? AND institution_id IS NULL',
+    params: [institutionId, now, jobId],
+  };
 }
 
 /** Löscht abgelaufene Anzeigen nach einer Schonfrist – außer gemerkte/markierte. Legt Grabsteine für die App an. */
@@ -600,25 +640,178 @@ export async function purgeExpired(db: Db, olderThanIso: string, now = nowIso())
   return victims.length;
 }
 
-export function gateSkipStmt(p: { url: string; sourceId: string; institutionId: string | null; title: string; textHash: string }, now = nowIso()): Stmt {
+export interface GateSkipInput {
+  url: string;
+  sourceId: string;
+  institutionId: string | null;
+  title: string;
+  textHash: string;
+  /** grobfilter (kein Psychologie-Bezug, keine Brücke) | ki-nein (KI: passt nicht) | ausland */
+  reason?: string;
+  note?: string | null;
+}
+
+export function gateSkipStmt(p: GateSkipInput, now = nowIso()): Stmt {
   return {
-    sql: `INSERT INTO gate_skips (url, source_id, institution_id, title, text_hash, seen_at) VALUES (?, ?, ?, ?, ?, ?)
-          ON CONFLICT(url) DO UPDATE SET seen_at = excluded.seen_at, title = excluded.title, text_hash = excluded.text_hash`,
-    params: [p.url, p.sourceId, p.institutionId, p.title, p.textHash, now],
+    sql: `INSERT INTO gate_skips (url, source_id, institution_id, title, text_hash, seen_at, reason, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(url) DO UPDATE SET seen_at = excluded.seen_at, title = excluded.title, text_hash = excluded.text_hash,
+          reason = excluded.reason, note = excluded.note`,
+    params: [p.url, p.sourceId, p.institutionId, p.title, p.textHash, now, p.reason ?? 'grobfilter', p.note ?? null],
   };
 }
 
-export async function listGateSkips(db: Db, limit = 300): Promise<{ url: string; title: string | null; sourceId: string | null; institutionId: string | null; seenAt: string }[]> {
-  const rows = await db.all<{ url: string; title: string | null; source_id: string | null; institution_id: string | null; seen_at: string }>(
+export interface GateSkipRecord {
+  url: string;
+  title: string | null;
+  sourceId: string | null;
+  institutionId: string | null;
+  seenAt: string;
+  reason: string | null;
+  note: string | null;
+}
+
+export async function listGateSkips(db: Db, limit = 300): Promise<GateSkipRecord[]> {
+  const rows = await db.all<{ url: string; title: string | null; source_id: string | null; institution_id: string | null; seen_at: string; reason: string | null; note: string | null }>(
     'SELECT * FROM gate_skips ORDER BY seen_at DESC LIMIT ?',
     [limit],
   );
-  return rows.map((r) => ({ url: r.url, title: r.title, sourceId: r.source_id, institutionId: r.institution_id, seenAt: r.seen_at }));
+  return rows.map((r) => ({ url: r.url, title: r.title, sourceId: r.source_id, institutionId: r.institution_id, seenAt: r.seen_at, reason: r.reason ?? 'grobfilter', note: r.note }));
 }
 
 export async function loadGateSkipIndex(db: Db): Promise<Map<string, string>> {
   const rows = await db.all<{ url: string; text_hash: string | null }>('SELECT url, text_hash FROM gate_skips');
   return new Map(rows.map((r) => [r.url, r.text_hash ?? '']));
+}
+
+// ------------------------------------------------------------------ Neu entdeckte Websites
+
+export interface Discovery {
+  siteKey: string;
+  name: string | null;
+  sampleUrl: string | null;
+  jobs: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  status: 'offen' | 'geprueft' | 'uebernommen' | 'ignoriert';
+}
+
+/** Merkt sich eine Website (oder einen Arbeitgeber), die nicht im Register steht. */
+export function discoveryStmt(siteKey: string, name: string | null, sampleUrl: string | null, now = nowIso()): Stmt {
+  return {
+    sql: `INSERT INTO discoveries (site_key, name, sample_url, jobs, first_seen_at, last_seen_at) VALUES (?, ?, ?, 1, ?, ?)
+          ON CONFLICT(site_key) DO UPDATE SET jobs = discoveries.jobs + 1, last_seen_at = excluded.last_seen_at,
+          name = COALESCE(discoveries.name, excluded.name), sample_url = COALESCE(excluded.sample_url, discoveries.sample_url)`,
+    params: [siteKey, name, sampleUrl, now, now],
+  };
+}
+
+export async function listDiscoveries(db: Db, status: Discovery['status'] | 'alle' = 'offen', limit = 100): Promise<Discovery[]> {
+  const rows = await db.all<{ site_key: string; name: string | null; sample_url: string | null; jobs: number; first_seen_at: string; last_seen_at: string; status: string }>(
+    `SELECT * FROM discoveries ${status === 'alle' ? '' : 'WHERE status = ?'} ORDER BY last_seen_at DESC LIMIT ?`,
+    status === 'alle' ? [limit] : [status, limit],
+  );
+  return rows.map((r) => ({
+    siteKey: r.site_key,
+    name: r.name,
+    sampleUrl: r.sample_url,
+    jobs: r.jobs,
+    firstSeenAt: r.first_seen_at,
+    lastSeenAt: r.last_seen_at,
+    status: r.status as Discovery['status'],
+  }));
+}
+
+export async function setDiscoveryStatus(db: Db, siteKey: string, status: Discovery['status']): Promise<boolean> {
+  const r = await db.run('UPDATE discoveries SET status = ? WHERE site_key = ?', [status, siteKey]);
+  return r.changes > 0;
+}
+
+// ------------------------------------------------------------------ Probeläufe für neue Quellen
+
+export type SourceCheckStatus = 'wartet' | 'laeuft' | 'fertig' | 'fehler' | 'uebernommen' | 'verworfen';
+
+export interface SourceCheckRecord<R = unknown> {
+  id: number;
+  url: string;
+  sourceId: string | null;
+  status: SourceCheckStatus;
+  requestedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  result: R | null;
+  error: string | null;
+}
+
+interface SourceCheckRow {
+  id: number;
+  url: string;
+  source_id: string | null;
+  status: string;
+  requested_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  result: string | null;
+  error: string | null;
+}
+
+function rowToCheck<R>(r: SourceCheckRow): SourceCheckRecord<R> {
+  return {
+    id: r.id,
+    url: r.url,
+    sourceId: r.source_id,
+    status: r.status as SourceCheckStatus,
+    requestedAt: r.requested_at,
+    startedAt: r.started_at,
+    finishedAt: r.finished_at,
+    result: parseJson<R | null>(r.result, null),
+    error: r.error,
+  };
+}
+
+export async function createSourceCheck(db: Db, url: string, sourceId: string | null = null, now = nowIso()): Promise<SourceCheckRecord> {
+  // Läuft für dieselbe Adresse schon ein Probelauf, wird kein zweiter angelegt.
+  const open = await db.first<SourceCheckRow>("SELECT * FROM source_checks WHERE url = ? AND status IN ('wartet', 'laeuft') ORDER BY id DESC LIMIT 1", [url]);
+  if (open) return rowToCheck(open);
+  await db.run('INSERT INTO source_checks (url, source_id, status, requested_at) VALUES (?, ?, ?, ?)', [url, sourceId, 'wartet', now]);
+  const r = await db.first<SourceCheckRow>('SELECT * FROM source_checks WHERE url = ? AND requested_at = ? ORDER BY id DESC LIMIT 1', [url, now]);
+  return rowToCheck(r!);
+}
+
+export async function getSourceCheck<R = unknown>(db: Db, id: number): Promise<SourceCheckRecord<R> | null> {
+  const r = await db.first<SourceCheckRow>('SELECT * FROM source_checks WHERE id = ?', [id]);
+  return r ? rowToCheck<R>(r) : null;
+}
+
+export async function listSourceChecks<R = unknown>(db: Db, limit = 20): Promise<SourceCheckRecord<R>[]> {
+  const rows = await db.all<SourceCheckRow>('SELECT * FROM source_checks ORDER BY id DESC LIMIT ?', [limit]);
+  return rows.map((r) => rowToCheck<R>(r));
+}
+
+/** Wartende Probeläufe (und solche, die seit über einer Stunde „laufen“, also abgebrochen sind). */
+export async function pendingSourceChecks(db: Db, staleBeforeIso: string, limit = 5): Promise<SourceCheckRecord[]> {
+  const rows = await db.all<SourceCheckRow>(
+    "SELECT * FROM source_checks WHERE status = 'wartet' OR (status = 'laeuft' AND started_at < ?) ORDER BY id LIMIT ?",
+    [staleBeforeIso, limit],
+  );
+  return rows.map((r) => rowToCheck(r));
+}
+
+export async function startSourceCheck(db: Db, id: number, now = nowIso()): Promise<void> {
+  await db.run("UPDATE source_checks SET status = 'laeuft', started_at = ? WHERE id = ?", [now, id]);
+}
+
+export async function finishSourceCheck(db: Db, id: number, result: unknown | null, error: string | null, now = nowIso()): Promise<void> {
+  await db.run('UPDATE source_checks SET status = ?, finished_at = ?, result = ?, error = ? WHERE id = ?', [
+    error ? 'fehler' : 'fertig',
+    now,
+    result == null ? null : JSON.stringify(result),
+    error,
+    id,
+  ]);
+}
+
+export async function setSourceCheckStatus(db: Db, id: number, status: SourceCheckStatus): Promise<void> {
+  await db.run('UPDATE source_checks SET status = ? WHERE id = ?', [status, id]);
 }
 
 // ------------------------------------------------------------------ Markierungen, Lieblingsorte, Einstellungen

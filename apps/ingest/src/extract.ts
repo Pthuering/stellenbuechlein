@@ -53,6 +53,8 @@ export interface Candidate {
     country?: string | null;
     /** Referenznummer bei der Bundesagentur (für den Text-Fallback). */
     baRef?: string | null;
+    /** Suchbegriff, über den die Erkundung die Anzeige fand. */
+    query?: string | null;
   };
 }
 

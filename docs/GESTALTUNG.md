@@ -6,10 +6,10 @@ Das Stellenbüchlein sieht aus wie ein gezeichnetes Notizbuch. Damit es dabei ru
 
 | Rolle | Farbe | Wofür | Beispiele | Anteil |
 |---|---|---|---|---|
-| **Fläche** | Weiß, warmes Papier, Beige | Hintergrund und Träger | Papier, Karteikarten, Reiter, neutrale Chips, Länder ohne Anzeigen | etwa 60 % |
+| **Fläche** | Weiß, warmes Papier, Beige | Hintergrund und Träger | Papier, Karteikarten, Reiter, neutrale Chips (auch „neue Website“), Länder ohne Anzeigen | etwa 60 % |
 | **Primär** | Rosa in Abstufungen | Marke und alles, was du tust oder auswählst | Merken, Hauptknöpfe, gewählte Filter, Score, Lieblingsorte, Zähler auf der Karte, Klebeband | etwa 30 % |
-| **Sekundär** | Lavendel | Orientierung: was die App dir erklärt oder wo du stehst | KI-Kurzfassung, Vorschau im Profil, „Ausprobieren“, Demo-Hinweis, Zuhause und Umkreis auf der Karte, Status „beworben“, Quellen-Status „neu“ | sparsam |
-| **Akzent** | Hellgelb, Gold für Symbole | Fristen und Herzensjobs | Textmarker bei Fristen unter 14 Tagen, Herzensjob-Knopf und -Stern, Fristen-Zettel | sparsam |
+| **Sekundär** | Lavendel | Orientierung: was die App dir erklärt oder wo du stehst | KI-Kurzfassung, Horizont-Etikett und „Warum das passen könnte“, KI-Urteil im Probelauf, Vorschau im Profil, „Ausprobieren“, Demo-Hinweis, Zuhause und Umkreis auf der Karte, Status „beworben“, Quellen-Status „neu“ | sparsam |
+| **Akzent** | Hellgelb, Gold für Symbole | Fristen und Herzensjobs | Textmarker bei Fristen unter 14 Tagen, „Frist unsicher“, Herzensjob-Knopf und -Stern, Fristen-Zettel | sparsam |
 | **Schrift** | Pflaumenbraune Tinte | Text und Linien | Überschriften, Fließtext, Konturen | |
 
 Fehler- und Warnhinweise sind keine Gestaltungsfarben: Warnungen nutzen den hellen Akzentton, Fehler ein kräftiges Rosa mit dunkler Schrift.
@@ -21,6 +21,8 @@ Fehler- und Warnhinweise sind keine Gestaltungsfarben: Warnungen nutzen den hell
 3. **Helle Töne für Flächen, kräftige nur für Schrift und Symbole.** Rosa-, Lavendel- und Gelbflächen sind immer die hellen Stufen; die kräftigen Stufen (`-strong`) erscheinen nur als Schrift, Kontur oder Symbol.
 4. **Dekoration nur in Primärfarbe.** Klebeband, Randlinie und Unterstreichungen sind rosa, nie lavendel oder gelb.
 5. **Weniger ist Standard.** Neutral ist die Ausgangslage. Eine Farbe kommt nur dazu, wenn sie eine der Aufgaben oben erfüllt. Fristen ohne Eile bekommen deshalb keinen Marker, Eckdaten-Chips sind neutral, nur die Stellenart ist rosa.
+
+**Horizont-Karten** unterscheiden sich nur durch ein lavendelfarbenes Etikett mit kleinem Ring-Symbol und den Satz „Warum das passen könnte“ mit lavendelfarbener Randlinie. Score-Kreis, Knöpfe und Klebeband bleiben wie bei jeder Karte, damit der Stapel ruhig bleibt. Eine unsichere Frist ist hellgelb hinterlegt und gestrichelt umrandet (Akzentrolle), in Listen wellig unterstrichen.
 
 ## Aufbau der Tokens
 

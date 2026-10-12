@@ -205,6 +205,26 @@ export function SteckbriefImport() {
               </ul>
             </div>
           )}
+          {p.horizont && (
+            <div className="import-preview__cat">
+              <b>
+                Horizont <small>{p.horizont.weite ? 'mit Weite' : 'ohne Weite'}</small>
+              </b>
+              {p.horizont.bruecken.length === 0 ? (
+                <span className="hint">keine Brücken</span>
+              ) : (
+                <ul>
+                  {p.horizont.bruecken.slice(0, 8).map((b) => (
+                    <li key={b.id}>
+                      {b.name} <small>({b.feld.slice(0, 4).join(', ')}{b.feld.length > 4 ? ' …' : ''})</small>
+                    </li>
+                  ))}
+                  {p.horizont.bruecken.length > 8 && <li>und {p.horizont.bruecken.length - 8} weitere</li>}
+                </ul>
+              )}
+              {p.horizont.interessen.length > 0 && <span className="hint">Interessen: {p.horizont.interessen.join(', ')}</span>}
+            </div>
+          )}
           {result!.warnings.length > 0 && (
             <ul className="notice notice--warn" style={{ paddingLeft: 30 }}>
               {result!.warnings.map((w) => (

@@ -109,7 +109,7 @@ export function RemindersPage() {
 
       <h2 className="section-title">Benachrichtigungen</h2>
       {s.demo ? (
-        <p className="hint">In der Demo gibt es keine Benachrichtigungen. In der eingerichteten App kommen sie zweimal am Tag mit dem Einsammel-Lauf.</p>
+        <p className="hint">In der Demo gibt es keine Benachrichtigungen. In der eingerichteten App kommen sie mit dem täglichen Einsammel-Lauf gegen 12 Uhr.</p>
       ) : (
         <>
           <label className="toggle">

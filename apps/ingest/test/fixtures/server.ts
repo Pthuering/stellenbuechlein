@@ -136,6 +136,112 @@ const PDF5_LINES = [
   'Bewerbungen bitte bis zum 05.12.2026 an paed@test-uni.de.',
 ];
 
+
+// ---------------------------------------------------------------- Zentrale Börse mit Stellen außerhalb der Psychologie
+
+const zentralList = page(
+  'Alle Stellen',
+  `<h1>Stellenausschreibungen der Testuniversität</h1>
+<ul>
+  <li><a href="/zentral/usable-security.html">Wissenschaftliche:r Mitarbeiter:in (m/w/d) Usable Security</a></li>
+  <li><a href="/zentral/mobilitaet.html">Referent:in (m/w/d) Mobilitätsplanung</a></li>
+  <li><a href="/zentral/steuern.html">Sachbearbeitung (m/w/d) Steuern und Abgaben</a></li>
+  <li><a href="/zentral/hausmeister.html">Hausmeister:in (m/w/d) Campus Süd</a></li>
+  <li><a href="/zentral/studienberatung.html">Koordinator:in (m/w/d) Studienberatung</a></li>
+  <li><a href="/zentral/frist-ohne-jahr.html">Wissenschaftliche Mitarbeiterin (m/w/d) Klinische Psychologie</a></li>
+  <li><a href="/zentral/frist-weit.html">Promotionsstelle (m/w/d) Kognitive Psychologie</a></li>
+</ul>`,
+);
+
+const usableSecurity = page(
+  'Usable Security',
+  `<h1>Wissenschaftliche:r Mitarbeiter:in (m/w/d) Usable Security</h1>
+<p>Am Institut für Informatik untersuchen wir, wie Beschäftigte Phishing-Mails erkennen und wie Sicherheitswarnungen gestaltet sein müssen, damit Menschen ihnen folgen.</p>
+<h2>Ihre Aufgaben</h2><ul><li>Planung und Auswertung von Nutzerstudien und Online-Experimenten</li><li>Befragungen von Beschäftigten in Partnerunternehmen</li><li>Publikation der Ergebnisse</li></ul>
+<h2>Ihr Profil</h2><ul><li>Master in Informatik, Mensch-Computer-Interaktion oder einem verwandten Fach</li><li>Erfahrung mit empirischen Methoden</li></ul>
+<p>Vergütung E 13 TV-L, 100 %, befristet auf 3 Jahre. Bewerbungsfrist: 20.11.2026. Bewerbungen an security@test-uni.de.</p>`,
+);
+
+const mobilitaet = page(
+  'Mobilitätsplanung',
+  `<h1>Referent:in (m/w/d) Mobilitätsplanung</h1>
+<p>Im Dezernat Bau und Liegenschaften entwickeln Sie das Mobilitätskonzept der Universität weiter.</p>
+<h2>Ihre Aufgaben</h2><ul><li>Konzeption und Auswertung einer Befragung von Studierenden und Beschäftigten zu ihren Wegen zur Arbeit</li><li>Statistische Auswertung und Bericht an die Hochschulleitung</li><li>Abstimmung mit Stadt und Verkehrsbetrieben</li></ul>
+<h2>Ihr Profil</h2><ul><li>Hochschulabschluss in Sozialwissenschaften, Geografie oder Verkehrsplanung</li><li>Sicherer Umgang mit Statistik-Software</li></ul>
+<p>E 11 TV-L, unbefristet. Bewerbungsfrist: 25.11.2026.</p>`,
+);
+
+const steuern = page(
+  'Steuern',
+  `<h1>Sachbearbeitung (m/w/d) Steuern und Abgaben</h1>
+<p>In der Finanzabteilung bearbeiten Sie Umsatzsteuer-Voranmeldungen und Abgaben.</p>
+<h2>Ihre Aufgaben</h2><ul><li>Umsatzsteuer und Ertragsteuern der Betriebe gewerblicher Art</li><li>Statistik der Abgaben für das Ministerium</li><li>Auskünfte zur Befragung durch das Finanzamt</li></ul>
+<h2>Ihr Profil</h2><ul><li>Ausbildung als Steuerfachangestellte:r</li><li>Erfahrung im Steuerrecht</li></ul>
+<p>E 9a TV-L, unbefristet. Bewerbungsfrist: 30.11.2026.</p>`,
+);
+
+const hausmeister = page(
+  'Hausmeister',
+  `<h1>Hausmeister:in (m/w/d) Campus Süd</h1><p>Sie betreuen die Gebäude am Campus Süd, kleinere Reparaturen und Winterdienst.</p>
+<h2>Aufgaben</h2><ul><li>Kontrollgänge</li><li>Reparaturen</li></ul><h2>Profil</h2><ul><li>Handwerkliche Ausbildung</li></ul><p>E 5 TV-L. Bewerbungsfrist: 30.11.2026.</p>`,
+);
+
+const studienberatung = page(
+  'Studienberatung',
+  `<h1>Koordinator:in (m/w/d) Studienberatung</h1>
+<p>In der Zentralen Studienberatung begleiten Sie Studieninteressierte und Studierende bei Orientierungsfragen und unterstützen Lernprozesse in Workshops.</p>
+<h2>Ihre Aufgaben</h2><ul><li>Einzelgespräche mit Ratsuchenden</li><li>Konzeption von Workshops zu Lernstrategien</li><li>Auswertung der jährlichen Befragung der Ratsuchenden</li></ul>
+<h2>Ihr Profil</h2><ul><li>Hochschulabschluss</li><li>Erfahrung in Beratung</li></ul>
+<p>E 11 TV-L, 100 %, unbefristet. Bewerbungsfrist: 27.11.2026.</p>`,
+);
+
+const fristOhneJahr = page(
+  'Klinische Psychologie',
+  `<h1>Wissenschaftliche Mitarbeiterin (m/w/d) Klinische Psychologie</h1>
+<p>Am Lehrstuhl für Klinische Psychologie ist eine Stelle zur Promotion zu besetzen. Wir erforschen Emotionsregulation bei Angststörungen.</p>
+<h2>Aufgaben</h2><ul><li>Durchführung einer Interventionsstudie</li><li>Diagnostische Interviews</li></ul><h2>Profil</h2><ul><li>Master in Psychologie</li></ul>
+<p>E 13 TV-L, 65 %. Bewerbungen richten Sie bitte bis zum 30.11. an klinisch@test-uni.de.</p>`,
+);
+
+const fristWeit = page(
+  'Kognitive Psychologie',
+  `<h1>Promotionsstelle (m/w/d) Kognitive Psychologie</h1>
+<p>Das neue Graduiertenkolleg zu Aufmerksamkeit und Gedächtnis beginnt im Herbst 2027. Wir suchen Promovierende in Psychologie.</p>
+<h2>Aufgaben</h2><ul><li>Experimente zu Aufmerksamkeit</li></ul><h2>Profil</h2><ul><li>Master in Psychologie</li></ul>
+<p>E 13 TV-L, 65 %. Bewerbungsschluss für die erste Runde: 15.07.2027.</p>`,
+);
+
+// ---------------------------------------------------------------- Fremde Websites (für die Erkundung, Host „localhost“)
+
+const fremdJob = (n: number, org: string, title: string, body: string) =>
+  `<!doctype html><html lang="de"><head><meta charset="utf-8"><title>${title} | ${org}</title></head><body><main><h1>${title}</h1>${body}
+<p>Ihre Bewerbung senden Sie bitte bis zum 28.11.2026 an jobs${n}@beispiel.org.</p></main></body></html>`;
+
+const FREMD: Record<string, string> = {
+  '/fremd/job-1.html': fremdJob(1, 'Stiftung Lernforschung', 'Wissenschaftliche Mitarbeiterin (m/w/d) Lernpsychologie',
+    '<h2>Aufgaben</h2><ul><li>Studien zur Lernmotivation in der Ausbildung</li><li>Auswertung mit R</li></ul><h2>Profil</h2><ul><li>Master in Psychologie</li></ul><p>E 13 TVöD, 75 %.</p>'),
+  '/fremd/job-2.html': fremdJob(2, 'Institut für Arbeitsgestaltung e.V.', 'Projektmitarbeiter:in (m/w/d) Arbeitspsychologie',
+    '<h2>Aufgaben</h2><ul><li>Gefährdungsbeurteilung psychischer Belastung in Betrieben</li><li>Befragungen und Workshops</li></ul><h2>Profil</h2><ul><li>Studium der Psychologie</li></ul><p>Vollzeit, befristet auf 2 Jahre.</p>'),
+  '/fremd/job-3.html': fremdJob(3, 'Verkehrsinstitut Nord', 'Wissenschaftliche Mitarbeiterin (m/w/d) Verkehrspsychologie',
+    '<h2>Aufgaben</h2><ul><li>Fahrsimulatorstudien zur Ablenkung</li><li>Auswertung von Blickdaten</li></ul><h2>Profil</h2><ul><li>Master in Psychologie oder Kognitionswissenschaft</li></ul><p>E 13 TV-L, 100 %.</p>'),
+  '/fremd/job-4.html': fremdJob(4, 'Gesundheitsforum Süd gGmbH', 'Referent:in (m/w/d) Gesundheitspsychologie',
+    '<h2>Aufgaben</h2><ul><li>Evaluation von Präventionsprogrammen</li><li>Psychologische Fachbeiträge</li></ul><h2>Profil</h2><ul><li>Master in Psychologie</li></ul><p>Teilzeit 80 %.</p>'),
+};
+
+function baJobs(base: string, was: string): unknown {
+  const all = [
+    { refnr: '10000-1', titel: 'Wissenschaftliche Mitarbeiterin Lernpsychologie', arbeitgeber: 'Stiftung Lernforschung', externeUrl: `${base}/fremd/job-1.html`, arbeitsort: { ort: 'Halle (Saale)', land: 'Deutschland' } },
+    { refnr: '10000-2', titel: 'Projektmitarbeiter:in Arbeitspsychologie', arbeitgeber: 'Institut für Arbeitsgestaltung e.V.', externeUrl: `${base}/fremd/job-2.html`, arbeitsort: { ort: 'Leipzig', land: 'Deutschland' } },
+    { refnr: '10000-3', titel: 'Wissenschaftliche Mitarbeiterin Verkehrspsychologie', arbeitgeber: 'Verkehrsinstitut Nord', externeUrl: `${base}/fremd/job-3.html`, arbeitsort: { ort: 'Halle (Saale)', land: 'Deutschland' } },
+    { refnr: '10000-4', titel: 'Referent:in Gesundheitspsychologie', arbeitgeber: 'Gesundheitsforum Süd gGmbH', externeUrl: `${base}/fremd/job-4.html`, arbeitsort: { ort: 'Halle (Saale)', land: 'Deutschland' } },
+    // Arbeitgeber steht schon im Register: wird von der Erkundung gar nicht erst gelesen
+    { refnr: '10000-5', titel: 'Postdoc Kognitive Neurowissenschaft', arbeitgeber: 'Testuniversität', externeUrl: `${base}/fremd/job-5.html`, arbeitsort: { ort: 'Halle (Saale)', land: 'Deutschland' } },
+  ];
+  return { stellenangebote: all, maxErgebnisse: all.length, gesucht: was };
+}
+
+const homepage = page('Startseite', '<h1>Willkommen an der Testuniversität</h1><p>Forschung und Lehre.</p><p><a href="/stellen/">Stellenangebote</a> <a href="/studium">Studium</a></p>');
+
 export interface FixtureServer {
   url: string;
   server: Server;
@@ -156,7 +262,31 @@ export async function startFixtureServer(): Promise<FixtureServer> {
       res.end(body);
     };
     const html = (b: string) => send(200, 'text/html; charset=utf-8', b);
+    if (FREMD[url.pathname]) return html(FREMD[url.pathname]);
+    if (url.pathname === '/ba/pc/v4/jobs') {
+      // Nachgebaute Jobsuche der Arbeitsagentur; die Anzeigen liegen auf „localhost“ (eine fremde Website)
+      const base = `http://localhost:${(server.address() as AddressInfo).port}`;
+      return send(200, 'application/json', JSON.stringify(baJobs(base, url.searchParams.get('was') ?? '')));
+    }
     switch (url.pathname) {
+      case '/':
+        return html(homepage);
+      case '/zentral/':
+        return html(zentralList);
+      case '/zentral/usable-security.html':
+        return html(usableSecurity);
+      case '/zentral/mobilitaet.html':
+        return html(mobilitaet);
+      case '/zentral/steuern.html':
+        return html(steuern);
+      case '/zentral/hausmeister.html':
+        return html(hausmeister);
+      case '/zentral/studienberatung.html':
+        return html(studienberatung);
+      case '/zentral/frist-ohne-jahr.html':
+        return html(fristOhneJahr);
+      case '/zentral/frist-weit.html':
+        return html(fristWeit);
       case '/robots.txt':
         return send(200, 'text/plain', 'User-agent: *\nDisallow: /privat/\nCrawl-delay: 0\n');
       case '/stellen/':

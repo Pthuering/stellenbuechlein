@@ -4,7 +4,6 @@ import type { Source } from '@stellen/core';
 import type { Candidate, PostingData } from './extract';
 import type { DiscoverContext } from './discover';
 
-const BA_BASE = 'https://rest.arbeitsagentur.de/jobboerse/jobsuche-service';
 const BA_HEADERS = { 'X-API-Key': 'jobboerse-jobsuche', accept: 'application/json' };
 
 interface BaListItem {
@@ -32,15 +31,18 @@ function b64(s: string): string {
   return Buffer.from(s, 'utf8').toString('base64');
 }
 
-/** Suche über die (inoffizielle, öffentliche) Jobsuche-Schnittstelle der Bundesagentur für Arbeit. */
-export async function baDiscover(source: Source, ctx: DiscoverContext): Promise<Candidate[]> {
-  const queries = (source.config.queries as string[] | undefined) ?? ['wissenschaftlicher Mitarbeiter Psychologie'];
+/**
+ * Suche über die (inoffizielle, öffentliche) Jobsuche-Schnittstelle der Bundesagentur für Arbeit.
+ * Liefert je Suchbegriff bis zu `size` Anzeigen; `anyOk` sagt, ob die Schnittstelle überhaupt geantwortet hat.
+ */
+export async function baSearch(ctx: DiscoverContext, queries: string[], size = 100, extra = ''): Promise<{ candidates: Candidate[]; anyOk: boolean }> {
+  const base = ctx.cfg.baApiBase;
   const out = new Map<string, Candidate>();
   let anyOk = false;
   for (const q of queries) {
     let items: BaListItem[] = [];
     for (const version of ['v4', 'v6']) {
-      const url = `${BA_BASE}/pc/${version}/jobs?was=${encodeURIComponent(q)}&angebotsart=1&page=1&size=100`;
+      const url = `${base}/pc/${version}/jobs?was=${encodeURIComponent(q)}&angebotsart=1&page=1&size=${size}${extra}`;
       const r = await ctx.http.get(url, { headers: BA_HEADERS, accept: 'application/json', ignoreRobots: true });
       if (!r.ok) continue;
       try {
@@ -71,18 +73,25 @@ export async function baDiscover(source: Source, ctx: DiscoverContext): Promise<
           country: 'DE',
           // Fallback-Text aus der BA-Detailansicht lädt die Pipeline, falls die Originalseite nicht klappt.
           baRef: ref,
+          query: q,
         },
       });
     }
   }
-  if (!anyOk) throw new Error('Schnittstelle nicht erreichbar oder Format geändert');
-  return [...out.values()];
+  return { candidates: [...out.values()], anyOk };
+}
+
+export async function baDiscover(source: Source, ctx: DiscoverContext): Promise<Candidate[]> {
+  const queries = (source.config.queries as string[] | undefined) ?? ['wissenschaftlicher Mitarbeiter Psychologie'];
+  const r = await baSearch(ctx, queries);
+  if (!r.anyOk) throw new Error('Schnittstelle nicht erreichbar oder Format geändert');
+  return r.candidates;
 }
 
 /** Lädt die Anzeigenbeschreibung direkt aus der BA-Schnittstelle (Fallback). */
 export async function baDetail(ctx: DiscoverContext, ref: string): Promise<PostingData | null> {
   for (const version of ['v4', 'v3']) {
-    const r = await ctx.http.get(`${BA_BASE}/pc/${version}/jobdetails/${b64(ref)}`, { headers: BA_HEADERS, accept: 'application/json', ignoreRobots: true });
+    const r = await ctx.http.get(`${ctx.cfg.baApiBase}/pc/${version}/jobdetails/${b64(ref)}`, { headers: BA_HEADERS, accept: 'application/json', ignoreRobots: true });
     if (!r.ok) continue;
     try {
       const d = JSON.parse(r.text) as BaDetail;

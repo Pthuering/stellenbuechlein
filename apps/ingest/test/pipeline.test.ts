@@ -24,6 +24,8 @@ function testConfig(): IngestConfig {
   c.requestTimeoutMs = 10_000;
   c.llm.apiKey = null;
   c.browser.enabled = false;
+  // Erkundung hat eigene Tests (horizont.test.ts); hier würde sie die echte Arbeitsagentur fragen
+  c.explore.enabled = false;
   c.browser.executablePath = existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : undefined;
   return c;
 }

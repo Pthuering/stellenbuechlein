@@ -27,6 +27,28 @@ export interface IngestConfig {
   };
   discovery: { maxInstitutionsPerRun: number };
   images: { maxPerRun: number };
+  /** Suche nach blinden Flecken: Anzeigen von Websites, die noch nicht im Register stehen. */
+  explore: {
+    enabled: boolean;
+    /** So viele neue Anzeigen von neuen Websites soll jeder Lauf mindestens bringen. */
+    minNew: number;
+    /** Höchstens so viele Anzeigen werden dafür gelesen. */
+    maxReads: number;
+    /** Suchanfragen pro Lauf (rotieren täglich), bei Bedarf mehr bis maxQueries. */
+    queriesPerRun: number;
+    maxQueries: number;
+  };
+  /** Horizont und Weite: KI-Urteil für Anzeigen außerhalb des Kernbereichs. */
+  horizon: {
+    /** Höchstens so viele KI-Prüfungen für die Weite pro Lauf. */
+    maxWeiteChecks: number;
+  };
+  /** Optionale Websuche für die Erkundung. */
+  search: {
+    braveKey: string | null;
+  };
+  /** Schnittstelle der Arbeitsagentur (für Tests austauschbar). */
+  baApiBase: string;
   vapid: { publicKey: string; privateKey: string; subject: string } | null;
 }
 
@@ -54,7 +76,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
       baseUrl: env.LLM_BASE_URL ?? 'https://api.deepseek.com',
       apiKey: env.LLM_API_KEY ?? env.DEEPSEEK_API_KEY ?? null,
       model: env.LLM_MODEL ?? 'deepseek-chat',
-      maxCalls: num(env.LLM_MAX_CALLS, 400),
+      maxCalls: num(env.LLM_MAX_CALLS, 900),
       summaries: (env.LLM_SUMMARIES ?? '1') !== '0',
     },
     browser: {
@@ -65,6 +87,20 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
     },
     discovery: { maxInstitutionsPerRun: num(env.DISCOVERY_MAX, 20) },
     images: { maxPerRun: num(env.IMAGES_MAX, 60) },
+    explore: {
+      enabled: (env.EXPLORE ?? '1') !== '0',
+      minNew: num(env.EXPLORE_MIN, 3),
+      maxReads: num(env.EXPLORE_MAX_READS, 40),
+      queriesPerRun: num(env.EXPLORE_QUERIES, 6),
+      maxQueries: num(env.EXPLORE_MAX_QUERIES, 18),
+    },
+    horizon: {
+      maxWeiteChecks: num(env.WEITE_MAX_CHECKS, 60),
+    },
+    search: {
+      braveKey: env.BRAVE_API_KEY || null,
+    },
+    baApiBase: env.BA_API_BASE ?? 'https://rest.arbeitsagentur.de/jobboerse/jobsuche-service',
     vapid:
       env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY
         ? { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT ?? 'mailto:stellenbuechlein@example.org' }

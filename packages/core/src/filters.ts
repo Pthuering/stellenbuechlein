@@ -2,7 +2,7 @@
 
 import { daysUntil } from './dates';
 import { distanceKm } from './geo';
-import type { City, Favorite, HomeLocation, Institution, InstitutionKind, Job, JobKind, StateCode } from './types';
+import type { City, Favorite, HomeLocation, Institution, InstitutionKind, Job, JobKind, Lane, StateCode } from './types';
 
 export interface JobFilter {
   /** null = ganz Deutschland */
@@ -15,6 +15,10 @@ export interface JobFilter {
   permanentOnly: boolean;
   /** Nur Stellen, deren Frist noch mindestens so viele Tage entfernt ist (ohne Frist bleibt drin). */
   minDaysLeft: number | null;
+  /** Nur diese Ringe (leer = alle). */
+  lanes: Lane[];
+  /** Nur Anzeigen von Websites, die beim Fund noch nicht im Register standen. */
+  newSitesOnly: boolean;
   text: string;
 }
 
@@ -27,6 +31,8 @@ export const DEFAULT_FILTER: JobFilter = {
   workloadMin: null,
   permanentOnly: false,
   minDaysLeft: null,
+  lanes: [],
+  newSitesOnly: false,
   text: '',
 };
 
@@ -40,6 +46,8 @@ export function countActiveFilters(f: JobFilter): number {
   if (f.workloadMin != null) n++;
   if (f.permanentOnly) n++;
   if (f.minDaysLeft != null) n++;
+  if (f.lanes?.length) n++;
+  if (f.newSitesOnly) n++;
   if (f.text.trim()) n++;
   return n;
 }
@@ -76,7 +84,11 @@ export function passesFilter(
   ctx: GeoContext,
   normText: string,
   today: string,
+  /** Ring mit dem aktuellen Profil (laneOf); ohne Angabe gilt der Ring vom Einsammeln. */
+  lane?: Lane,
 ): boolean {
+  if (f.lanes?.length && !f.lanes.includes(lane ?? job.lane ?? 'kern')) return false;
+  if (f.newSitesOnly && !job.newSite) return false;
   if (f.radiusKm != null && (place.distanceKm == null || place.distanceKm > f.radiusKm)) return false;
   if (f.states.length && (!place.state || !f.states.includes(place.state))) return false;
   if (f.kinds.length && (!job.kind || !f.kinds.includes(job.kind))) return false;

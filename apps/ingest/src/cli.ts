@@ -4,6 +4,8 @@
 //   npm run cli -w @stellen/ingest -- ingest               kompletter Lauf
 //   npm run cli -w @stellen/ingest -- ingest --only uni-leipzig-z1 --no-browser
 //   npm run cli -w @stellen/ingest -- test-source <url> [--render]
+//   npm run cli -w @stellen/ingest -- check-source <url>       KI-Probelauf einer Website (ohne Speichern)
+//   npm run cli -w @stellen/ingest -- check-sources            wartende Probeläufe aus der App abarbeiten
 //   npm run cli -w @stellen/ingest -- agent <url>
 //   npm run cli -w @stellen/ingest -- reminders
 //
@@ -25,6 +27,8 @@ import { agentReadPosting } from './agent';
 import { applySeed } from './seed';
 import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
+import { processPendingChecks, runSourceCheck } from './sourceCheck';
+import { listCities, listInstitutions, listSources } from '@stellen/db';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
 
@@ -68,9 +72,49 @@ async function main(): Promise<void> {
         images: !flag('no-images'),
         discovery: !flag('no-discovery'),
         reminders: !flag('no-reminders'),
+        explore: flag('no-explore') ? false : undefined,
         maxSources: option('max') ? Number(option('max')) : undefined,
       });
       console.log(stats);
+      break;
+    }
+    case 'check-sources': {
+      // Wartende Probeläufe aus der App (Workflow „Quelle prüfen“)
+      const db = openDb();
+      const log = new RunLog();
+      const http = new Http(cfg, log);
+      const llm = new Llm(cfg.llm, log);
+      const browser = flag('no-browser') ? null : new BrowserPool(cfg, log);
+      try {
+        const n = await processPendingChecks(db, { http, llm, browser, cfg, log }, Number(option('max') ?? 5));
+        console.log(`${n} Probelauf/Probeläufe erledigt.`);
+      } finally {
+        await browser?.close();
+      }
+      break;
+    }
+    case 'check-source': {
+      // KI-Probelauf direkt auf der Kommandozeile; Register aus der Datenbank, falls vorhanden
+      const url = args[1];
+      if (!url) throw new Error('Bitte eine Adresse angeben.');
+      const db = openDb();
+      const log = new RunLog();
+      const http = new Http(cfg, log);
+      const llm = new Llm(cfg.llm, log);
+      const browser = flag('no-browser') ? null : new BrowserPool(cfg, log);
+      try {
+        const [institutions, cities, sources] = await Promise.all([listInstitutions(db), listCities(db), listSources(db)]);
+        const r = await runSourceCheck(url, null, { ctx: { http, llm, browser, cfg, log }, institutions, cities, sources });
+        console.log(`\nUrteil: ${r.verdict}${r.ai ? ` (KI: ${r.ai.verdict})` : ' (ohne KI)'} – ${r.candidates} Anzeigen über ${r.methods.join(', ') || '–'}`);
+        if (r.ai) console.log(`KI: ${r.ai.summary}`);
+        for (const n of r.notes) console.log(`Hinweis: ${n}`);
+        console.log(`Einrichtung: ${r.institution.name ?? '?'} (${r.institution.id ?? 'neu'}), Stadt: ${r.institution.cityId ?? '?'}, Art: ${r.kindGuess}`);
+        if (r.registered) console.log(`Schon im Register: ${r.registered.sourceId} ${r.registered.url ?? ''}`);
+        for (const s of r.samples) console.log(`  ${s.complete ? '✓' : '✗'} ${s.title}\n    Frist ${s.deadline ?? '–'} · ${s.payGrade ?? '–'} · ${s.workload ?? '–'} · ${s.chars} Zeichen${s.problems.length ? ` · ${s.problems.join(', ')}` : ''}`);
+        console.log(`Empfohlene Einstellungen: ${JSON.stringify(r.config)}`);
+      } finally {
+        await browser?.close();
+      }
       break;
     }
     case 'reminders': {
@@ -140,7 +184,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--no-browser] [--no-images] [--no-discovery] [--max N] | test-source <url> [--render] | agent <url> | reminders');
+      console.log('Befehle: seed | ingest [--only id,id] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | agent <url> | reminders');
       process.exitCode = cmd ? 1 : 0;
   }
 }

@@ -2,11 +2,16 @@
 // Bewusst regelbasiert: nachvollziehbar, kostenlos, schnell. Die LLM-Stufe der Pipeline greift nur,
 // wenn hier etwas Wichtiges (Titel, Frist) fehlt.
 
-import { addDays, findDates, formatDateDe, todayBerlin } from './dates';
+import { addDays, findDates, findYearlessDates, formatDateDe, todayBerlin } from './dates';
+import { inferYear } from './deadline';
 
 export interface ExtractedFields {
   deadline: string | null;
   deadlineText: string | null;
+  /** Die Frist stand ohne Jahr im Text, das Jahr wurde ergänzt. */
+  deadlineYearInferred: boolean;
+  /** Ein Fristhinweis ohne verwertbares Datum (z. B. Datum ohne Jahr, das nicht eindeutig ist). */
+  deadlineUnclear: string | null;
   payGrade: string | null;
   payLevel: number | null;
   workloadPct: number | null;
@@ -21,6 +26,8 @@ export interface ExtractedFields {
 export interface ExtractOptions {
   title?: string;
   today?: string;
+  /** Bezugsdatum für Fristen ohne Jahr: Veröffentlichung der Anzeige, sonst der Tag des Fundes. */
+  reference?: string;
 }
 
 // ---------------------------------------------------------------- Frist
@@ -33,6 +40,11 @@ interface DeadlineKey {
 }
 
 const DEADLINE_KEYS: DeadlineKey[] = [
+  {
+    // Verlängerte Frist schlägt die ursprüngliche
+    re: /(?:bewerbungs)?frist[^.\n]{0,80}?verl[äa]ngert[^.\n\d]{0,30}?|(?:deadline|closing date)[^.\n]{0,60}?(?:has been |was )?extended[^.\n\d]{0,20}?/gi,
+    weight: 4,
+  },
   {
     re: /bewerbungs(?:frist|schluss|ende|eingang)|ende der bewerbungsfrist|einsendeschluss|ausschreibungsfrist|ausschreibungsende|frist f[üu]r (?:die )?bewerbung(?:en)?|application deadline|closing date|deadline for applications?|applications? deadline|\bdeadline\b|\bbewerbungsfrist\b/gi,
     weight: 3,
@@ -56,13 +68,23 @@ const NOT_A_DEADLINE_CONTEXT =
   /befrist|laufzeit|vertrag|elternzeit|mutterschutz|vertretung|besch[äa]ftigung(?:sdauer)? bis|zun[äa]chst bis|projektende|ende des projekts|f[öo]rderzeitraum|employment|contract|until the end of|fixed[- ]term/i;
 const APPLY_CONTEXT = /bewerb|application|apply|einreich|senden|schicken|richten|[üu]bermitteln|online|portal|e-?mail/i;
 
-function extractDeadline(text: string, today: string): { iso: string; raw: string } | null {
+interface DeadlineFound {
+  iso: string | null;
+  raw: string;
+  yearInferred: boolean;
+}
+
+function extractDeadline(text: string, today: string, reference: string): DeadlineFound | null {
   const dates = findDates(text);
-  if (dates.length === 0) return null;
+  const yearless = findYearlessDates(text);
+  if (dates.length === 0 && yearless.length === 0) return null;
   const minDate = addDays(today, -400);
   const maxDate = addDays(today, 730);
 
-  let best: { iso: string; raw: string; weight: number; pos: number } | null = null;
+  let best: (DeadlineFound & { weight: number; pos: number }) | null = null;
+  const consider = (c: DeadlineFound, weight: number, pos: number) => {
+    if (!best || weight > best.weight || (weight === best.weight && pos < best.pos)) best = { ...c, weight, pos };
+  };
   for (const key of DEADLINE_KEYS) {
     key.re.lastIndex = 0;
     let m: RegExpExecArray | null;
@@ -76,14 +98,21 @@ function extractDeadline(text: string, today: string): { iso: string; raw: strin
         if (NOT_A_DEADLINE_CONTEXT.test(text.slice(Math.max(0, m.index - 60), m.index))) continue;
       }
       const d = dates.find((x) => x.index >= keyEnd - 2 && x.index <= keyEnd + 140);
-      if (!d) continue;
-      if (d.iso < minDate || d.iso > maxDate) continue;
-      if (!best || key.weight > best.weight || (key.weight === best.weight && m.index < best.pos)) {
-        best = { iso: d.iso, raw: d.raw, weight: key.weight, pos: m.index };
+      const y = yearless.find((x) => x.index >= keyEnd - 2 && x.index <= keyEnd + 60);
+      // Ein vollständiges Datum hat Vorrang, außer das Datum ohne Jahr steht deutlich näher am Schlüsselwort.
+      if (d && (!y || d.index <= y.index + 4)) {
+        if (d.iso < minDate || d.iso > maxDate) continue;
+        consider({ iso: d.iso, raw: d.raw, yearInferred: false }, key.weight, m.index);
+      } else if (y) {
+        const inferred = inferYear(y.day, y.month, reference);
+        // Nicht eindeutig: als Hinweis behalten (Datum leer), etwas schwächer gewichtet
+        consider({ iso: inferred, raw: y.raw, yearInferred: true }, key.weight - (inferred ? 0.25 : 0.5), m.index);
       }
     }
   }
-  return best ? { iso: best.iso, raw: best.raw } : null;
+  if (!best) return null;
+  const b = best as DeadlineFound;
+  return { iso: b.iso, raw: b.raw, yearInferred: b.yearInferred };
 }
 
 // ---------------------------------------------------------------- Entgelt
@@ -276,13 +305,15 @@ export function extractFields(text: string, opts: ExtractOptions = {}): Extracte
   const today = opts.today ?? todayBerlin();
   const title = opts.title ?? '';
   const clean = text.replace(/ /g, ' ').replace(/[ \t]+/g, ' ');
-  const deadline = extractDeadline(clean, today);
+  const deadline = extractDeadline(clean, today, opts.reference ?? today);
   const pay = extractPay(clean, title);
   const work = extractWorkload(clean, title);
   const term = extractTerm(clean);
   return {
     deadline: deadline?.iso ?? null,
     deadlineText: deadline?.raw ?? null,
+    deadlineYearInferred: !!deadline?.yearInferred && !!deadline.iso,
+    deadlineUnclear: deadline && !deadline.iso ? deadline.raw : null,
     payGrade: pay?.grade ?? null,
     payLevel: pay?.level ?? null,
     workloadPct: work.pct,

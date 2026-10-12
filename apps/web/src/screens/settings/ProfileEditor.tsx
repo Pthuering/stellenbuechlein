@@ -6,6 +6,7 @@ import {
   CATEGORY_HINTS,
   CATEGORY_LABELS,
   CATEGORY_ORDER,
+  isOpen,
   JOB_KIND_LABELS,
   JOB_KINDS,
   matchItem,
@@ -19,7 +20,7 @@ import {
   type Suchprofil,
 } from '@stellen/core';
 import { useAppState, useStore, useViews } from '../../data/hooks';
-import { openJob } from '../../lib/router';
+import { navigate, openJob } from '../../lib/router';
 import { Hearts } from '../../ui/bits';
 import { Sheet } from '../../ui/Sheet';
 import { IconPencil, IconPlus, IconTrash } from '../../ui/icons';
@@ -102,7 +103,7 @@ function ItemEditor({ item, target, onSave, onDelete, onClose }: { item: Profile
     const examples: { id: string; title: string; via: string | null }[] = [];
     let total = 0;
     for (const v of views.values()) {
-      if (v.job.status !== 'aktiv' || (v.job.deadline && v.job.deadline < today)) continue;
+      if (!isOpen(v.job, today)) continue;
       total++;
       const hit = matchItem(draft, v.job, v.norm);
       if (hit.state === 'ja') {
@@ -286,7 +287,7 @@ export function ProfileEditor() {
 
   const preview = useMemo(() => {
     const today = todayBerlin();
-    const open = [...views.values()].filter((v) => v.job.status === 'aktiv' && !(v.job.deadline && v.job.deadline < today));
+    const open = [...views.values()].filter((v) => isOpen(v.job, today));
     const sorted = open.sort((a, b) => b.score.score - a.score.score);
     const high = open.filter((v) => v.score.score >= 75).length;
     return { top: sorted.slice(0, 3), high, total: open.length };
@@ -386,13 +387,28 @@ export function ProfileEditor() {
         </button>
       </section>
 
+      <section className="cat-card cat-card--horizon" aria-labelledby="cat-horizont">
+        <div className="cat-card__head">
+          <h2 id="cat-horizont" className="section-title" style={{ margin: 0 }}>
+            Horizont
+          </h2>
+          <span className="cat-card__share">außerhalb des Kerns</span>
+        </div>
+        <p className="hint" style={{ marginTop: 0 }}>
+          Brücken in andere Felder und die Weite, in der die KI übertragbare Fähigkeiten erkennt. Zählt nicht zum Score, die Karten werden im Stapel eingestreut.
+        </p>
+        <button type="button" className="btn btn--small" onClick={() => navigate('/ich/horizont')}>
+          Horizont bearbeiten
+        </button>
+      </section>
+
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '20px 0 8px' }}>
         <button
           type="button"
           className="btn btn--small"
           onClick={() => {
             const prev = p;
-            store.updateSettings('profile', starterProfile());
+            store.updateSettings('profile', { ...starterProfile(), horizont: p.horizont });
             store.toast('Startprofil wiederhergestellt.', { label: 'Rückgängig', run: () => store.updateSettings('profile', prev) });
           }}
         >

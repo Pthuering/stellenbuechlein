@@ -66,6 +66,7 @@
   { "id": "bamberg", "name": "Bamberg", "state": "BY", "lat": 49.8988, "lon": 10.9028 },
   { "id": "eichstaett", "name": "Eichstätt", "state": "BY", "lat": 48.8919, "lon": 11.184 },
   { "id": "erlangen", "name": "Erlangen", "state": "BY", "lat": 49.5897, "lon": 11.012 },
+  { "id": "nuernberg", "name": "Nürnberg", "state": "BY", "lat": 49.4521, "lon": 11.0767 },
   { "id": "muenchen", "name": "München", "state": "BY", "lat": 48.1351, "lon": 11.582 },
   { "id": "neubiberg", "name": "Neubiberg", "state": "BY", "lat": 48.0773, "lon": 11.6584 },
   { "id": "regensburg", "name": "Regensburg", "state": "BY", "lat": 49.0134, "lon": 12.1016 },

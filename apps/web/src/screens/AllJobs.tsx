@@ -2,7 +2,7 @@
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { countActiveFilters, DEFAULT_FILTER, SORT_LABELS, todayBerlin, type SortKey } from '@stellen/core';
-import { filterViews, sortViews, useAppState, useGeo, useStore, useViews } from '../data/hooks';
+import { filterViews, openViews, sortViews, useAppState, useGeo, useStore, useViews } from '../data/hooks';
 import { Empty } from '../ui/bits';
 import { JobRow } from '../ui/JobRow';
 import { PageHead } from '../ui/PageHead';
@@ -33,7 +33,7 @@ export function AllJobsScreen() {
 
   const { open, list } = useMemo(() => {
     const today = todayBerlin();
-    const open = [...views.values()].filter((v) => v.job.status === 'aktiv' && !(v.job.deadline && v.job.deadline < today));
+    const open = openViews(views, today);
     return { open, list: sortViews(filterViews(open, { ...f, text: deferredQuery }, geo, today), sort) };
   }, [views, f, geo, sort, deferredQuery]);
 

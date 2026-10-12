@@ -2,7 +2,7 @@
 // Tippen zoomt hinein: Deutschland → Bundesland → Stadt → Einrichtung.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { DE_BOUNDS, MAP_HEIGHT, MAP_WIDTH, project, STATES, todayBerlin, type FavoriteKind, type StateCode } from '@stellen/core';
+import { DE_BOUNDS, isOpen, MAP_HEIGHT, MAP_WIDTH, project, STATES, todayBerlin, type FavoriteKind, type StateCode } from '@stellen/core';
 import { filterViews, sortSaved, sortViews, useAppState, useGeo, useStore, useViews, type JobView } from '../data/hooks';
 import { institutionName, plural } from '../lib/format';
 import { Empty } from '../ui/bits';
@@ -133,7 +133,7 @@ export function MapScreen() {
     const all = [...views.values()];
     if (mode === 'gemerkt') return sortSaved(all.filter((v) => v.mark?.decision === 'gemerkt'), s.settings.sort.saved);
     const today = todayBerlin();
-    const open = all.filter((v) => v.job.status === 'aktiv' && !(v.job.deadline && v.job.deadline < today));
+    const open = all.filter((v) => isOpen(v.job, today));
     return sortViews(filterViews(open, s.settings.filter, geo, today), 'empfohlen');
   }, [views, mode, s.settings.sort.saved, s.settings.filter, geo]);
 

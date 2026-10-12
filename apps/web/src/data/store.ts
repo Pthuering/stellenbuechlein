@@ -83,6 +83,7 @@ export interface State {
   sourceSummary: SourceSummary | null;
   vapidPublicKey: string | null;
   ingestTrigger: boolean;
+  aiSuggest: boolean;
   pending: number;
   toasts: Toast[];
   undo: { jobId: string; prev: Mark | null }[];
@@ -110,6 +111,7 @@ interface CachedBoot {
   sourceSummary: SourceSummary | null;
   vapidPublicKey: string | null;
   ingestTrigger: boolean;
+  aiSuggest?: boolean;
 }
 
 export class Store {
@@ -137,6 +139,7 @@ export class Store {
       sourceSummary: null,
       vapidPublicKey: null,
       ingestTrigger: false,
+      aiSuggest: false,
       pending: this.queue.length,
       toasts: [],
       undo: [],
@@ -221,6 +224,7 @@ export class Store {
         sourceSummary: b.sourceSummary,
         vapidPublicKey: b.vapidPublicKey,
         ingestTrigger: b.ingestTrigger,
+        aiSuggest: !!b.aiSuggest,
       },
       true,
     );
@@ -242,6 +246,7 @@ export class Store {
         sourceSummary: boot.sourceSummary,
         vapidPublicKey: boot.vapidPublicKey,
         ingestTrigger: boot.ingestTrigger,
+        aiSuggest: !!boot.aiSuggest,
       };
       this.applyBoot(cached);
       const jobs = new Map(this.state.jobs);

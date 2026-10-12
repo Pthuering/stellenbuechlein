@@ -1,6 +1,6 @@
 // Schnittstelle zwischen App und Server – echte API (api.ts) oder Demo (demo.ts).
 
-import type { City, Favorite, FavoriteKind, Institution, Job, Mark, RunInfo, Source, SourceConfig } from '@stellen/core';
+import type { Bruecke, City, DeadlineCheck, Favorite, FavoriteKind, Institution, InstitutionKind, Job, JobKind, Mark, RunInfo, Source, SourceConfig, SourceStatus, Suchprofil } from '@stellen/core';
 
 export interface SourceSummary {
   total: number;
@@ -20,6 +20,8 @@ export interface BootstrapData {
   serverTime: string;
   vapidPublicKey: string | null;
   ingestTrigger: boolean;
+  /** KI im Worker eingerichtet (Brücken-Vorschläge) */
+  aiSuggest?: boolean;
 }
 
 export interface SyncPage {
@@ -37,10 +39,83 @@ export interface Suggestion {
   foundAt: string;
 }
 
+/** Neu entdeckte Website oder neuer Arbeitgeber (nicht im Register). */
+export interface Discovery {
+  siteKey: string;
+  name: string | null;
+  sampleUrl: string | null;
+  jobs: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  status: 'offen' | 'geprueft' | 'uebernommen' | 'ignoriert';
+}
+
+export type CheckVerdict = 'gut' | 'mit_einschraenkungen' | 'ungeeignet';
+
+export interface CheckSample {
+  url: string;
+  title: string;
+  chars: number;
+  complete: boolean;
+  method: string;
+  deadline: string | null;
+  deadlineCheck: DeadlineCheck | null;
+  payGrade: string | null;
+  workload: string | null;
+  kind: JobKind | null;
+  excerpt: string;
+  aiOk: boolean | null;
+  problems: string[];
+}
+
+/** Ergebnis eines Probelaufs (gleiche Form wie in apps/ingest/src/sourceCheck.ts). */
+export interface CheckResult {
+  url: string;
+  listUrl: string;
+  status: SourceStatus;
+  methods: string[];
+  candidates: number;
+  candidateTitles: string[];
+  samples: CheckSample[];
+  config: SourceConfig;
+  institution: { id: string | null; name: string | null; cityId: string | null; kind: InstitutionKind | null; website: string | null };
+  registered: { sourceId: string; label: string | null; url: string | null } | null;
+  kindGuess: 'fachbereich' | 'zentral';
+  gateGuess: 'none' | 'psych';
+  ai: { verdict: CheckVerdict; summary: string } | null;
+  verdict: CheckVerdict;
+  notes: string[];
+  durationMs: number;
+  checkedAt: string;
+}
+
+export interface SourceCheck {
+  id: number;
+  url: string;
+  sourceId: string | null;
+  status: 'wartet' | 'laeuft' | 'fertig' | 'fehler' | 'uebernommen' | 'verworfen';
+  requestedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  result: CheckResult | null;
+  error: string | null;
+}
+
+export interface AcceptCheckBody {
+  institutionId?: string;
+  institution?: { name: string; cityId: string; kind: InstitutionKind; website?: string };
+  kind: 'zentral' | 'fachbereich' | 'portal';
+  gate: 'none' | 'psych';
+  label?: string;
+  url?: string;
+}
+
 export interface SourcesData {
   sources: Source[];
   suggestions: Suggestion[];
   browserQueue: Record<string, number>;
+  checks: SourceCheck[];
+  discoveries: Discovery[];
 }
 
 export interface GateSkip {
@@ -49,6 +124,9 @@ export interface GateSkip {
   sourceId: string | null;
   institutionId: string | null;
   seenAt: string;
+  /** grobfilter | ki-nein */
+  reason?: string | null;
+  note?: string | null;
 }
 
 export interface SourcePatchBody {
@@ -80,6 +158,14 @@ export interface Backend {
   patchSource(id: string, patch: SourcePatchBody): Promise<void>;
   addSource(body: NewSourceBody): Promise<void>;
   resolveSuggestion(id: number, accept: boolean): Promise<void>;
+  /** Probelauf für eine Website starten; started = sofort per GitHub-Workflow, sonst beim nächsten Lauf. */
+  checkSource(url: string, sourceId?: string): Promise<{ check: SourceCheck; started: boolean }>;
+  getCheck(id: number): Promise<SourceCheck>;
+  acceptCheck(id: number, body: AcceptCheckBody): Promise<void>;
+  discardCheck(id: number): Promise<void>;
+  setDiscoveryStatus(siteKey: string, status: Discovery['status']): Promise<void>;
+  /** Brücken-Vorschläge der KI (nur, wenn der Worker einen KI-Schlüssel hat). */
+  suggestBridges(profile: Suchprofil): Promise<Bruecke[]>;
   runs(): Promise<RunInfo[]>;
   runLog(id: number): Promise<string>;
   skips(): Promise<GateSkip[]>;

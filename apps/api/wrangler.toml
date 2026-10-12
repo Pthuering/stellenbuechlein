@@ -21,11 +21,16 @@ migrations_dir = "../../packages/db/migrations"
 [vars]
 # Öffentlicher VAPID-Schlüssel für Push-Erinnerungen (npx web-push generate-vapid-keys)
 VAPID_PUBLIC_KEY = ""
-# Optional für den Knopf "Jetzt einsammeln": Repository im Format besitzer/name
+# Optional für "Jetzt einsammeln" und den Probelauf neuer Quellen: Repository im Format besitzer/name
 GITHUB_REPO = ""
 GITHUB_WORKFLOW = "einsammeln.yml"
+GITHUB_CHECK_WORKFLOW = "quelle-pruefen.yml"
+# Optional: KI im Worker für Brücken-Vorschläge im Horizont (OpenAI-kompatibel, Standard DeepSeek)
+LLM_BASE_URL = "https://api.deepseek.com"
+LLM_MODEL = "deepseek-chat"
 
 # Geheimnisse (nicht hier eintragen!):
 #   npx wrangler secret put APP_KEY      – Schlüssel für die App
 #   npx wrangler secret put INGEST_KEY   – Schlüssel für die Einsammel-Pipeline
 #   npx wrangler secret put GITHUB_TOKEN – optional, Fine-grained Token mit "Actions: write"
+#   npx wrangler secret put LLM_API_KEY  – optional, KI-Schlüssel für Brücken-Vorschläge

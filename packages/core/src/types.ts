@@ -160,6 +160,39 @@ export interface JobSourceRef {
   url: string;
 }
 
+/**
+ * Wie sicher eine Frist ist:
+ *  ok       – mit Jahr aus dem Anzeigentext oder den strukturierten Daten
+ *  jahr     – im Text ohne Jahr, Jahr ergänzt
+ *  ki       – von der KI im Text nachgeprüft (Zitat in deadlineNote)
+ *  unsicher – unplausibel oder mehrdeutig, bitte im Original prüfen
+ */
+export type DeadlineCheck = 'ok' | 'jahr' | 'ki' | 'unsicher';
+
+/**
+ * Ring, über den eine Anzeige hereinkam:
+ *  kern     – Psychologie-Bezug (Grobfilter) oder Fachbereichs-Quelle
+ *  horizont – kein Psychologie-Bezug, aber eine Brücke aus dem Suchprofil passt
+ *  weite    – keine Brücke, aber die KI hält die Stelle für übertragbar
+ */
+export type Lane = 'kern' | 'horizont' | 'weite';
+
+export const LANE_LABELS: Record<Lane, string> = { kern: 'Kern', horizont: 'Horizont', weite: 'Weite' };
+
+/** KI-Einschätzung für Horizont- und Weite-Anzeigen. */
+export interface JobHorizon {
+  /** Ein Satz: warum die Stelle passen könnte. */
+  reason?: string | null;
+  /** KI-Urteil; „nein“ nur bei Anzeigen, die der Grobfilter ohnehin durchgelassen hat (werden nicht eingestreut). */
+  verdict?: 'passt' | 'eher' | 'nein' | null;
+  /** Kurzes Etikett der Verbindung, z. B. „IT-Sicherheit × Verhalten“. */
+  label?: string | null;
+  /** IDs der Brücken, die beim Einsammeln gepasst haben. */
+  bridges?: string[];
+}
+
+export type FoundVia = 'quelle' | 'portal' | 'erkundung';
+
 export interface Job {
   id: string;
   institutionId: string | null;
@@ -183,6 +216,9 @@ export interface Job {
   startText?: string | null;
   deadline?: string | null;
   deadlineText?: string | null;
+  deadlineCheck?: DeadlineCheck | null;
+  /** Begründung zur Frist (z. B. „im Text ohne Jahr“, KI-Zitat, warum unsicher). */
+  deadlineNote?: string | null;
   referenceNo?: string | null;
   contact?: string | null;
   language?: 'de' | 'en' | null;
@@ -199,6 +235,13 @@ export interface Job {
   method?: string | null;
   psychTerms?: string[];
   sources?: JobSourceRef[];
+  lane?: Lane | null;
+  horizon?: JobHorizon | null;
+  /** Von einer Website bzw. einem Arbeitgeber, die beim Fund noch nicht im Quellen-Register standen. */
+  newSite?: boolean;
+  foundVia?: FoundVia | null;
+  /** Arbeitgeber, wie er in der Anzeige steht (für Einrichtungen außerhalb des Registers). */
+  employer?: string | null;
 }
 
 export type Decision = 'gemerkt' | 'abgelehnt';

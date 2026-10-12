@@ -53,7 +53,51 @@ export interface Suchprofil {
   categories: ProfileCategory[];
   /** "Lieber nicht" – zieht Punkte ab, sortiert aber nie aus. */
   avoid: ProfileItem[];
+  /** Erweiterung über den Kernbereich hinaus (fehlt bei älteren Profilen: dann gilt der Start-Horizont). */
+  horizont?: Horizont;
   updatedAt: string;
+}
+
+// ---------------------------------------------------------------- Horizont
+
+/**
+ * Eine Brücke verbindet ein anderes Fachgebiet mit dem, was du mitbringst.
+ * Eine Anzeige passt, wenn sie einen Feld-Begriff UND einen Anknüpfungs-Begriff enthält.
+ */
+export interface Bruecke {
+  id: string;
+  name: string;
+  /** Begriffe für das andere Feld (einer reicht), z. B. „cybersecurity“, „it sicherheit“. */
+  feld: string[];
+  /** Begriffe für die Anknüpfung an dich (einer reicht). Leer = Standard: Mensch, Verhalten, Empirie. */
+  anker: string[];
+  /** Suchwörter für die Erkundung bei der Arbeitsagentur und im Netz, z. B. „Usable Security“. */
+  suche?: string[];
+  /** Warum diese Brücke (aus dem Interview oder selbst notiert). */
+  warum?: string | null;
+  aktiv: boolean;
+  herkunft: 'start' | 'steckbrief' | 'ki' | 'manuell';
+}
+
+/** Wie oft eine Horizont-Karte im Stapel kommt. */
+export type HorizontDosis = 'aus' | 'selten' | 'normal' | 'oft';
+
+export const DOSIS_LABELS: Record<HorizontDosis, string> = {
+  aus: 'aus',
+  selten: 'jede 6. bis 8.',
+  normal: 'jede 3. bis 5.',
+  oft: 'jede 2. bis 3.',
+};
+
+export interface Horizont {
+  dosis: HorizontDosis;
+  bruecken: Bruecke[];
+  /** Weite: Die KI prüft auch Anzeigen ohne Brücke darauf, ob deine Fähigkeiten dort tragen. */
+  weite: boolean;
+  /** Fähigkeiten und Wissen, die in andere Felder tragen (Vorauswahl für die Weite). */
+  faehigkeiten: string[];
+  /** Interessen außerhalb der Psychologie, Grundlage für KI-Vorschläge. */
+  interessen: string[];
 }
 
 export const CATEGORY_ORDER: CategoryId[] = ['thema', 'stelle', 'methoden', 'rahmen'];
@@ -75,6 +119,27 @@ const item = z.object({
   condition: condition.optional(),
 });
 
+const termList = (max: number) => z.array(z.string().min(1).max(80)).max(max);
+
+export const BrueckeSchema = z.object({
+  id: z.string().min(1).max(60),
+  name: z.string().min(1).max(80),
+  feld: termList(40).min(1),
+  anker: termList(40).default([]),
+  suche: z.array(z.string().min(2).max(80)).max(8).optional(),
+  warum: z.string().max(400).nullable().optional(),
+  aktiv: z.boolean().default(true),
+  herkunft: z.enum(['start', 'steckbrief', 'ki', 'manuell']).default('manuell'),
+});
+
+export const HorizontSchema = z.object({
+  dosis: z.enum(['aus', 'selten', 'normal', 'oft']).default('normal'),
+  bruecken: z.array(BrueckeSchema).max(40).default([]),
+  weite: z.boolean().default(true),
+  faehigkeiten: termList(60).default([]),
+  interessen: z.array(z.string().min(1).max(80)).max(30).default([]),
+});
+
 export const SuchprofilSchema = z.object({
   version: z.literal(1),
   name: z.string().max(120),
@@ -89,12 +154,24 @@ export const SuchprofilSchema = z.object({
     )
     .length(4),
   avoid: z.array(item).max(40),
+  horizont: HorizontSchema.optional(),
   updatedAt: z.string(),
 });
 
 export function parseProfile(value: unknown): Suchprofil | null {
   const r = SuchprofilSchema.safeParse(value);
-  return r.success ? (r.data as Suchprofil) : null;
+  if (r.success) return r.data as Suchprofil;
+  // Ein fehlerhafter Horizont soll nie das ganze Suchprofil kosten: dann gilt der Start-Horizont.
+  if (value && typeof value === 'object' && 'horizont' in value) {
+    const rest = SuchprofilSchema.safeParse({ ...(value as Record<string, unknown>), horizont: undefined });
+    if (rest.success) return rest.data as Suchprofil;
+  }
+  return null;
+}
+
+/** Bringt Begriffslisten in die Grenzen des Profil-Formats (für Eingaben aus Editor und Import). */
+export function cleanTerms(list: readonly string[], max = 40, maxLen = 80): string[] {
+  return [...new Set(list.map((t) => t.trim()).filter((t) => t.length >= 1 && t.length <= maxLen))].slice(0, max);
 }
 
 let idCounter = 0;
@@ -152,7 +229,45 @@ export function starterProfile(now = new Date().toISOString()): Suchprofil {
       { id: 'a-shk', label: 'Studentische Hilfskraft', hearts: 2, condition: { type: 'kind', kinds: ['shk'] } },
       { id: 'a-verw', label: 'Verwaltung & Technik', hearts: 2, condition: { type: 'kind', kinds: ['verwaltung'] } },
     ],
+    horizont: starterHorizont(),
   };
+}
+
+/**
+ * Start-Horizont: bewusst weit, bis das Interview die Brücken festlegt. Begriffe, die in fast jeder
+ * Anzeige als Floskel stehen („Weiterbildung“, „Datenschutz“, „Gesundheitsmanagement“), sind absichtlich
+ * nicht dabei, sonst würde jede Anzeige eine Brücke treffen.
+ */
+export function starterHorizont(): Horizont {
+  const b = (id: string, name: string, feld: string[], suche: string[]): Bruecke => ({ id, name, feld, anker: [], suche, warum: null, aktiv: true, herkunft: 'start' });
+  return {
+    dosis: 'normal',
+    weite: true,
+    interessen: [],
+    faehigkeiten: [
+      'statistik', '"r"', 'python', 'datenanalyse', 'befragung', 'fragebogen', 'interview', 'experiment', 'evaluation',
+      'diagnostik', 'psychometr', 'beratung', 'didaktik', 'mixed methods', 'qualitative', 'quantitative', 'wissenschaftliches arbeiten',
+    ],
+    bruecken: [
+      b('h-ki', 'Mensch & KI', ['künstliche intelligenz', 'künstlicher intelligenz', '"ki"', 'machine learning', 'maschinelles lernen', 'artificial intelligence', 'sprachmodell', 'language model', '"llm"', 'chatbot', 'generative ki'], ['Künstliche Intelligenz Mensch', 'KI Akzeptanz', 'Human-AI Interaction']),
+      b('h-sec', 'IT-Sicherheit', ['it sicherheit', 'itsicherheit', 'cybersecurity', 'cyber security', 'cybersicherheit', 'informationssicherheit', 'security', 'phishing', 'social engineering'], ['Usable Security', 'Security Awareness', 'IT-Sicherheit Mensch']),
+      b('h-arbeit', 'Arbeit & Organisation', ['arbeitsgestaltung', 'arbeitsschutz', 'arbeitsorganisation', 'arbeitsforschung', 'organisationsentwicklung', 'personalentwicklung', 'personalauswahl', 'eignungsdiagnostik', 'people analytics', 'zukunft der arbeit', 'future of work', 'new work'], ['Arbeitsgestaltung', 'Personalentwicklung', 'Organisationsentwicklung']),
+      b('h-gesund', 'Gesundheit & Prävention', ['public health', 'prävention', 'gesundheitsförderung', 'versorgungsforschung', 'gesundheitskommunikation', 'epidemiolog', 'pflegewissenschaft', 'rehabilitationsforschung', 'digital health', 'digitale gesundheit'], ['Präventionsforschung', 'Versorgungsforschung', 'Gesundheitsförderung']),
+      b('h-bildung', 'Bildung & Lernen', ['didaktik', 'hochschuldidaktik', 'lehrerbildung', 'lehrkräftebildung', 'e learning', 'elearning', 'bildungstechnolog', 'lernplattform', 'erwachsenenbildung', 'bildungsmonitoring', 'kompetenzmessung', 'learning analytics'], ['Hochschuldidaktik', 'Bildungsforschung Evaluation', 'E-Learning Didaktik']),
+      b('h-verkehr', 'Mobilität & Verkehr', ['verkehrssicherheit', '*verkehrsforschung', '*verkehrsplanung', 'radverkehr', 'fußverkehr', 'verkehrswende', 'mobilitätswende', 'mobilitätsforschung', 'mobilitätsverhalten', 'verkehrsteilnehm', 'automatisiertes fahren', 'autonomes fahren', 'fahrerassistenz', 'luftfahrt', 'flugsicherung', 'human machine interface', '"hmi"'], ['Verkehrssicherheit', 'Mobilitätsforschung', 'Human Factors Luftfahrt']),
+      b('h-umwelt', 'Umwelt & Nachhaltigkeit', ['nachhaltigkeitsforschung', 'klimaschutz', 'klimawandel', 'energiewende', 'umweltverhalten', 'transformationsforschung', 'nachhaltiges verhalten', 'sustainability'], ['Nachhaltigkeit Verhalten', 'Klimaschutz Kommunikation', 'Transformationsforschung']),
+      b('h-daten', 'Daten & Methoden', ['data science', 'datenwissenschaft', 'umfrageforschung', 'survey', 'marktforschung', 'meinungsforschung', 'evaluationsforschung', 'evaluation', 'psychometr', 'testentwicklung'], ['Umfrageforschung', 'Evaluation Sozialforschung', 'Marktforschung']),
+      b('h-gesell', 'Gesellschaft & Politik', ['sozialwissenschaft', 'soziolog', 'politikwissenschaft', 'politikberatung', 'demokratieforschung', 'migrationsforschung', 'integrationsforschung', 'kriminolog', 'sozialpolitik', 'konfliktforschung'], ['Sozialforschung', 'Politikberatung Wissenschaft', 'Migrationsforschung']),
+      b('h-ux', 'Gestaltung & UX', ['user experience', 'usability', '"ux"', 'user research', 'interaktionsdesign', 'interaction design', 'mensch computer', 'human computer', '"hci"', 'service design', 'nutzerzentriert'], ['UX Research', 'User Researcher', 'Usability']),
+    ],
+  };
+}
+
+let defaultHorizont: Horizont | null = null;
+
+/** Horizont eines Profils (ältere Profile ohne Horizont bekommen den Start-Horizont). */
+export function horizontOf(p: Suchprofil): Horizont {
+  return p.horizont ?? (defaultHorizont ??= starterHorizont());
 }
 
 export function emptyCategoryProfile(name = 'Eigenes Profil'): Suchprofil {

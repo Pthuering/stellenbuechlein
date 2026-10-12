@@ -37,21 +37,26 @@ async function checkPage(url: string, ctx: DiscoverContext): Promise<PageCheck |
 export async function findJobsPage(inst: Institution, ctx: DiscoverContext): Promise<{ url: string; reason: string } | null> {
   if (!inst.website) return null;
   const home = await ctx.http.get(inst.website);
-  const candidates = new Map<string, string>();
+  // Schlüssel: vereinheitlichte Adresse (gegen Doppelte); Wert: Adresse wie verlinkt (mit Schrägstrich am Ende)
+  const candidates = new Map<string, { url: string; reason: string }>();
+  const add = (url: string, reason: string) => {
+    const key = canonicalUrl(url);
+    if (!candidates.has(key)) candidates.set(key, { url, reason });
+  };
   if (home.ok && !home.isPdf) {
     const $ = load(home.text);
     for (const l of extractLinks($, home.url)) {
       if (JOBS_LINK_TEXT.test(l.text) || /stellen|karriere|jobs?\b|career/i.test(new URL(l.url).pathname)) {
-        if (!/presse|news|aktuelles\/?$|studium|studierende|ausbildung\/?$|praktik/i.test(l.url)) candidates.set(canonicalUrl(l.url), `Link „${l.text.slice(0, 50)}“ auf der Startseite`);
+        if (!/presse|news|aktuelles\/?$|studium|studierende|ausbildung\/?$|praktik/i.test(l.url)) add(l.url, `Link „${l.text.slice(0, 50)}“ auf der Startseite`);
       }
     }
   }
   const origin = new URL(inst.website).origin;
-  for (const p of COMMON_PATHS) candidates.set(canonicalUrl(origin + p), `übliche Adresse ${p}`);
+  for (const p of COMMON_PATHS) add(origin + p, `übliche Adresse ${p}`);
 
   let best: { check: PageCheck; reason: string } | null = null;
   let tried = 0;
-  for (const [url, reason] of candidates) {
+  for (const { url, reason } of candidates.values()) {
     if (tried >= 10) break;
     tried++;
     const c = await checkPage(url, ctx).catch(() => null);
@@ -75,7 +80,7 @@ export async function findJobsPage(inst: Institution, ctx: DiscoverContext): Pro
   }
   // Mit KI unter den gefundenen Links wählen
   if (ctx.llm.available && candidates.size) {
-    const list = [...candidates.entries()].slice(0, 60).map(([url, reason], i) => ({ i, text: reason, url }));
+    const list = [...candidates.values()].slice(0, 60).map(({ url, reason }, i) => ({ i, text: reason, url }));
     const pick = await ctx.llm.pickJobsPage(inst.name, list);
     if (pick?.index != null && list[pick.index]) {
       return { url: list[pick.index].url, reason: `KI-Vorschlag (${pick.confidence})` };

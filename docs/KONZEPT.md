@@ -6,6 +6,8 @@
 2. **Das Suchprofil sortiert, es filtert nie.** Kein Steckbrief-Eintrag kann eine Anzeige ausblenden. Ausblenden tun nur Filter, die du selbst setzt, und die gelten nur für Stapel, Liste und Karte. Gelöscht wird dadurch nichts.
 3. **Verständlich und direkt einstellbar.** Der Score besteht aus Herzchen, die man sieht und ändern kann. Kein Lernen aus dem Wischen.
 4. **Vollständige Anzeigen.** Jede Anzeige soll ganz in der App stehen. Wo das nicht gelingt, steht ein Hinweis und die Anzeige kommt in die Warteschlange des Browser-Agenten.
+5. **Keine blinden Flecken.** Jeder Lauf sucht gezielt nach Anzeigen von Websites, die noch nicht im Register stehen, und bringt mindestens drei davon mit.
+6. **Fristen stimmen oder sind als unsicher markiert.** Offen ist eine Anzeige nur, solange ihre Frist nicht vorbei ist. Zweifelhafte Daten werden nachgeprüft statt still übernommen.
 
 ## Welche Anzeigen hereinkommen
 
@@ -15,6 +17,31 @@ Zwei Arten von Quellen:
 
 - **Fachbereichs-Seiten** (Institut für Psychologie, Lehrstühle): Jede Anzeige wird übernommen.
 - **Breite Quellen** (zentrale Stellenbörsen, Portale): Eine Anzeige muss mindestens einen Begriff aus dem **Grobfilter** enthalten, etwa `*psych` (passt auch auf Neuropsychologie), Kognition, Bildungsforschung, Neurowissenschaft, Verhalten, Emotion, Suchtforschung, Psychotherapie. Die Liste ist bewusst weit und in der App änderbar. Alles, was dabei aussortiert wird, steht unter *Quellen → Aussortiert*. Wird ein Begriff ergänzt, prüft der nächste Lauf die aussortierten Anzeigen erneut.
+
+## Horizont: über den Kern hinaus
+
+Neben dem **Kern** (Stellen, die deine Kernthemen aus dem Suchprofil treffen) gibt es zwei weitere Ringe:
+
+- **Horizont:** Stellen aus anderen Feldern, die über eine **Brücke** passen. Eine Brücke besteht aus Feld-Begriffen (z. B. `cybersecurity`, `phishing`) und Anknüpfungs-Begriffen (Menschen, Verhalten, Empirie; ohne eigene Angabe gilt eine Standardliste). Eine Anzeige passt, wenn sie aus beiden Gruppen mindestens einen Begriff enthält. Floskeln, die in fast jeder Anzeige stehen („Weiterbildung“, „Datenschutz“, „hohe Motivation“), sind bewusst keine Begriffe.
+- **Weite:** Stellen ohne Brücke, in denen eine deiner Fähigkeiten und ein Bezug zu Menschen oder Empirie vorkommt. Hier urteilt die KI, ob deine Fähigkeiten dort tragen.
+
+Beim Einsammeln aus breiten Quellen gilt: Was den Grobfilter nicht passiert, kommt über eine Brücke oder die Weite trotzdem herein. Für jede solche Anzeige gibt die KI ein Urteil ab („passt“, „eher“, „nein“) und einen Satz, warum die Stelle passen könnte. „Nein“ heißt: völlig fremd (andere Ausbildung nötig, nichts vom Wissen gebraucht); solche Anzeigen stehen unter *Quellen → Aussortiert* mit der Begründung der KI. Brücken dürfen weit reichen, auch über die Forschung hinaus; eingegrenzt wird über das Interview.
+
+In der App entscheidet das aktuelle Profil, welcher Ring gilt: Trifft eine Anzeige ein Kernthema, ist sie Kern, auch wenn sie über eine Brücke kam. Trifft sie kein Kernthema, aber eine aktive Brücke, ist sie Horizont, auch wenn der breite Grobfilter sie schon durchgelassen hatte (etwa „UX Researcher“ ohne Psychologie im Text). Im Stapel kommt **etwa jede 3. bis 5. Karte aus dem Horizont**, zufällig verteilt, aber beim Wischen stabil (einstellbar: aus, selten, normal, oft). Die Karte trägt ein lavendelfarbenes Etikett mit der Brücke und zeigt statt der Kurzfassung den Satz „Warum das passen könnte“. In jeder Horizont-Anzeige lässt sich die Brücke bearbeiten oder pausieren. Gelernt wird nichts aus dem Wischen.
+
+Brücken kommen aus dem Steckbrief, aus KI-Vorschlägen (*Ich → Horizont → Brücken vorschlagen lassen*, übernommen wird nur, was du annimmst) oder von dir. Bis das Interview sie festlegt, gilt ein breiter Start-Horizont mit zehn Brücken (Mensch & KI, IT-Sicherheit, Arbeit & Organisation, Gesundheit & Prävention, Bildung & Lernen, Mobilität & Verkehr, Umwelt & Nachhaltigkeit, Daten & Methoden, Gesellschaft & Politik, Gestaltung & UX).
+
+## Blinde Flecken: Erkundung neuer Websites
+
+Das Register ist die Liste aller Websites, die die App kennt: Quellen, Websites der Einrichtungen und bereits bearbeitete Funde. Jeder Lauf (täglich gegen 12 Uhr oder per Knopf) endet mit der **Erkundung**: Mit täglich wechselnden Suchwörtern aus dem Kernbereich und aus den Brücken fragt sie bei der Jobsuche der Arbeitsagentur (optional zusätzlich in einer Websuche) und liest nur Anzeigen, deren Website und Arbeitgeber nicht im Register stehen. Sie liest so lange, bis mindestens **drei neue Anzeigen** dabei sind (höchstens 40 Versuche); schafft sie das nicht, steht eine Warnung im Lauf.
+
+Solche Anzeigen tragen in der App die Markierung „neue Website“, die Websites selbst stehen unter *Quellen → Neu*. Von dort startet ein Klick den Probelauf, und die Website kommt ins Register. Bei Jobbörsen zählt der Arbeitgeber statt der Börse, bei Bewerbermanagement-Systemen die eigene Unterdomain des Arbeitgebers.
+
+## Neue Quellen mit Probelauf
+
+Eine Website kommt erst nach einem **Probelauf** ins Register (*Ich → Quellen → Website hinzufügen*, oder „Als Quelle prüfen“ bei einem Fund): Die Pipeline sammelt die Seite einmal komplett ein, ohne zu speichern, liest bis zu fünf Anzeigen vollständig (notfalls mit dem Browser-Agenten) und prüft Frist, Entgelt und Umfang. Ist die Adresse nur die Startseite, sucht sie die Stellenseite selbst. Die KI beurteilt dann, ob es eine Stellenliste ist, wer ausschreibt, ob es ein Fachbereich ist, ob die Proben echte, vollständige Anzeigen sind und ob ein Linkmuster oder der Browser nötig ist. Ein Linkmuster der KI wird nur übernommen, wenn es alle bestätigten Anzeigen trifft und den Rest ausschließt.
+
+Das Ergebnis zeigt die App mit Urteil („gut geeignet“, „mit Einschränkungen“, „ungeeignet“), Proben und vorausgefüllter Einrichtung. Übernommen wird mit den geprüften Einstellungen; die Quelle gilt dann als geprüft. Für bestehende Quellen gibt es „Probelauf wiederholen“.
 
 ## Einsammeln: die Kaskade
 
@@ -39,7 +66,18 @@ Regelbasiert, bei Bedarf von der KI ergänzt: Frist (mit Kontextregeln, damit ei
 
 **Dubletten:** gleiche Adresse (bereinigt), sonst gleiche Einrichtung mit gleichem Titel und gleicher Frist oder Kennziffer, sonst sehr ähnlicher Titel bei derselben Einrichtung. Eine zusammengeführte Anzeige zeigt alle Fundorte („Gefunden über“).
 
-**Ablauf:** Eine Anzeige gilt als abgelaufen, wenn die Frist vorbei ist oder sie seit drei Tagen nicht mehr gelistet war (nur wenn ihre Quellen in der Zeit fehlerfrei liefen). Abgelaufene verschwinden aus „Alle“ und aus dem Stapel und werden nach 14 Tagen gelöscht. Gemerkte, Herzensjobs und beworbene bleiben dauerhaft.
+**Ablauf:** Eine Anzeige gilt als abgelaufen, wenn die Frist vorbei ist oder sie seit drei Tagen nicht mehr gelistet war (nur wenn ihre Quellen in der Zeit fehlerfrei liefen). Über die Erkundung gefundene Anzeigen werden nicht täglich wieder gelistet; sie laufen über ihre Frist ab, ohne Frist nach 45 Tagen. Abgelaufene verschwinden aus „Alle“ und aus dem Stapel und werden nach 14 Tagen gelöscht. Gemerkte, Herzensjobs und beworbene bleiben dauerhaft.
+
+## Fristen absichern
+
+Eine Anzeige gilt nur als offen, solange ihre Frist heute oder später ist; Stapel, „Alle“ und Karte zeigen nichts Abgelaufenes. Damit die Frist selbst stimmt, wird jede gefundene Frist geprüft:
+
+- **Ohne Jahr** („bis zum 30.11.“): Das Jahr wird vom Veröffentlichungsdatum (sonst vom Tag des Fundes) aus ergänzt. Liegt das Datum höchstens 45 Tage zurück, gilt dieses Jahr (die Anzeige ist dann abgelaufen), sonst das nächste, wenn es höchstens 150 Tage voraus ist. Alles andere ist mehrdeutig und wird als „Frist unklar“ gezeigt, nicht geraten.
+- **Verlängert:** „Die Frist wurde verlängert bis …“ schlägt die ursprüngliche Frist.
+- **Unplausibel:** vor dem Veröffentlichungsdatum (dann wird das Datum verworfen), mehr als acht Monate in der Zukunft, oder beim ersten Fund schon vorbei (ein vermuteter Tippfehler im Jahr wird als unsicher markiert).
+- **KI-Nachprüfung:** In diesen Fällen, und wenn ein Fristhinweis ohne lesbares Datum dasteht, sucht die KI die Frist im Text. Ihre Antwort zählt nur mit einem wörtlichen Zitat, das Tag und Monat der genannten Frist enthält; so kann sie keine Frist erfinden.
+
+In der App steht bei jeder Frist, wie sicher sie ist: ohne Vermerk (aus dem Text), „Jahr ergänzt“, „von der KI nachgeprüft“ mit Zitat, oder gelb hinterlegt „Frist unsicher, bitte im Original prüfen“.
 
 ## Der Score („Herzchen-Score“)
 
@@ -57,11 +95,11 @@ In jeder Anzeige zeigt „warum?“, welche Einträge gegriffen haben. Im Profil
 
 ## Steckbrief
 
-Das Interview führt ein starkes Modell extern, das Ergebnis ist ein Steckbrief im JSON-Format. Format und Interview-Prompt sind ein eigener Arbeitsschritt. Bis dahin liest die App einen **Entwurf (Version 0)**, beschrieben in [STECKBRIEF-ENTWURF.md](STECKBRIEF-ENTWURF.md); in der App unter *Ich → Steckbrief importieren → Beispiel einfügen*. Der Import setzt das Suchprofil und schlägt Lieblingsorte vor, die man vor dem Übernehmen abhaken kann. Filter setzt er nie.
+Das Interview führt ein starkes Modell extern, das Ergebnis ist ein Steckbrief im JSON-Format. Format und Interview-Prompt sind ein eigener Arbeitsschritt. Bis dahin liest die App einen **Entwurf (Version 0)**, beschrieben in [STECKBRIEF-ENTWURF.md](STECKBRIEF-ENTWURF.md); in der App unter *Ich → Steckbrief importieren → Beispiel einfügen*. Der Import setzt das Suchprofil samt Horizont (Brücken, Interessen, Fähigkeiten) und schlägt Lieblingsorte vor, die man vor dem Übernehmen abhaken kann. Filter setzt er nie. Am Ende des Interviews sollte gefragt werden, welche Themen außerhalb der Psychologie die Person spannend findet und wo sie ihr Wissen und Können noch einsetzen könnte; daraus werden die Brücken.
 
 ## Erinnerungen
 
-Herzensjobs (Stern) bekommen Erinnerungen vor der Frist, standardmäßig 1 Monat, 1 Woche und 1 Tag vorher (änderbar). Pro Anzeige kommt immer nur die nächstliegende fällige Stufe; wer einen Job erst eine Woche vor Fristende markiert, bekommt also keine verspätete „1 Monat“-Erinnerung. Benachrichtigungen verschickt der Einsammel-Lauf zweimal täglich; in der App stehen fällige Fristen zusätzlich als Zettel oben unter „Gemerkt“.
+Herzensjobs (Stern) bekommen Erinnerungen vor der Frist, standardmäßig 1 Monat, 1 Woche und 1 Tag vorher (änderbar). Pro Anzeige kommt immer nur die nächstliegende fällige Stufe; wer einen Job erst eine Woche vor Fristende markiert, bekommt also keine verspätete „1 Monat“-Erinnerung. Benachrichtigungen verschickt der tägliche Einsammel-Lauf gegen 12 Uhr; in der App stehen fällige Fristen zusätzlich als Zettel oben unter „Gemerkt“.
 
 ## Technik in Kürze
 
@@ -69,4 +107,4 @@ Herzensjobs (Stern) bekommen Erinnerungen vor der Frist, standardmäßig 1 Monat
 - **Abgleich:** seitenweise nach Änderungszeitpunkt, gelöschte Anzeigen über „Grabsteine“.
 - **Score im Browser:** spart Rechenzeit im Worker (10 ms im kostenlosen Plan) und macht Profiländerungen sofort sichtbar.
 - **Zugriff:** ein App-Schlüssel für die Oberfläche, ein zweiter nur für die Pipeline.
-- **Gestaltung:** gezeichnetes Notizbuch mit festen Farbrollen: Weiß und Beige als Fläche, Rosa als Primärfarbe, Lavendel sparsam für Orientierung (Hinweise der App, Zuhause und Umkreis), Hellgelb nur für Fristen und Herzensjobs. Handschrift (Shantell Sans) für die Oberfläche, Literata für Anzeigentexte. Regeln, Tokens und Kontraste in [GESTALTUNG.md](GESTALTUNG.md).
+- **Gestaltung:** gezeichnetes Notizbuch mit festen Farbrollen: Weiß und Beige als Fläche, Rosa als Primärfarbe, Lavendel sparsam für Orientierung (Hinweise der App, Horizont, Zuhause und Umkreis), Hellgelb nur für Fristen und Herzensjobs. Handschrift (Shantell Sans) für die Oberfläche, Literata für Anzeigentexte. Regeln, Tokens und Kontraste in [GESTALTUNG.md](GESTALTUNG.md).

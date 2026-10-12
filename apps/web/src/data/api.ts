@@ -1,7 +1,20 @@
 // Echte API über HTTP (gleiche Herkunft wie die App).
 
-import type { FavoriteKind, Mark, RunInfo } from '@stellen/core';
-import { AuthError, OfflineError, type Backend, type BootstrapData, type GateSkip, type NewSourceBody, type SourcePatchBody, type SourcesData, type SyncPage } from './backend';
+import type { Bruecke, FavoriteKind, Mark, RunInfo, Suchprofil } from '@stellen/core';
+import {
+  AuthError,
+  OfflineError,
+  type AcceptCheckBody,
+  type Backend,
+  type BootstrapData,
+  type Discovery,
+  type GateSkip,
+  type NewSourceBody,
+  type SourceCheck,
+  type SourcePatchBody,
+  type SourcesData,
+  type SyncPage,
+} from './backend';
 
 export class HttpBackend implements Backend {
   readonly demo = false;
@@ -65,6 +78,30 @@ export class HttpBackend implements Backend {
 
   async resolveSuggestion(id: number, accept: boolean): Promise<void> {
     await this.call(`/api/suggestions/${id}`, { method: 'POST', body: JSON.stringify({ accept }) });
+  }
+
+  checkSource(url: string, sourceId?: string): Promise<{ check: SourceCheck; started: boolean }> {
+    return this.call('/api/sources/checks', { method: 'POST', body: JSON.stringify({ url, sourceId }) });
+  }
+
+  async getCheck(id: number): Promise<SourceCheck> {
+    return (await this.call<{ check: SourceCheck }>(`/api/sources/checks/${id}`)).check;
+  }
+
+  async acceptCheck(id: number, body: AcceptCheckBody): Promise<void> {
+    await this.call(`/api/sources/checks/${id}/accept`, { method: 'POST', body: JSON.stringify(body) });
+  }
+
+  async discardCheck(id: number): Promise<void> {
+    await this.call(`/api/sources/checks/${id}/discard`, { method: 'POST' });
+  }
+
+  async setDiscoveryStatus(siteKey: string, status: Discovery['status']): Promise<void> {
+    await this.call('/api/discoveries/status', { method: 'POST', body: JSON.stringify({ siteKey, status }) });
+  }
+
+  async suggestBridges(profile: Suchprofil): Promise<Bruecke[]> {
+    return (await this.call<{ bruecken: Bruecke[] }>('/api/horizont/vorschlaege', { method: 'POST', body: JSON.stringify({ profile }) })).bruecken;
   }
 
   async runs(): Promise<RunInfo[]> {

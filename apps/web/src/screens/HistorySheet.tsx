@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useAppState, useStore, useViews } from '../data/hooks';
 import { openJob } from '../lib/router';
-import { deadlineInfo, institutionName } from '../lib/format';
+import { deadlineInfo, employerName } from '../lib/format';
 import { Sheet } from '../ui/Sheet';
 import { Empty } from '../ui/bits';
 import { IconHeart, IconStar, IconX } from '../ui/icons';
@@ -61,7 +61,7 @@ export function HistorySheet({ onClose, onUndo }: { onClose: () => void; onUndo:
                 </span>
                 <div className="row__main">
                   <p className="row__title">{v.job.title}</p>
-                  <p className="row__sub">{institutionName(inst, true)}{dl ? `, Frist ${dl.date}` : ''}</p>
+                  <p className="row__sub">{employerName(v.job, inst, true)}{dl ? `, Frist ${dl.date}` : ''}</p>
                 </div>
                 <div className="row__meta" onClick={(e) => e.stopPropagation()}>
                   {tab === 'gemerkt' ? (

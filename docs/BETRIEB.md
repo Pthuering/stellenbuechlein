@@ -6,8 +6,9 @@ Die App läuft komplett in kostenlosen Kontingenten:
 |---|---|---|
 | App (PWA) und API | Cloudflare Worker mit statischen Dateien | Oberfläche, Abgleich, Einstellungen |
 | Datenbank | Cloudflare D1 | Anzeigen, Markierungen, Quellen, Läufe |
-| Einsammeln | GitHub Actions, zweimal täglich | Anzeigen holen, Erinnerungen verschicken |
-| KI (optional) | DeepSeek-API oder ein anderer OpenAI-kompatibler Dienst | schwierige Seiten auswerten, Kurzfassungen |
+| Einsammeln | GitHub Actions, täglich gegen 12 Uhr und per Knopf | Anzeigen holen, gezielt neue Websites erkunden, Erinnerungen verschicken |
+| Probelauf neuer Quellen | GitHub Actions, per Knopf in der App | eine Website prüfen, bevor sie ins Register kommt |
+| KI (optional, empfohlen) | DeepSeek-API oder ein anderer OpenAI-kompatibler Dienst | schwierige Seiten auswerten, Kurzfassungen, unplausible Fristen nachprüfen, Horizont und Weite beurteilen, neue Quellen prüfen |
 
 Du brauchst: ein GitHub-Konto, ein Cloudflare-Konto, Node.js 22 auf dem Rechner (nur für die Einrichtung) und optional einen DeepSeek-API-Schlüssel.
 
@@ -29,7 +30,7 @@ npx wrangler d1 create stellenbuechlein
 Die ausgegebene `database_id` in `apps/api/wrangler.toml` eintragen. Dann:
 
 ```bash
-npm run db:migrate:remote
+npm run db:migrate:remote              # legt alle Tabellen an; nach Updates erneut ausführen (neue Migrationen)
 npx wrangler secret put APP_KEY       # Schlüssel für die App, z. B. aus: openssl rand -base64 32
 npx wrangler secret put INGEST_KEY    # zweiter, anderer Zufallswert für die Pipeline
 cd ../..
@@ -57,18 +58,38 @@ Im Repository unter *Settings → Secrets and variables → Actions → New repo
 |---|---|---|
 | `API_URL` | ja | Adresse des Workers aus Schritt 2 |
 | `INGEST_KEY` | ja | derselbe Wert wie im Worker |
-| `DEEPSEEK_API_KEY` | nein | für KI-Auswertung und Kurzfassungen; ohne läuft alles regelbasiert |
+| `DEEPSEEK_API_KEY` | nein, aber empfohlen | KI für Kurzfassungen, Fristen-Nachprüfung, Horizont und Weite, Probeläufe; ohne läuft alles regelbasiert, die Weite fällt dann weg |
+| `BRAVE_API_KEY` | nein | Websuche (Brave Search API) als zusätzliche Quelle für die Erkundung neuer Websites; ohne sucht die Erkundung nur bei der Arbeitsagentur |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | nein | aus Schritt 3 |
 | `VAPID_SUBJECT` | nein | `mailto:` mit einer Adresse, unter der man dich erreicht |
 | `CRAWLER_CONTACT` | nein | Kontakt, der im User-Agent steht, damit Seitenbetreiber sich melden können |
 
 Danach unter *Actions → Einsammeln → Run workflow* den ersten Lauf starten. Der Lauf legt zuerst die Startdaten an (Städte, Einrichtungen, Quellen) und sammelt dann ein. Das Protokoll steht in der App unter *Ich → Quellen & Läufe → Läufe*.
 
-## 5. Knopf „Jetzt einsammeln“ (optional)
+**Zeitplan:** Der Workflow läuft täglich um 12 Uhr deutscher Zeit. GitHub rechnet in UTC, deshalb stehen zwei Zeiten im Workflow (10 und 11 Uhr UTC); ein kleiner erster Schritt prüft, welche davon gerade 12 Uhr in Deutschland ist, und lässt nur diese laufen. Sommer- und Winterzeit gehen so von selbst. Bei viel Betrieb startet GitHub geplante Läufe manchmal ein paar Minuten später. Eine andere Uhrzeit: die beiden `cron`-Zeilen und die Prüfung in `.github/workflows/einsammeln.yml` anpassen.
+
+**Blinde Flecken:** Jeder Lauf endet mit der Erkundung. Sie sucht mit wechselnden Suchwörtern (Kernbereich und Brücken aus dem Horizont) bei der Jobsuche der Arbeitsagentur, mit `BRAVE_API_KEY` zusätzlich im Netz, und liest so lange Anzeigen von Websites, die noch nicht im Register stehen, bis mindestens drei neue dabei sind (`EXPLORE_MIN`). Schafft sie das nicht, steht eine Warnung im Lauf und in der App unter *Quellen & Läufe*.
+
+## 5. Knöpfe „Jetzt einsammeln“ und „Probelauf“ (empfohlen)
+
+Beide starten einen GitHub-Workflow aus der App heraus.
 
 1. Auf GitHub ein *Fine-grained personal access token* anlegen: nur dieses Repository, Berechtigung *Actions: Read and write*.
 2. `npx wrangler secret put GITHUB_TOKEN` (im Ordner `apps/api`).
 3. In `wrangler.toml` bei `GITHUB_REPO` das Repository eintragen (`besitzer/name`) und neu veröffentlichen.
+
+Ohne Token gibt es den Knopf „Jetzt einsammeln“ nicht, und ein Probelauf für eine neue Website wartet bis zum nächsten täglichen Lauf (er wird am Anfang jedes Laufs abgearbeitet). Der Workflow für Probeläufe heißt `quelle-pruefen.yml` (änderbar über `GITHUB_CHECK_WORKFLOW`) und braucht dieselben Secrets wie das Einsammeln.
+
+## 5a. KI im Worker (optional, für Brücken-Vorschläge)
+
+Unter *Ich → Horizont → Brücken vorschlagen lassen* schlägt die KI neue Brücken aus Profil und Interessen vor. Dafür braucht der Worker selbst einen Schlüssel:
+
+```bash
+cd apps/api
+npx wrangler secret put LLM_API_KEY    # derselbe Schlüssel wie DEEPSEEK_API_KEY
+```
+
+`LLM_BASE_URL` und `LLM_MODEL` stehen in `wrangler.toml` (Standard DeepSeek). An die KI gehen dabei nur Stichworte aus dem Suchprofil (Themen, Methoden, Interessen, Namen der Brücken).
 
 ## 6. Automatisch veröffentlichen (optional)
 
@@ -91,7 +112,8 @@ Stand Oktober 2026, bei den Anbietern nachprüfen, falls sich etwas ändert:
 - **Cloudflare Workers (Free):** 100.000 API-Anfragen pro Tag, 10 ms Rechenzeit pro Anfrage. Abrufe der App-Dateien zählen nicht mit. Deshalb rechnet die App den Score selbst und holt Anzeigen seitenweise.
 - **Cloudflare D1 (Free):** 5 GB Speicher, 5 Millionen gelesene und 100.000 geschriebene Zeilen pro Tag. Für eine Person reicht das weit.
 - **GitHub Actions:** öffentlich unbegrenzt, privat 2.000 Minuten im Monat.
-- **DeepSeek:** nach Verbrauch. Die Pipeline begrenzt die KI-Aufrufe pro Lauf (`LLM_MAX_CALLS`, Standard 400).
+- **DeepSeek:** nach Verbrauch. Die Pipeline begrenzt die KI-Aufrufe pro Lauf (`LLM_MAX_CALLS`, Standard 900). Pro neuer Anzeige fallen meist ein bis zwei Aufrufe an (Kurzfassung, bei Horizont und Weite das Urteil, bei unplausiblen Fristen die Nachprüfung), dazu höchstens `WEITE_MAX_CHECKS` Weite-Prüfungen.
+- **Brave Search API (optional):** Kontingent und Preis beim Anbieter prüfen. Die Erkundung stellt pro Lauf höchstens `EXPLORE_MAX_QUERIES` Suchanfragen.
 
 ## Stellschrauben der Pipeline
 
@@ -108,12 +130,18 @@ Als Umgebungsvariablen im Workflow `einsammeln.yml` oder lokal:
 | `PURGE_AFTER_DAYS` | 14 | Abgelaufene, nicht gemerkte Anzeigen danach löschen |
 | `SOURCE_CONCURRENCY` | 6 | Quellen gleichzeitig |
 | `LLM_BASE_URL`, `LLM_MODEL` | DeepSeek, `deepseek-chat` | jeder OpenAI-kompatible Dienst geht |
-| `LLM_MAX_CALLS` | 400 | KI-Aufrufe pro Lauf |
+| `LLM_MAX_CALLS` | 900 | KI-Aufrufe pro Lauf |
 | `LLM_SUMMARIES` | 1 | `0` = keine KI-Kurzfassungen |
 | `BROWSER` | 1 | `0` = ohne Browser-Agent |
 | `BROWSER_MAX_ITEMS`, `BROWSER_BUDGET_MS` | 30, 12 Min. | Grenzen für den Browser-Agenten pro Lauf |
 | `DISCOVERY_MAX` | 20 | Einrichtungen ohne Adresse, für die pro Lauf eine Stellenseite gesucht wird |
 | `IMAGES_MAX` | 60 | Bilder (Wikipedia), die pro Lauf nachgeschlagen werden |
+| `EXPLORE` | 1 | `0` = keine Erkundung neuer Websites |
+| `EXPLORE_MIN` | 3 | So viele Anzeigen von Websites außerhalb des Registers soll jeder Lauf mindestens bringen |
+| `EXPLORE_MAX_READS` | 40 | Höchstens so viele Anzeigen liest die Erkundung pro Lauf |
+| `EXPLORE_QUERIES`, `EXPLORE_MAX_QUERIES` | 6, 18 | Suchwörter im ersten Durchgang und insgesamt (rotieren täglich) |
+| `WEITE_MAX_CHECKS` | 60 | KI-Prüfungen für die Weite pro Lauf; der Rest kommt im nächsten Lauf dran |
+| `BA_API_BASE` | Arbeitsagentur | Adresse der Jobsuche-Schnittstelle (nur für Tests ändern) |
 
 ## Ohne Cloudflare selbst betreiben
 
@@ -123,8 +151,10 @@ Alles läuft auch auf einem kleinen Rechner zu Hause (Raspberry Pi, NAS) mit ein
 npm install && npm run build:web
 npm run seed:local
 APP_KEY=geheim PORT=8787 npm run dev:node -w @stellen/api
-# per Cron zweimal täglich:
+# per Cron täglich um 12 Uhr (arbeitet auch wartende Probeläufe ab):
 npm run ingest:local
+# für Probeläufe sofort, z. B. alle 10 Minuten:
+npm run cli -w @stellen/ingest -- check-sources
 ```
 
 Von unterwegs erreichbar wird das erst mit einer HTTPS-Adresse (z. B. über einen Tunnel). Ohne HTTPS gibt es keinen Service Worker und keine Benachrichtigungen.
@@ -134,5 +164,8 @@ Von unterwegs erreichbar wird das erst mit einer HTTPS-Adresse (z. B. über eine
 - **„Der Schlüssel passt nicht“:** In der App ist ein anderer Wert als `APP_KEY` im Worker. Unter *Ich → Abmelden* neu eingeben.
 - **Pipeline bricht mit 401 ab:** `INGEST_KEY` in GitHub und im Worker unterscheiden sich.
 - **Quelle steht auf „blockiert“:** Die robots.txt verbietet den Abruf. Unter *Ich → Quellen* lässt sich das pro Quelle bewusst übergehen, die Portale decken sie sonst mit ab.
-- **Viele Quellen „ohne Adresse“:** Die Pipeline sucht nach und nach selbst und legt Vorschläge an (*Quellen → Vorschläge*). Bis dahin finden die Portale deren Anzeigen.
+- **Viele Quellen „ohne Adresse“:** Die Pipeline sucht nach und nach selbst und legt Vorschläge an (*Quellen → Neu*). Bis dahin finden die Portale deren Anzeigen.
+- **Probelauf bleibt auf „wartet“:** Ohne `GITHUB_TOKEN` im Worker startet er erst mit dem nächsten Einsammeln. Mit Token: unter *Actions → Quelle prüfen* nachsehen, ob der Workflow lief.
+- **Erkundung bringt weniger als drei Anzeigen:** Im Protokoll des Laufs steht, wie viele Suchen und Anzeigen es waren. Häufigster Grund: Die Schnittstelle der Arbeitsagentur hat sich geändert oder antwortet nicht. Mit `BRAVE_API_KEY` gibt es eine zweite Quelle.
+- **Frist „unsicher“:** Die Regeln fanden ein unplausibles Datum (weit in der Zukunft, vor der Veröffentlichung, ohne Jahr und mehrdeutig). Mit KI-Schlüssel sieht die KI im Text nach und belegt die Frist mit einem wörtlichen Zitat; sonst bleibt der Hinweis „bitte im Original prüfen“ stehen.
 - **Eine Anzeige ist unvollständig:** Sie wird für den Browser-Agenten vorgemerkt und beim nächsten Lauf erneut gelesen. Einzelne Seiten lassen sich lokal prüfen: `npm run cli -w @stellen/ingest -- agent <adresse>`.

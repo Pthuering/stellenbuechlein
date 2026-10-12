@@ -5,8 +5,31 @@
 // hier ein weiterer Parser ergänzt. Alles andere arbeitet mit dem Suchprofil (profile.ts).
 
 import { z } from 'zod';
-import { newItemId, starterProfile, type Hearts, type ProfileItem, type Suchprofil } from './profile';
+import { cleanTerms, newItemId, starterHorizont, starterProfile, type Bruecke, type Hearts, type Horizont, type ProfileItem, type Suchprofil } from './profile';
 import { STATE_CODES, type JobKind, type StateCode } from './types';
+
+const begriff = z.string().min(1).max(80);
+const HorizontV0 = z.object({
+  /** Themen außerhalb der Psychologie, die die Person spannend findet. */
+  interessen: z.array(z.string().min(1).max(80)).default([]),
+  /** Fähigkeiten und Wissen als Suchbegriffe, die in andere Felder tragen. */
+  faehigkeiten: z.array(begriff).default([]),
+  bruecken: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(80),
+        feld: z.array(begriff).min(1),
+        anker: z.array(begriff).default([]),
+        suche: z.array(z.string().min(2).max(80)).max(8).optional(),
+        warum: z.string().max(400).optional(),
+      }),
+    )
+    .default([]),
+  /** Auch die Start-Brücken behalten (sonst gelten nur die Brücken aus dem Steckbrief). */
+  start_bruecken_behalten: z.boolean().default(false),
+  weite: z.boolean().default(true),
+  dosis: z.enum(['aus', 'selten', 'normal', 'oft']).default('normal'),
+});
 
 const wichtigkeit = z.union([z.literal(1), z.literal(2), z.literal(3)]).default(2);
 const begriffEintrag = z.object({
@@ -59,6 +82,7 @@ export const SteckbriefV0Schema = z.object({
     })
     .partial()
     .optional(),
+  horizont: HorizontV0.optional(),
 });
 
 export type SteckbriefV0 = z.infer<typeof SteckbriefV0Schema>;
@@ -155,6 +179,31 @@ export function importSteckbrief(input: unknown, now = new Date().toISOString())
     .filter((x): x is StateCode => (STATE_CODES as string[]).includes(x));
   if (states.length < s.orte.bundeslaender.length) warnings.push('Einige Bundesländer wurden nicht erkannt (bitte Kürzel wie SN, ST, TH verwenden).');
 
+  // Horizont: Brücken aus dem Interview ersetzen die breiten Start-Brücken (außer ausdrücklich gewünscht).
+  const start = starterHorizont();
+  let horizont: Horizont = start;
+  if (s.horizont) {
+    const h = s.horizont;
+    const own: Bruecke[] = h.bruecken.slice(0, 30).map((b) => ({
+      id: newItemId('h'),
+      name: b.name,
+      feld: cleanTerms(b.feld),
+      anker: cleanTerms(b.anker),
+      suche: b.suche?.filter((q) => q.trim().length >= 2).slice(0, 8),
+      warum: b.warum ?? null,
+      aktiv: true,
+      herkunft: 'steckbrief',
+    }));
+    horizont = {
+      dosis: h.dosis,
+      weite: h.weite,
+      interessen: cleanTerms(h.interessen, 30),
+      faehigkeiten: h.faehigkeiten.length ? cleanTerms(h.faehigkeiten, 60) : start.faehigkeiten,
+      bruecken: (own.length === 0 || h.start_bruecken_behalten ? [...own, ...start.bruecken] : own).slice(0, 40),
+    };
+    if (own.length === 0) warnings.push('Im Horizont stehen keine Brücken – es gelten die breiten Start-Brücken.');
+  }
+
   const profile: Suchprofil = {
     ...base,
     name: s.name ? `Steckbrief: ${s.name}` : 'Aus Steckbrief',
@@ -167,6 +216,7 @@ export function importSteckbrief(input: unknown, now = new Date().toISOString())
       { id: 'rahmen', weight: w.rahmen, items: rahmen },
     ],
     avoid,
+    horizont,
   };
   return {
     profile,
@@ -196,4 +246,27 @@ export const STECKBRIEF_EXAMPLE: SteckbriefV0 = {
   rahmen: { entgelt_min: 13, entgelt_wichtigkeit: 2, umfang_min: 65, umfang_wichtigkeit: 1, unbefristet_wichtigkeit: 0 },
   lieber_nicht: [{ label: 'Lehrkraft für besondere Aufgaben', begriffe: ['lehrkraft fuer besondere aufgaben', '"lfba"'], wichtigkeit: 2 }],
   orte: { bundeslaender: ['SN', 'ST', 'TH'], staedte: ['Leipzig', 'Halle (Saale)'], einrichtungen: [] },
+  horizont: {
+    interessen: ['Künstliche Intelligenz', 'IT-Sicherheit', 'Nachhaltigkeit'],
+    faehigkeiten: ['statistik', '"r"', '"eeg"', 'experiment', 'befragung', 'datenanalyse'],
+    bruecken: [
+      {
+        name: 'Mensch & KI',
+        feld: ['kuenstliche intelligenz', '"ki"', 'machine learning', 'sprachmodell', 'chatbot'],
+        anker: [],
+        suche: ['KI Akzeptanz', 'Human-AI Interaction'],
+        warum: 'Wie Menschen mit KI-Systemen arbeiten und ihnen vertrauen, ist eine psychologische Frage.',
+      },
+      {
+        name: 'IT-Sicherheit',
+        feld: ['it sicherheit', 'cybersecurity', 'informationssicherheit', 'phishing', 'security'],
+        anker: ['verhalten', 'awareness', 'nutzer', 'mensch', 'befragung', 'experiment', 'akzeptanz'],
+        suche: ['Usable Security', 'Security Awareness'],
+        warum: 'Die größte Schwachstelle ist oft das Verhalten von Menschen, nicht die Technik.',
+      },
+    ],
+    start_bruecken_behalten: false,
+    weite: true,
+    dosis: 'normal',
+  },
 };
