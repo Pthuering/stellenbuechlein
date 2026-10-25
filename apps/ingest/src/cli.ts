@@ -13,8 +13,8 @@
 // Datenbank: lokal eine SQLite-Datei (--db, Standard ./stellen.sqlite im Repo),
 // in Produktion der Worker (Umgebungsvariablen API_URL und INGEST_KEY).
 
-import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RemoteDb, type Db } from '@stellen/db';
 import { openSqlite } from '@stellen/db/sqlite';
@@ -33,7 +33,7 @@ import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
 import { processPendingChecks, runSourceCheck } from './sourceCheck';
 import { backfillAiTasks, countOpenAiTasks, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
-import { exportAiTasks, importAiResults } from './aiTasks';
+import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage } from './aiTasks';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
 
@@ -160,22 +160,55 @@ async function main(): Promise<void> {
     }
     case 'ki-export': {
       const db = openDb();
-      const out = resolve(option('out') ?? '.ki/paket.json');
       const arten = option('art')?.split(',') as AiTaskKind[] | undefined;
       const pkg = await exportAiTasks(db, { max: Number(option('max') ?? 40), arten });
+      const describe = (p: AiPackage) => {
+        const by = p.aufgaben.reduce<Record<string, number>>((m, t) => ({ ...m, [t.art]: (m[t.art] ?? 0) + 1 }), {});
+        return `${p.aufgaben.length} Aufgaben (${Object.entries(by).map(([k, v]) => `${k} ${v}`).join(', ') || 'keine'})`;
+      };
+      const size = Number(option('teile') ?? 0);
+      if (size > 0) {
+        // Ein Teil pro Haiku-Subagent: Ordner mit teil-01.json, teil-02.json, …; ausgegeben werden nur die Pfade
+        const dir = resolve(option('out') ?? '.ki/runde');
+        mkdirSync(dir, { recursive: true });
+        for (const f of readdirSync(dir)) if (/^(teil|ergebnis)-\d+\.json$/.test(f)) rmSync(join(dir, f));
+        const parts = splitAiPackage(pkg, size);
+        parts.forEach((p, i) => {
+          const file = join(dir, `teil-${String(i + 1).padStart(2, '0')}.json`);
+          writeFileSync(file, JSON.stringify(p, null, 1));
+          console.log(`${relative(process.cwd(), file).replace(/\\/g, '/')}: ${describe(p)}`);
+        });
+        if (!parts.length) console.log('Keine offenen KI-Aufgaben.');
+        break;
+      }
+      const out = resolve(option('out') ?? '.ki/paket.json');
       mkdirSync(dirname(out), { recursive: true });
       writeFileSync(out, JSON.stringify(pkg, null, 1));
-      const by = pkg.aufgaben.reduce<Record<string, number>>((m, t) => ({ ...m, [t.art]: (m[t.art] ?? 0) + 1 }), {});
-      console.log(`${pkg.aufgaben.length} Aufgaben nach ${out} (${Object.entries(by).map(([k, v]) => `${k} ${v}`).join(', ') || 'keine'})`);
+      console.log(`${describe(pkg)} nach ${out}`);
       break;
     }
     case 'ki-import': {
       const db = openDb();
-      const files = args.slice(1).filter((a) => !a.startsWith('--'));
+      // --teil <datei>: Aufgaben dieses Teils ohne Ergebnis zählen als Versuch (nach drei Versuchen: fehler)
+      const teil = option('teil');
+      const files = args.slice(1).filter((a, i, all) => !a.startsWith('--') && all[i - 1] !== '--teil');
       if (!files.length) throw new Error('Bitte eine oder mehrere Ergebnis-Dateien angeben.');
-      const results = files.flatMap((f) => JSON.parse(readFileSync(resolve(f), 'utf8')) as { id: number; ergebnis: unknown }[]);
-      const r = await importAiResults(db, results);
-      console.log(`Eingespielt: ${r.erledigt}, entfernt (keine Anzeige oder KI: nein): ${r.entfernt}, Weite gespeichert: ${r.weiteGespeichert}, noch offen: ${r.offen}`);
+      const results = files.flatMap((f) => {
+        let data: unknown;
+        try {
+          data = JSON.parse(readFileSync(resolve(f), 'utf8'));
+        } catch (e) {
+          throw new Error(`${f} ist kein gültiges JSON (${(e as Error).message}). Bitte die Datei korrigieren und noch einmal einspielen.`);
+        }
+        // Auch {"ergebnisse": [ … ]} statt der nackten Liste annehmen
+        const list = Array.isArray(data) ? data : Object.values((data ?? {}) as Record<string, unknown>).find(Array.isArray);
+        return (list ?? []) as { id: number; ergebnis: unknown }[];
+      });
+      const erwartet = teil ? (JSON.parse(readFileSync(resolve(teil), 'utf8')) as AiPackage).aufgaben.map((t) => t.id) : undefined;
+      const r = await importAiResults(db, results, undefined, { erwartet });
+      console.log(
+        `Eingespielt: ${r.erledigt}, entfernt (keine Anzeige oder KI: nein): ${r.entfernt}, Weite gespeichert: ${r.weiteGespeichert}, ohne Ergebnis: ${r.unbeantwortet}, Fehler: ${r.fehler.length}, noch offen: ${r.offen}`,
+      );
       for (const e of r.fehler) console.log(`  Fehler: ${e}`);
       break;
     }
@@ -247,7 +280,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-nachholen | ki-export [--max 40] [--art auswerten,frist] [--out .ki/paket.json] | ki-import <ergebnis.json …>');
+      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-nachholen | ki-export [--max 40] [--art auswerten,frist] [--teile 10] [--out .ki/paket.json bzw. Ordner] | ki-import <ergebnis.json …> [--teil teil.json]');
       process.exitCode = cmd ? 1 : 0;
   }
 }

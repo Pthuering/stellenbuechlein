@@ -8,7 +8,7 @@ Die App läuft komplett in kostenlosen Kontingenten:
 | Datenbank | Cloudflare D1 | Anzeigen, Markierungen, Quellen, Läufe |
 | Einsammeln | GitHub Actions, täglich gegen 12 Uhr und per Knopf | Anzeigen holen, gezielt neue Websites erkunden, Erinnerungen verschicken |
 | Probelauf neuer Quellen | GitHub Actions, per Knopf in der App | eine Website prüfen, bevor sie ins Register kommt |
-| KI beim Aufbereiten der Anzeigen | Claude: tägliche Cloud-Aufgabe mit Haiku über dein Claude-Abo (Schritt 4b) | Anzeigen auswerten (Titel, Eckdaten, Kurzfassung, ist es überhaupt eine Anzeige?), unklare Fristen nachprüfen, Horizont und Weite beurteilen |
+| KI beim Aufbereiten der Anzeigen | Claude über dein Claude-Abo: tägliche Cloud-Aufgabe, ein Orchestrator (Opus) verteilt die Anzeigen an Haiku-Subagenten (Schritt 4b) | Anzeigen auswerten (Titel, Eckdaten, Kurzfassung, ist es überhaupt eine Anzeige?), unklare Fristen nachprüfen, Horizont und Weite beurteilen |
 | KI in der App (optional) | DeepSeek-API oder ein anderer OpenAI-kompatibler Dienst | KI-Assistent, Brücken-Vorschläge und Probelauf neuer Quellen, also nur, was du in der App selbst anstößt |
 
 Die Website, die du im Browser öffnest, liefert Cloudflare aus. GitHub hostet keine Seite: Dort liegen nur der Code und die Abläufe zum Einsammeln und Prüfen.
@@ -84,7 +84,7 @@ Danach unter *Actions → Einsammeln → Run workflow* den ersten Lauf starten. 
 
 ## 4b. Claude bereitet die Anzeigen auf (Cloud-Aufgabe)
 
-Das Einsammeln arbeitet ohne KI. Was eine KI beurteilen soll, legt es in der Tabelle `ki_aufgaben` ab: Anzeigen auswerten (Titel, Eckdaten, Kurzfassung, und ob es überhaupt eine Stellenanzeige ist; was keine ist, wird entfernt), unklare Fristen mit wörtlichem Zitat nachprüfen, Horizont- und Weite-Anzeigen beurteilen (Weite-Anzeigen werden erst bei „passt“ oder „eher“ gespeichert). Abgearbeitet wird die Warteschlange von Claude mit dem Skill `ki-aufgaben` (`.claude/skills/ki-aufgaben/SKILL.md`): immer Haiku auf hoher Denkstufe, die Arbeit in Teilen zu je 10 Aufgaben an Subagenten. Die App zeigt unter *Ich → Einsammeln*, wie viele Anzeigen noch warten.
+Das Einsammeln arbeitet ohne KI. Was eine KI beurteilen soll, legt es in der Tabelle `ki_aufgaben` ab: Anzeigen auswerten (Titel, Eckdaten, Kurzfassung, und ob es überhaupt eine Stellenanzeige ist; was keine ist, wird entfernt), unklare Fristen mit wörtlichem Zitat nachprüfen, Horizont- und Weite-Anzeigen beurteilen (Weite-Anzeigen werden erst bei „passt“ oder „eher“ gespeichert). Abgearbeitet wird die Warteschlange von Claude mit dem Skill `ki-aufgaben` (`.claude/skills/ki-aufgaben/SKILL.md`): Ein Orchestrator (gern Opus) verteilt die Aufgaben in Teilen zu je 10 an Subagenten mit Haiku auf hoher Denkstufe und macht sonst nichts selbst. Die Subagenten beurteilen die Anzeigen und spielen die Ergebnisse ein; der Orchestrator liest keine Anzeigen. Die App zeigt unter *Ich → Einsammeln*, wie viele Anzeigen noch warten.
 
 **Von Hand** (hier am Rechner oder per Remote Control): in Claude Code im Projektordner `/ki-aufgaben` eingeben. Die Zugangsdaten kommen aus `.env`. Die Befehle dahinter: `npm run ki -- ki-status`, `ki-export`, `ki-import` und `ki-nachholen` (legt Aufgaben für Anzeigen an, die noch ohne KI erfasst wurden).
 
@@ -92,7 +92,7 @@ Das Einsammeln arbeitet ohne KI. Was eine KI beurteilen soll, legt es in der Tab
 
 1. **Umgebung anlegen** unter claude.ai/code, Umgebungen: Netzwerkzugang *Custom* mit der Adresse des Workers (`stellenbuechlein.<dein-name>.workers.dev`) und „Also include default list of common package managers“; Umgebungsvariablen `API_URL=https://stellenbuechlein.<dein-name>.workers.dev` und `INGEST_KEY=proxy`; Setup-Skript `npm ci`.
 2. **Netzwerk-Secret** in derselben Umgebung: Typ *Bearer*, Host die Adresse des Workers, Wert der `INGEST_KEY`. Der Proxy hängt den Schlüssel an die Anfragen; die Sitzung selbst sieht ihn nie.
-3. **Geplante Aufgabe anlegen** unter claude.ai/code/routines: Repository `Pthuering/stellenbuechlein`, die Umgebung aus Punkt 1, Modell **Haiku**, Anweisung: „Arbeite mit dem Skill ki-aufgaben die KI-Warteschlange der Jobsuche-App vollständig ab. Committe und pushe nichts.“ Auslöser: **API** (Adresse und Token kopieren, das Token wird nur einmal gezeigt) und zur Sicherheit ein **Zeitplan** täglich um 14:07 Uhr.
+3. **Geplante Aufgabe anlegen** unter claude.ai/code/routines: Repository `Pthuering/stellenbuechlein`, die Umgebung aus Punkt 1, Modell **Opus** (das ist der Orchestrator; die Subagenten laufen laut Skill immer auf Haiku), Anweisung: „Arbeite mit dem Skill ki-aufgaben die KI-Warteschlange der Jobsuche-App vollständig ab. Du bist nur Orchestrator: Verteile die Aufgaben an Haiku-Subagenten und bearbeite nichts selbst. Committe und pushe nichts.“ Auslöser: **API** (Adresse und Token kopieren, das Token wird nur einmal gezeigt) und zur Sicherheit ein **Zeitplan** täglich um 14:07 Uhr.
 4. **In GitHub** die Secrets `CLAUDE_TASK_URL` (Adresse) und `CLAUDE_TASK_TOKEN` (Token) anlegen. Ab dann startet der Einsammel-Lauf die Aufbereitung direkt nach dem Einsammeln.
 5. **Testen:** in der Aufgabe *Run now*; der Lauf erscheint als Sitzung unter claude.ai/code.
 

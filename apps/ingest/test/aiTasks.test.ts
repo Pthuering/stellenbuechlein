@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { SqliteDb, migrateSqlite } from '@stellen/db/sqlite';
 import { countOpenAiTasks, enqueueAiTaskStmt, listGateSkips, syncJobs, upsertJobStmt, type JobWrite } from '@stellen/db';
 import { canonicalUrl, contentHash, jobIdForUrl } from '@stellen/core';
-import { exportAiTasks, importAiResults } from '../src/aiTasks';
+import { exportAiTasks, importAiResults, splitAiPackage } from '../src/aiTasks';
 
 const NOW = '2026-10-26T10:00:00.000Z';
 
@@ -106,6 +106,25 @@ describe('KI-Warteschlange für Claude', () => {
     const { jobs } = await syncJobs(db, '', 50);
     expect(jobs.find((j) => j.id === b.id)?.deadline ?? null).toBeNull();
     expect(jobs.some((j) => j.id === e.id)).toBe(true);
+  });
+
+  it('teilt ein Paket in Teile für die Subagenten, jeder mit Anleitung und Profil', async () => {
+    const pkg = await exportAiTasks(db, { max: 10 });
+    const parts = splitAiPackage(pkg, 2);
+    expect(parts.map((p) => p.aufgaben.length)).toEqual([2, 2, 1]);
+    expect(parts.flatMap((p) => p.aufgaben.map((t) => t.id))).toEqual(pkg.aufgaben.map((t) => t.id));
+    expect(parts[2]).toMatchObject({ heute: pkg.heute, profil: pkg.profil, anleitung: pkg.anleitung });
+  });
+
+  it('zählt Aufgaben des Teils ohne Ergebnis als Versuch, nach drei Versuchen bleiben sie liegen', async () => {
+    const id = await ids();
+    const erwartet = [id['UX Researcher'], id['Infoseite']];
+    const r = await importAiResults(db, [{ id: id['Infoseite'], ergebnis: { is_job_posting: false } }], NOW, { erwartet });
+    expect(r).toMatchObject({ erledigt: 1, unbeantwortet: 1 });
+    expect((await countOpenAiTasks(db)).horizont).toBe(1);
+    await importAiResults(db, [], NOW, { erwartet });
+    await importAiResults(db, [], NOW, { erwartet });
+    expect((await countOpenAiTasks(db)).horizont).toBe(0);
   });
 
   it('lässt fehlerhafte Ergebnisse offen und meldet sie', async () => {

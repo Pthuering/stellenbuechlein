@@ -95,11 +95,21 @@ interface JobRow {
   lane: string | null;
 }
 
+/** Abfrage mit `IN (…)` in Stücken: D1 erlaubt höchstens 100 gebundene Parameter pro Abfrage. */
+async function allIn<T>(db: Db, sql: (marks: string) => string, ids: readonly (string | number)[]): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const part = ids.slice(i, i + 50);
+    out.push(...(await db.all<T>(sql(part.map(() => '?').join(', ')), [...part])));
+  }
+  return out;
+}
+
 async function loadJobs(db: Db, ids: string[]): Promise<Map<string, JobRow>> {
-  if (!ids.length) return new Map();
-  const rows = await db.all<JobRow>(
-    `SELECT id, title, url, canonical_url, description_md, employer, institution_id, posted_at, pay_grade, pay_level, workload_pct, fixed_term, start_text, department, horizon, lane
-     FROM jobs WHERE id IN (${ids.map(() => '?').join(', ')})`,
+  const rows = await allIn<JobRow>(
+    db,
+    (marks) => `SELECT id, title, url, canonical_url, description_md, employer, institution_id, posted_at, pay_grade, pay_level, workload_pct, fixed_term, start_text, department, horizon, lane
+     FROM jobs WHERE id IN (${marks})`,
     ids,
   );
   return new Map(rows.map((r) => [r.id, r]));
@@ -150,11 +160,20 @@ export async function exportAiTasks(db: Db, opts: { max?: number; arten?: AiTask
   };
 }
 
+/** Teilt ein Paket in Teile zu höchstens size Aufgaben (einer pro Subagent); jeder Teil trägt Anleitung und Profil mit. */
+export function splitAiPackage(pkg: AiPackage, size: number): AiPackage[] {
+  const parts: AiPackage[] = [];
+  for (let i = 0; i < pkg.aufgaben.length; i += size) parts.push({ ...pkg, aufgaben: pkg.aufgaben.slice(i, i + size) });
+  return parts;
+}
+
 export interface ImportReport {
   erledigt: number;
   fehler: string[];
   entfernt: number;
   weiteGespeichert: number;
+  /** Aufgaben aus dem Teil, zu denen kein Ergebnis kam */
+  unbeantwortet: number;
   offen: number;
 }
 
@@ -165,13 +184,28 @@ const SCHEMAS: Record<AiTaskKind, z.ZodType<unknown, z.ZodTypeDef, unknown>> = {
   weite: HORIZON_SCHEMA,
 };
 
-/** Spielt Ergebnisse ein (Format wie ergebnis_format). Unbekannte oder schon erledigte Aufgaben werden übersprungen. */
-export async function importAiResults(db: Db, results: { id: number; ergebnis: unknown }[], now = new Date().toISOString()): Promise<ImportReport> {
-  const report: ImportReport = { erledigt: 0, fehler: [], entfernt: 0, weiteGespeichert: 0, offen: 0 };
+/**
+ * Spielt Ergebnisse ein (Format wie ergebnis_format). Unbekannte oder schon erledigte Aufgaben werden übersprungen.
+ * erwartet: die Aufgaben des Teils; was davon ohne Ergebnis bleibt, zählt als Versuch (nach drei Versuchen: fehler),
+ * damit eine Aufgabe, die niemand beurteilen kann, nicht endlos wiederkommt.
+ */
+export async function importAiResults(
+  db: Db,
+  results: { id: number; ergebnis: unknown }[],
+  now = new Date().toISOString(),
+  opts: { erwartet?: number[] } = {},
+): Promise<ImportReport> {
+  const report: ImportReport = { erledigt: 0, fehler: [], entfernt: 0, weiteGespeichert: 0, unbeantwortet: 0, offen: 0 };
   const ids = [...new Set(results.map((r) => Number(r.id)).filter(Number.isFinite))];
+  const answered = new Set(ids);
+  const missing = [...new Set(opts.erwartet ?? [])].filter((id) => !answered.has(id));
+  const unanswered = await allIn<{ id: number }>(db, (marks) => `SELECT id FROM ki_aufgaben WHERE status = 'offen' AND id IN (${marks})`, missing);
+  await db.batch(unanswered.map((r) => aiTaskFailedStmt(r.id, 'nicht beantwortet', now)));
+  report.unbeantwortet = unanswered.length;
   if (!ids.length) return report;
-  const rows = await db.all<{ id: number; art: AiTaskKind; job_id: string; payload: string | null }>(
-    `SELECT id, art, job_id, payload FROM ki_aufgaben WHERE status = 'offen' AND id IN (${ids.map(() => '?').join(', ')})`,
+  const rows = await allIn<{ id: number; art: AiTaskKind; job_id: string; payload: string | null }>(
+    db,
+    (marks) => `SELECT id, art, job_id, payload FROM ki_aufgaben WHERE status = 'offen' AND id IN (${marks})`,
     ids,
   );
   const tasks = new Map(rows.map((r) => [r.id, r]));
