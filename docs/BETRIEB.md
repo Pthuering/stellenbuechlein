@@ -164,6 +164,8 @@ Als Umgebungsvariablen im Workflow `einsammeln.yml` oder lokal:
 | `GONE_AFTER_DAYS` | 3 | Nicht mehr gelistet seit … Tagen = abgelaufen (nur wenn die Quelle fehlerfrei lief) |
 | `PURGE_AFTER_DAYS` | 14 | Abgelaufene, nicht gemerkte Anzeigen danach löschen |
 | `SOURCE_CONCURRENCY` | 6 | Quellen gleichzeitig |
+| `SOURCE_BUDGET_MIN` | 90 | Nach so vielen Minuten beginnt ein Lauf keine neuen Quellen mehr (Portale ab Minute 70 nur noch sie); die übrigen kommen im nächsten Lauf zuerst dran. Der Workflow bricht nach 120 Minuten ab. |
+| `HTTP_CACHE_MAX` | 200 | So viele abgerufene Seiten hält ein Lauf im Speicher (gegen doppeltes Abrufen) |
 | `LLM_BASE_URL`, `LLM_MODEL` | DeepSeek, `deepseek-v4-pro` | jeder OpenAI-kompatible Dienst geht; bei DeepSeek immer das große Modell (Flash, `deepseek-chat` und `deepseek-reasoner` werden durch `deepseek-v4-pro` ersetzt) |
 | `LLM_MAX_CALLS` | 900 | KI-Aufrufe pro Lauf |
 | `LLM_SUMMARIES` | 1 | `0` = keine KI-Kurzfassungen |

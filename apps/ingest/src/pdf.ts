@@ -4,9 +4,14 @@ import { extractText, getDocumentProxy } from 'unpdf';
 
 export async function pdfToText(buf: Buffer): Promise<string> {
   const pdf = await getDocumentProxy(new Uint8Array(buf));
-  const { text } = await extractText(pdf, { mergePages: false });
-  const pages = Array.isArray(text) ? text : [text];
-  return pages.join('\n\n');
+  try {
+    const { text } = await extractText(pdf, { mergePages: false });
+    const pages = Array.isArray(text) ? text : [text];
+    return pages.join('\n\n');
+  } finally {
+    // Sonst behält pdf.js Dokument und Schriften bis zum Ende des Laufs
+    await pdf.loadingTask.destroy().catch(() => undefined);
+  }
 }
 
 /** Bereinigt PDF-Text zu lesbarem Markdown: Silbentrennung, Aufzählungen, Absätze. */

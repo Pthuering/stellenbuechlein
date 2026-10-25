@@ -100,14 +100,30 @@ export class Http {
     return run;
   }
 
+  /**
+   * Abruf mit Zwischenspeicher für die zuletzt benutzten Seiten (gleiche Liste oder Anzeige aus mehreren
+   * Quellen). Begrenzt, weil ein Lauf Tausende Seiten liest; ohne Grenze lief der Speicher voll.
+   */
   async get(url: string, opts: GetOptions = {}): Promise<FetchResult> {
     const key = `${opts.method ?? 'GET'} ${url} ${opts.body ?? ''}`;
-    if (!opts.noCache && (opts.method ?? 'GET') === 'GET') {
+    const cacheable = !opts.noCache && (opts.method ?? 'GET') === 'GET' && this.cfg.httpCacheMax > 0;
+    if (cacheable) {
       const hit = this.cache.get(key);
-      if (hit) return hit;
+      if (hit) {
+        this.cache.delete(key);
+        this.cache.set(key, hit);
+        return hit;
+      }
     }
     const p = this.getUncached(url, opts);
-    if (!opts.noCache && (opts.method ?? 'GET') === 'GET') this.cache.set(key, p);
+    if (cacheable) {
+      this.cache.set(key, p);
+      while (this.cache.size > this.cfg.httpCacheMax) this.cache.delete(this.cache.keys().next().value!);
+      // Sehr große Antworten (meist PDFs) nicht aufheben
+      void p.then((r) => {
+        if (r.body.length > 4_000_000 && this.cache.get(key) === p) this.cache.delete(key);
+      }).catch(() => this.cache.delete(key));
+    }
     return p;
   }
 

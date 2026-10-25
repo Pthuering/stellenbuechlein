@@ -169,6 +169,8 @@ export class Pipeline {
   private gateHash = '';
   private gateSkips = new Map<string, string>();
   private primaryOk = new Map<string, string[]>();
+  /** Echte Startzeit für das Zeitbudget (now kann in Tests ein festes Datum sein). */
+  private readonly startedMs = Date.now();
   private healthWarnings = new Map<string, string>();
   private profile: Suchprofil = starterProfile();
   private horizon: Horizont = horizontOf(this.profile);
@@ -368,17 +370,31 @@ export class Pipeline {
     let sources = all.filter((s) => s.url);
     if (this.opts.only?.length) sources = sources.filter((s) => this.opts.only!.includes(s.id));
     if (this.opts.maxSources) sources = sources.slice(0, this.opts.maxSources);
-    const primary = sources.filter((s) => s.kind !== 'portal');
+    // Am längsten nicht gelesene Quellen zuerst: Reicht die Zeit nicht, macht der nächste Lauf dort weiter.
+    const byLastRun = (a: Source, b: Source) => (a.lastRunAt ?? '').localeCompare(b.lastRunAt ?? '');
+    const primary = sources.filter((s) => s.kind !== 'portal').sort(byLastRun);
     const portals = sources.filter((s) => s.kind === 'portal');
+    // Zeitbudget (Workflow-Grenze 120 Minuten): Portale laufen zuletzt (sie zeigen Lücken der Quellen),
+    // bekommen aber ein eigenes Zeitfenster.
+    const deadline = this.startedMs + this.cfg.sourceBudgetMs;
+    const primaryDeadline = deadline - (portals.length ? Math.min(20 * 60_000, this.cfg.sourceBudgetMs / 4) : 0);
     let next = 0;
     const worker = async () => {
-      while (next < primary.length) {
+      while (next < primary.length && Date.now() < primaryDeadline) {
         const s = primary[next++];
         await this.processSource(s);
       }
     };
     await Promise.all(Array.from({ length: Math.max(1, this.cfg.sourceConcurrency) }, worker));
-    for (const p of portals) await this.processSource(p);
+    let skipped = primary.length - next;
+    for (const p of portals) {
+      if (Date.now() >= deadline) skipped++;
+      else await this.processSource(p);
+    }
+    if (skipped) {
+      this.bump('quellenVertagt', skipped);
+      this.log.warn(`Zeitbudget erreicht: ${skipped} Quellen kommen im nächsten Lauf zuerst dran.`);
+    }
   }
 
   private async processSource(source: Source): Promise<void> {

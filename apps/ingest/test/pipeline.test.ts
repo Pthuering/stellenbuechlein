@@ -225,3 +225,34 @@ describe.skipIf(!hasChromium)('Browser-Agent', () => {
     }
   });
 });
+
+describe('Grenzen eines Laufs', () => {
+  it('hält den Zwischenspeicher klein und behält die zuletzt benutzten Seiten', async () => {
+    const fetched: string[] = [];
+    const fake = (async (url: string | URL | Request) => {
+      const u = String(url);
+      if (!u.endsWith('/robots.txt')) fetched.push(u.replace('https://cache.test', ''));
+      return new Response('<html><body>Seite</body></html>', { headers: { 'content-type': 'text/html' } });
+    }) as typeof fetch;
+    const http = new Http({ ...cfg, httpCacheMax: 2 }, new RunLog(false), fake);
+    for (const p of ['/a', '/b', '/a', '/c', '/a', '/b']) await http.get(`https://cache.test${p}`);
+    // /a bleibt als zuletzt benutzt im Speicher, /b fliegt für /c raus und wird neu geholt
+    expect(fetched).toEqual(['/a', '/b', '/c', '/b']);
+  });
+
+  it('beginnt nach Ablauf des Zeitbudgets keine Quellen mehr und sagt, wie viele vertagt sind', async () => {
+    const db = new SqliteDb(':memory:');
+    migrateSqlite(db);
+    await db.batch([
+      upsertCityStmt({ id: 'halle-saale', name: 'Halle (Saale)', state: 'ST', lat: 51.48, lon: 11.97 }),
+      upsertInstitutionStmt({ id: 'test-uni', name: 'Testuniversität', kind: 'universitaet', cityId: 'halle-saale', website: srv.url, active: true, origin: 'seed' }),
+      upsertSourceStmt(source()),
+      upsertSourceStmt(source({ id: 'portal-feed', institutionId: null, kind: 'portal', label: 'Testportal', url: `${srv.url}/feed.xml`, adapter: 'feed', config: { feedUrl: `${srv.url}/feed.xml` }, gate: 'none' })),
+    ]);
+    const log = new RunLog(false);
+    const stats = await new Pipeline(db, { ...cfg, sourceBudgetMs: 0 }, { browser: false, images: false, discovery: false, reminders: false }, log).run();
+    expect(stats.quellenVertagt).toBe(2);
+    expect((await syncJobs(db, '', 10)).jobs).toHaveLength(0);
+    expect(log.text()).toMatch(/Zeitbudget erreicht: 2 Quellen kommen im nächsten Lauf zuerst dran/);
+  });
+});

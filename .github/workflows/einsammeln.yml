@@ -51,6 +51,8 @@ jobs:
       VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
       VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
       CRAWLER_CONTACT: ${{ secrets.CRAWLER_CONTACT }}
+      # Reserve über die 2 GB hinaus, die Node sonst nutzt (die Maschine hat 7 GB)
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
