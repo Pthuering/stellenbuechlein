@@ -3,7 +3,7 @@
 // Adapter eine eigene kleine Sitzung (Cookies, Weiterleitungen, Abstand zwischen Anfragen) und liest
 // die Anzeigen gleich mit. Zurück kommen nur vollständig gelesene Anzeigen: Ohne mitgelieferten Text
 // würde die Pipeline sie mit dem normalen Client öffnen und ohne Cookie in einer Weiterleitungsschleife
-// landen. Bei „Psycholog“ sind das rund 250 Abrufe am Tag, mit Abstand etwa sechs Minuten.
+// landen. Bei „Psycholog“ sind das rund 260 Anzeigen am Tag (je mit einer Weiterleitung), etwa acht Minuten.
 
 import type { IngestConfig } from './config';
 import { fromHtml, type Candidate } from './extract';
@@ -80,9 +80,10 @@ export class InteramtSession {
     let current = url;
     let method = init.method ?? 'GET';
     let body = init.body;
+    // Abstand nur vor der eigentlichen Anfrage; Weiterleitungen folgen sofort, wie im Browser
+    const wait = this.last + this.cfg.minHostIntervalMs - Date.now();
+    if (wait > 0) await sleep(wait);
     for (let hop = 0; hop < 6; hop++) {
-      const wait = this.last + this.cfg.minHostIntervalMs - Date.now();
-      if (wait > 0) await sleep(wait);
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), this.cfg.requestTimeoutMs);
       try {

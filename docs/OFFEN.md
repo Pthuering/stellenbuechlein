@@ -56,7 +56,7 @@ Neun parallele Recherchen haben Hochschulen und Kliniken in allen Regionen, auß
 - [x] **Die vier abgeschalteten Portale sind seit dem 25. Oktober an** (rein privater Gebrauch):
   - **EURAXESS:** Filter Deutschland und Psychological sciences.
   - **Helmholtz-Stellenbörse:** über ihre JSON-Schnittstelle, auf wissenschaftliche Stellen gefiltert.
-  - **Interamt:** eigener Adapter mit Sitzung, Suche „Psycholog“, rund 250 Abrufe und sechs Minuten am Tag.
+  - **Interamt:** eigener Adapter mit Sitzung, Suche „Psycholog“, rund 260 Anzeigen und etwa acht Minuten am Tag.
   - **academics.de:** Branche Psychologie. academics.de untersagt automatisierten Zugriff ohne Erlaubnis und behält sich Text- und Data-Mining vor (§ 44b UrhG); eine Erlaubnis ließe sich über info@academics.de anfragen.
 
 ## 4. Noch nicht gegen echte Dienste getestet
