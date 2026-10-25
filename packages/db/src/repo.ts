@@ -979,6 +979,12 @@ export function browserDoneStmt(url: string, ok: boolean, error: string | null, 
   };
 }
 
+/** Seiten, die der Browser-Agent noch lesen soll (höchstens drei Versuche pro Seite). */
+export async function openBrowserItemCount(db: Db): Promise<number> {
+  const r = await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM browser_queue WHERE status = 'offen' AND attempts < 3");
+  return r?.n ?? 0;
+}
+
 export async function browserQueueStats(db: Db): Promise<Record<string, number>> {
   const rows = await db.all<{ status: string; n: number }>('SELECT status, COUNT(*) AS n FROM browser_queue GROUP BY status');
   return Object.fromEntries(rows.map((r) => [r.status, r.n]));

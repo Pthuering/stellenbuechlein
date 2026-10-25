@@ -1,0 +1,63 @@
+# Großer Durchlauf nach einer Profil-Freigabe (Knopf in der App unter „Ich“, oder hier über „Run workflow“):
+# liest alle Quellen ohne Mengengrenzen und mit mehr gleichzeitig, arbeitet die ganze Browser-Warteschlange ab
+# und beurteilt alles Neue nach dem freigegebenen Profil. Reicht ein Lauf (GitHub erlaubt höchstens 6 Stunden)
+# nicht, startet er sich selbst neu und macht dort weiter, höchstens 8 Runden.
+# Läuft nie gleichzeitig mit dem Einsammeln; der tägliche Lauf wartet so lange.
+# Benötigte Secrets wie beim Einsammeln: API_URL, INGEST_KEY; optional DEEPSEEK_API_KEY, BRAVE_API_KEY,
+# VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY
+
+name: Großer Durchlauf
+
+on:
+  workflow_dispatch:
+    inputs:
+      seit:
+        description: Beginn des großen Durchlaufs (nur für Fortsetzungen, sonst leer lassen)
+        required: false
+        default: ''
+      runde:
+        description: Runde (nur für Fortsetzungen)
+        required: false
+        default: '1'
+
+# Für die Fortsetzung startet der Workflow sich selbst
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: einsammeln
+  cancel-in-progress: false
+
+jobs:
+  gross:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    env:
+      API_URL: ${{ secrets.API_URL }}
+      INGEST_KEY: ${{ secrets.INGEST_KEY }}
+      LLM_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+      VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+      VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+      GROSS_SEIT: ${{ inputs.seit }}
+      NODE_OPTIONS: --max-old-space-size=6144
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Browser für den Browser-Agenten installieren
+        run: npx playwright@1.56.0 install --with-deps chromium
+      - name: Startdaten abgleichen
+        run: npm run cli -w @stellen/ingest -- seed
+      - id: lauf
+        name: Großer Durchlauf (Runde ${{ inputs.runde }})
+        run: npm run cli -w @stellen/ingest -- ingest --gross
+      - name: Fortsetzen, falls noch etwas offen ist
+        if: steps.lauf.outputs.weiter == '1' && fromJSON(inputs.runde) < 8
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run grosser-lauf.yml -R "${{ github.repository }}" -f seit="${{ steps.lauf.outputs.seit }}" -f runde="$(( ${{ inputs.runde }} + 1 ))"

@@ -78,6 +78,8 @@ Danach unter *Actions → Einsammeln → Run workflow* den ersten Lauf starten. 
 
 **Browser-Warteschlange:** Seiten, deren Anzeigen erst per JavaScript erscheinen oder die unvollständig gelesen wurden, liest der Browser-Agent nach, im täglichen Lauf aber nur 30 (Zeitgrenze und Actions-Minuten). Nach einem großen Lauf den Rückstau unter *Actions → Browser-Warteschlange → Run workflow* abarbeiten (oder `gh workflow run browser.yml -R Pthuering/stellenbuechlein`): bis zu 300 Seiten in höchstens 105 Minuten, dabei fragt er für jede Seite die KI (grob 1 Cent pro Seite). Er läuft nie gleichzeitig mit dem Einsammeln.
 
+**Großer Durchlauf:** Nach einem neuen Suchprofil (Umfrage oder Steckbrief) zeigt die App unter *Ich* den Kasten „Profil prüfen und freigeben“. Mit der Freigabe startet der Workflow „Großer Durchlauf“: alle Quellen ohne Mengengrenzen (beliebig viele neue Anzeigen je Quelle, bis zu 30 Listenseiten, KI ohne Obergrenze, Weite für alles, früher Aussortiertes wird mit dem neuen Profil neu beurteilt), 12 Quellen und 4 Browser-Seiten gleichzeitig, die ganze Browser-Warteschlange. GitHub erlaubt höchstens 6 Stunden pro Lauf; ist dann noch etwas offen, startet der Workflow sich selbst neu und macht dort weiter (höchstens 8 Runden). Ändert sich das Profil später, bietet die App einen neuen großen Durchlauf an. Die KI-Kosten eines großen Durchlaufs liegen grob bei 20 bis 40 $; reicht das DeepSeek-Guthaben nicht, arbeitet der Lauf ohne KI weiter (keine Kurzfassungen und Horizont-Urteile). Guthaben vorher unter *Ich → KI-Assistent* prüfen.
+
 ## 5. Knöpfe „Jetzt einsammeln“ und „Probelauf“ (empfohlen)
 
 Beide starten einen GitHub-Workflow aus der App heraus.
@@ -151,6 +153,7 @@ Als Umgebungsvariablen im Workflow `einsammeln.yml` oder lokal:
 | `LLM_SUMMARIES` | 1 | `0` = keine KI-Kurzfassungen |
 | `BROWSER` | 1 | `0` = ohne Browser-Agent |
 | `BROWSER_MAX_ITEMS`, `BROWSER_BUDGET_MS` | 30, 12 Min. | Grenzen für den Browser-Agenten pro Lauf |
+| `BROWSER_CONCURRENCY` | 1 | Seiten, die der Browser-Agent gleichzeitig liest (großer Durchlauf: 4) |
 | `RUN_BUDGET_MIN` | 105 | Nach so vielen Minuten (Uhrzeit ab Laufbeginn) beginnt der Browser-Agent keine Seite mehr |
 | `DISCOVERY_MAX` | 20 | Einrichtungen ohne Adresse, für die pro Lauf eine Stellenseite gesucht wird |
 | `IMAGES_MAX` | 60 | Bilder (Wikipedia), die pro Lauf nachgeschlagen werden |

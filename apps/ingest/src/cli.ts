@@ -13,11 +13,12 @@
 // Datenbank: lokal eine SQLite-Datei (--db, Standard ./stellen.sqlite im Repo),
 // in Produktion der Worker (Umgebungsvariablen API_URL und INGEST_KEY).
 
+import { appendFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RemoteDb, type Db } from '@stellen/db';
 import { openSqlite } from '@stellen/db/sqlite';
-import { configFromEnv } from './config';
+import { bigRunConfig, configFromEnv } from './config';
 import { RunLog } from './log';
 import { Http } from './http';
 import { Llm } from './llm';
@@ -31,7 +32,7 @@ import { applySeed } from './seed';
 import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
 import { processPendingChecks, runSourceCheck } from './sourceCheck';
-import { listCities, listInstitutions, listSources } from '@stellen/db';
+import { listCities, listInstitutions, listSources, openBrowserItemCount } from '@stellen/db';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
 
@@ -71,8 +72,12 @@ async function main(): Promise<void> {
       const only = option('only')?.split(',');
       // --nur-browser: nur die Warteschlange des Browser-Agenten (Workflow „Browser-Warteschlange“)
       const onlyBrowser = flag('nur-browser');
-      const stats = await runPipeline(db, cfg, {
+      // --gross: großer Durchlauf ohne Mengengrenzen (Workflow „Großer Durchlauf“); GROSS_SEIT = Beginn bei Fortsetzungen
+      const gross = flag('gross');
+      const seit = process.env.GROSS_SEIT || new Date().toISOString();
+      const stats = await runPipeline(db, gross ? bigRunConfig(cfg) : cfg, {
         only,
+        skipSourcesSince: gross ? seit : undefined,
         sources: onlyBrowser ? false : undefined,
         checks: onlyBrowser ? false : undefined,
         browser: flag('no-browser') ? false : undefined,
@@ -83,6 +88,13 @@ async function main(): Promise<void> {
         maxSources: option('max') ? Number(option('max')) : undefined,
       });
       console.log(stats);
+      if (gross) {
+        const offen = await openBrowserItemCount(db);
+        const weiter = (stats.quellenVertagt ?? 0) > 0 || offen > 0;
+        console.log(`Großer Durchlauf: ${stats.quellenVertagt ?? 0} Quellen vertagt, ${offen} Seiten für den Browser offen → ${weiter ? 'Fortsetzung' : 'fertig'}.`);
+        // Für den Workflow: Fortsetzung starten, Beginn weitergeben
+        if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `weiter=${weiter ? 1 : 0}\nseit=${seit}\n`);
+      }
       break;
     }
     case 'check-sources': {
@@ -197,7 +209,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders');
+      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders');
       process.exitCode = cmd ? 1 : 0;
   }
 }

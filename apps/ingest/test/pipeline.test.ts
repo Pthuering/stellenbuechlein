@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { SqliteDb, migrateSqlite } from '@stellen/db/sqlite';
 import { listSources, syncJobs, upsertCityStmt, upsertInstitutionStmt, upsertSourceStmt, listGateSkips } from '@stellen/db';
 import type { Source } from '@stellen/core';
-import { configFromEnv, type IngestConfig } from '../src/config';
+import { bigRunConfig, configFromEnv, type IngestConfig } from '../src/config';
 import { RunLog } from '../src/log';
 import { Http } from '../src/http';
 import { Llm } from '../src/llm';
@@ -270,5 +270,36 @@ describe('Nur Browser-Warteschlange', () => {
     expect(stats.kandidaten).toBeUndefined();
     expect(stats.abgelaufen).toBeUndefined();
     expect((await listSources(db)).find((s) => s.id === 'test-z1')?.lastRunAt ?? null).toBeNull();
+  });
+});
+
+describe('Großer Durchlauf', () => {
+  it('hebt die Mengengrenzen auf und arbeitet mehr gleichzeitig', () => {
+    const big = bigRunConfig(configFromEnv({}), {});
+    expect(big.maxNewDetailsPerSource).toBeGreaterThan(100_000);
+    expect(big.llm.maxCalls).toBeGreaterThan(100_000);
+    expect(big.horizon.maxWeiteChecks).toBeGreaterThan(100_000);
+    expect(big.browser.maxQueueItemsPerRun).toBeGreaterThan(100_000);
+    expect(big.browser.concurrency).toBe(4);
+    expect(big.sourceConcurrency).toBe(12);
+    // Zeitgrenzen passen in einen 6-Stunden-Workflow
+    expect(big.runBudgetMs).toBeLessThan(355 * 60_000);
+    expect(big.sourceBudgetMs).toBeLessThan(big.runBudgetMs);
+  });
+
+  it('liest in der Fortsetzung keine Quelle zweimal', async () => {
+    const db = new SqliteDb(':memory:');
+    migrateSqlite(db);
+    await db.batch([
+      upsertCityStmt({ id: 'halle-saale', name: 'Halle (Saale)', state: 'ST', lat: 51.48, lon: 11.97 }),
+      upsertInstitutionStmt({ id: 'test-uni', name: 'Testuniversität', kind: 'universitaet', cityId: 'halle-saale', website: srv.url, active: true, origin: 'seed' }),
+      upsertSourceStmt(source()),
+    ]);
+    const seit = new Date(Date.now() - 1000).toISOString();
+    const opts = { browser: false, images: false, discovery: false, reminders: false, skipSourcesSince: seit };
+    const first = await new Pipeline(db, cfg, opts, new RunLog(false)).run();
+    expect(first.kandidaten).toBeGreaterThan(0);
+    const second = await new Pipeline(db, cfg, opts, new RunLog(false)).run();
+    expect(second.kandidaten).toBeUndefined();
   });
 });

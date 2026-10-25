@@ -38,6 +38,7 @@ Fehlt noch, mit Anleitung in [BETRIEB.md](BETRIEB.md) und in der Checkliste der 
 - [x] **Erster Lauf** (25. Oktober): nach 98 Minuten am vollen Speicher gescheitert, bis dahin 466 Quellen gelesen und 3.018 offene Anzeigen gespeichert. Ursachen behoben (Zwischenspeicher, PDFs), dazu Zeitbudgets für Quellen und Browser.
 - [x] **KI-Assistent mit echten Anzeigen** getestet: drei Fragen, 40 Sekunden bis knapp 4 Minuten, 1 bis 7 Cent, Fakten stichprobenhaft geprüft.
 - [ ] **Zweiten Lauf auswerten:** Laufzeit gegen die 2.000 Actions-Minuten im Monat, Quellen mit Fehlern, KI-Kosten.
+- [ ] **Großer Durchlauf nach der Profil-Freigabe** (unter *Ich*, sobald das Profil aus der Umfrage steht): vorher das DeepSeek-Guthaben aufladen. Stand 25. Oktober: 9,35 $, ein großer Durchlauf kostet grob 20 bis 40 $.
 - [ ] **Rückstau des Browser-Agenten** (670 Seiten nach dem ersten Lauf): *Actions → Browser-Warteschlange → Run workflow*, etwa zwei- bis dreimal.
 - [ ] **Datenqualität:** In einer Stichprobe war etwa ein Drittel der Einträge keine Stellenanzeige (Pressemitteilungen, Blogartikel, Kurse, Veranstaltungen), dazu fachfremde Klinik-Stellen (Pflege, Reinigung). Vorschlag: KI-Urteil „keine Stellenanzeige“ ernst nehmen, Nachrichten- und Blog-Adressen ausschließen, Klinik-Quellen mit Grobfilter, einmal aufräumen.
 - [ ] Optional: **automatisch veröffentlichen** bei jedem Push (Schritt 6).

@@ -36,6 +36,8 @@ export interface IngestConfig {
     enabled: boolean;
     executablePath?: string;
     maxQueueItemsPerRun: number;
+    /** Seiten gleichzeitig (Standard 1, im großen Durchlauf mehr) */
+    concurrency: number;
     timeBudgetMs: number;
   };
   discovery: { maxInstitutionsPerRun: number };
@@ -101,6 +103,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
       enabled: (env.BROWSER ?? '1') !== '0',
       executablePath: env.CHROMIUM_PATH || undefined,
       maxQueueItemsPerRun: num(env.BROWSER_MAX_ITEMS, 30),
+      concurrency: num(env.BROWSER_CONCURRENCY, 1),
       timeBudgetMs: num(env.BROWSER_BUDGET_MS, 12 * 60_000),
     },
     discovery: { maxInstitutionsPerRun: num(env.DISCOVERY_MAX, 20) },
@@ -123,5 +126,26 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
       env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY
         ? { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT || 'mailto:stellenbuechlein@example.org' }
         : null,
+  };
+}
+
+/**
+ * Großer Durchlauf nach einer Profil-Freigabe: keine Mengengrenzen, mehr gleichzeitig, Zeitgrenzen passend
+ * zum 6-Stunden-Workflow (was dann noch offen ist, übernimmt eine Fortsetzung).
+ */
+export function bigRunConfig(c: IngestConfig, env: NodeJS.ProcessEnv = process.env): IngestConfig {
+  const lots = 1_000_000;
+  return {
+    ...c,
+    maxPagesPerList: Math.max(c.maxPagesPerList, 30),
+    maxNewDetailsPerSource: lots,
+    sourceConcurrency: num(env.SOURCE_CONCURRENCY, 12),
+    sourceBudgetMs: num(env.SOURCE_BUDGET_MIN, 270) * 60_000,
+    runBudgetMs: num(env.RUN_BUDGET_MIN, 330) * 60_000,
+    llm: { ...c.llm, maxCalls: lots },
+    browser: { ...c.browser, maxQueueItemsPerRun: lots, timeBudgetMs: lots * 60_000, concurrency: num(env.BROWSER_CONCURRENCY, 4) },
+    discovery: { maxInstitutionsPerRun: lots },
+    explore: { ...c.explore, maxReads: Math.max(c.explore.maxReads, 200), queriesPerRun: Math.max(c.explore.queriesPerRun, 30), maxQueries: Math.max(c.explore.maxQueries, 60) },
+    horizon: { maxWeiteChecks: lots },
   };
 }

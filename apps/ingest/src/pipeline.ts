@@ -111,11 +111,15 @@ export interface PipelineOptions {
   checks?: boolean;
   /** Quellen lesen, erkunden und aufräumen (Standard: an). Aus = nur die Browser-Warteschlange. */
   sources?: boolean;
+  /** Fortsetzung eines großen Durchlaufs: Quellen, die seit diesem Zeitpunkt gelesen wurden, überspringen */
+  skipSourcesSince?: string;
   maxSources?: number;
   fetchImpl?: typeof fetch;
   /** fester Zeitpunkt (für Tests) */
   now?: Date;
 }
+
+type BrowserItem = Awaited<ReturnType<typeof nextBrowserItems>>[number];
 
 /** Ergebnis der Einordnung einer Anzeige ohne Psychologie-Bezug. */
 type OutsideDecision =
@@ -373,6 +377,8 @@ export class Pipeline {
 
   private async processSources(all: Source[]): Promise<void> {
     let sources = all.filter((s) => s.url);
+    const since = this.opts.skipSourcesSince;
+    if (since) sources = sources.filter((s) => !s.lastRunAt || s.lastRunAt < since);
     if (this.opts.only?.length) sources = sources.filter((s) => this.opts.only!.includes(s.id));
     if (this.opts.maxSources) sources = sources.slice(0, this.opts.maxSources);
     // Am längsten nicht gelesene Quellen zuerst: Reicht die Zeit nicht, macht der nächste Lauf dort weiter.
@@ -920,77 +926,89 @@ export class Pipeline {
     if (items.length === 0) return;
     this.log.info(`Browser-Agent: ${items.length} Seite(n) in der Warteschlange.`);
     const byId = new Map(sources.map((s) => [s.id, s]));
-    for (const item of items) {
-      if (!this.pool.budgetLeft || Date.now() - this.startedMs > this.cfg.runBudgetMs) {
-        this.log.info('Browser-Zeitbudget für diesen Lauf aufgebraucht – Rest beim nächsten Lauf.');
-        break;
+    let next = 0;
+    let stopped = false;
+    // Mehrere Seiten gleichzeitig (BROWSER_CONCURRENCY), z. B. im großen Durchlauf
+    const worker = async () => {
+      while (next < items.length) {
+        if (!this.pool!.budgetLeft || Date.now() - this.startedMs > this.cfg.runBudgetMs) {
+          stopped = true;
+          break;
+        }
+        await this.processBrowserItem(items[next++], byId);
       }
-      const stmts: Stmt[] = [];
-      try {
-        const res = await agentReadPosting(this.pool, this.http, this.llm, this.log, item.url);
-        const source: Source = byId.get(item.sourceId ?? '') ?? {
-          id: item.sourceId ?? 'browser',
-          institutionId: item.institutionId,
-          kind: 'zentral',
-          label: 'Browser',
-          url: item.url,
-          adapter: 'auto',
-          config: {},
-          gate: 'none',
-          enabled: true,
-          verified: false,
-          status: 'ok',
-          consecutiveFailures: 0,
-        };
-        if (!res.data || res.data.descriptionMd.length < 300) {
-          stmts.push(browserDoneStmt(item.url, false, res.steps.join(' | ').slice(0, 400) || 'kein Text', this.now));
-          this.bump('browserOhneErfolg');
-        } else {
-          res.data.url = item.url; // Identität bleibt die ursprüngliche Adresse
-          const canon = canonicalUrl(item.url);
-          const existing = this.index.get(canon);
-          const norm = searchTextOf({ title: res.data.title, descriptionMd: res.data.descriptionMd });
-          const gate = checkGate(norm, this.gateTerms);
-          let meta: JobMeta | null = { lane: 'kern', horizon: null, isNew: !existing };
-          if (!existing && source.gate === 'psych' && !gate.pass) {
-            const d = await this.decideOutside(norm, res.data);
-            if ('skip' in d) {
-              stmts.push(gateSkipStmt({ url: canon, sourceId: source.id, institutionId: source.institutionId, title: truncate(res.data.title, 200), textHash: this.gateHash, reason: d.skip, note: d.note }, this.now));
-              this.bump(d.skip === 'ki-nein' ? 'kiNein' : 'grobfilter');
-              meta = null;
-            } else if ('defer' in d) {
-              meta = null;
-            } else {
-              meta = { lane: d.lane, horizon: d.horizon, isNew: true };
-            }
+    };
+    await Promise.all(Array.from({ length: Math.max(1, this.cfg.browser.concurrency) }, worker));
+    if (stopped) this.log.info('Browser-Zeitbudget für diesen Lauf aufgebraucht – Rest beim nächsten Lauf.');
+  }
+
+  private async processBrowserItem(item: BrowserItem, byId: Map<string, Source>): Promise<void> {
+    if (!this.pool) return;
+    const stmts: Stmt[] = [];
+    try {
+      const res = await agentReadPosting(this.pool, this.http, this.llm, this.log, item.url);
+      const source: Source = byId.get(item.sourceId ?? '') ?? {
+        id: item.sourceId ?? 'browser',
+        institutionId: item.institutionId,
+        kind: 'zentral',
+        label: 'Browser',
+        url: item.url,
+        adapter: 'auto',
+        config: {},
+        gate: 'none',
+        enabled: true,
+        verified: false,
+        status: 'ok',
+        consecutiveFailures: 0,
+      };
+      if (!res.data || res.data.descriptionMd.length < 300) {
+        stmts.push(browserDoneStmt(item.url, false, res.steps.join(' | ').slice(0, 400) || 'kein Text', this.now));
+        this.bump('browserOhneErfolg');
+      } else {
+        res.data.url = item.url; // Identität bleibt die ursprüngliche Adresse
+        const canon = canonicalUrl(item.url);
+        const existing = this.index.get(canon);
+        const norm = searchTextOf({ title: res.data.title, descriptionMd: res.data.descriptionMd });
+        const gate = checkGate(norm, this.gateTerms);
+        let meta: JobMeta | null = { lane: 'kern', horizon: null, isNew: !existing };
+        if (!existing && source.gate === 'psych' && !gate.pass) {
+          const d = await this.decideOutside(norm, res.data);
+          if ('skip' in d) {
+            stmts.push(gateSkipStmt({ url: canon, sourceId: source.id, institutionId: source.institutionId, title: truncate(res.data.title, 200), textHash: this.gateHash, reason: d.skip, note: d.note }, this.now));
+            this.bump(d.skip === 'ki-nein' ? 'kiNein' : 'grobfilter');
+            meta = null;
+          } else if ('defer' in d) {
+            meta = null;
+          } else {
+            meta = { lane: d.lane, horizon: d.horizon, isNew: true };
           }
-          if (meta) {
-            const job = await this.buildJob(source, { url: item.url, via: 'browser' }, res.data, gate.matched, meta);
-            if (job) {
-              if (existing) {
-                stmts.push(this.replaceContentStmt(existing.id, job));
-                this.bump('browserVervollstaendigt');
-              } else {
-                stmts.push(upsertJobStmt(job), touchJobSourceStmt(job.id, source.id, item.url, this.now));
-                this.indexJob(job);
-                this.bump('browserNeu');
-                if (job.newSite) {
-                  this.bump('neueWebsites');
-                  const key = this.registry.siteKey(job.url, res.data.hiringOrg);
-                  if (key) stmts.push(discoveryStmt(key, res.data.hiringOrg ?? null, job.url, this.now));
-                }
+        }
+        if (meta) {
+          const job = await this.buildJob(source, { url: item.url, via: 'browser' }, res.data, gate.matched, meta);
+          if (job) {
+            if (existing) {
+              stmts.push(this.replaceContentStmt(existing.id, job));
+              this.bump('browserVervollstaendigt');
+            } else {
+              stmts.push(upsertJobStmt(job), touchJobSourceStmt(job.id, source.id, item.url, this.now));
+              this.indexJob(job);
+              this.bump('browserNeu');
+              if (job.newSite) {
+                this.bump('neueWebsites');
+                const key = this.registry.siteKey(job.url, res.data.hiringOrg);
+                if (key) stmts.push(discoveryStmt(key, res.data.hiringOrg ?? null, job.url, this.now));
               }
             }
           }
-          stmts.push(browserDoneStmt(item.url, res.data.complete, res.data.complete ? null : res.data.incompleteReason ?? null, this.now));
-          this.log.info(`Browser-Agent ${res.data.complete ? 'vollständig' : 'teilweise'}: ${item.url} (${res.steps.join(', ') || 'ohne Klicks'})`);
         }
-      } catch (e) {
-        stmts.push(browserDoneStmt(item.url, false, errText(e).slice(0, 300), this.now));
-        this.log.warn(`Browser-Agent: ${item.url}: ${errText(e)}`);
+        stmts.push(browserDoneStmt(item.url, res.data.complete, res.data.complete ? null : res.data.incompleteReason ?? null, this.now));
+        this.log.info(`Browser-Agent ${res.data.complete ? 'vollständig' : 'teilweise'}: ${item.url} (${res.steps.join(', ') || 'ohne Klicks'})`);
       }
-      await this.db.batch(stmts);
+    } catch (e) {
+      stmts.push(browserDoneStmt(item.url, false, errText(e).slice(0, 300), this.now));
+      this.log.warn(`Browser-Agent: ${item.url}: ${errText(e)}`);
     }
+    await this.db.batch(stmts);
   }
 }
 
