@@ -6,13 +6,16 @@ import {
   DEFAULT_FILTER,
   DEFAULT_HOME,
   DEFAULT_GATE_TERMS,
+  DEFAULT_HIGH_SCORE_ALERT,
   DEFAULT_REMINDER_DAYS,
+  parseHighScoreAlert,
   parseProfile,
   starterProfile,
   type City,
   type Decision,
   type Favorite,
   type FavoriteKind,
+  type HighScoreAlert,
   type HomeLocation,
   type Institution,
   type Job,
@@ -32,10 +35,14 @@ export interface Settings {
   filter: JobFilter;
   home: HomeLocation;
   reminders: { days: number[]; push: boolean };
+  /** Benachrichtigung, wenn ein Lauf neue Anzeigen ab min Prozent bringt */
+  notifyHighScore: HighScoreAlert;
   gateTerms: string[];
   sort: { all: SortKey; saved: SavedSort };
   /** cardImages: Fotos bzw. Skizze auf den Karten im Stapel zeigen */
   ui: { mapMode: 'gemerkt' | 'alle'; cardImages: boolean };
+  /** Platzhalter-Checkliste: von Hand abgehakte Punkte, Leiste oben ausgeblendet */
+  checklist: { done: string[]; hideBanner: boolean };
 }
 
 export function defaultSettings(): Settings {
@@ -44,9 +51,11 @@ export function defaultSettings(): Settings {
     filter: DEFAULT_FILTER,
     home: DEFAULT_HOME,
     reminders: { days: DEFAULT_REMINDER_DAYS, push: true },
+    notifyHighScore: DEFAULT_HIGH_SCORE_ALERT,
     gateTerms: DEFAULT_GATE_TERMS,
     sort: { all: 'empfohlen', saved: 'frist' },
     ui: { mapMode: 'gemerkt', cardImages: true },
+    checklist: { done: [], hideBanner: false },
   };
 }
 
@@ -57,9 +66,14 @@ function settingsFrom(raw: Record<string, unknown>, base = defaultSettings()): S
   if (raw.filter && typeof raw.filter === 'object') s.filter = { ...DEFAULT_FILTER, ...(raw.filter as Partial<JobFilter>) };
   if (raw.home && typeof raw.home === 'object' && typeof (raw.home as HomeLocation).lat === 'number') s.home = raw.home as HomeLocation;
   if (raw.reminders && typeof raw.reminders === 'object') s.reminders = { ...s.reminders, ...(raw.reminders as Settings['reminders']) };
+  if (raw.notifyHighScore !== undefined) s.notifyHighScore = parseHighScoreAlert(raw.notifyHighScore);
   if (Array.isArray(raw.gateTerms) && raw.gateTerms.length) s.gateTerms = raw.gateTerms as string[];
   if (raw.sort && typeof raw.sort === 'object') s.sort = { ...s.sort, ...(raw.sort as Settings['sort']) };
   if (raw.ui && typeof raw.ui === 'object') s.ui = { ...s.ui, ...(raw.ui as Settings['ui']) };
+  if (raw.checklist && typeof raw.checklist === 'object') {
+    const c = raw.checklist as Partial<Settings['checklist']>;
+    s.checklist = { done: Array.isArray(c.done) ? c.done.filter((x): x is string => typeof x === 'string') : [], hideBanner: c.hideBanner === true };
+  }
   return s;
 }
 

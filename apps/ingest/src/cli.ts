@@ -4,6 +4,7 @@
 //   npm run cli -w @stellen/ingest -- ingest               kompletter Lauf
 //   npm run cli -w @stellen/ingest -- ingest --only uni-leipzig-z1 --no-browser
 //   npm run cli -w @stellen/ingest -- test-source <url> [--render]
+//   npm run cli -w @stellen/ingest -- probe [--n 60] [--kind unternehmen]   Stichprobe über die Startliste
 //   npm run cli -w @stellen/ingest -- check-source <url>       KI-Probelauf einer Website (ohne Speichern)
 //   npm run cli -w @stellen/ingest -- check-sources            wartende Probeläufe aus der App abarbeiten
 //   npm run cli -w @stellen/ingest -- agent <url>
@@ -23,6 +24,8 @@ import { Llm } from './llm';
 import { BrowserPool } from './browser';
 import { discover } from './discover';
 import { extractPosting } from './extract';
+import { atsDetail } from './ats';
+import { probeSources } from './probe';
 import { agentReadPosting } from './agent';
 import { applySeed } from './seed';
 import { runPipeline } from './pipeline';
@@ -117,6 +120,11 @@ async function main(): Promise<void> {
       }
       break;
     }
+    case 'probe': {
+      // Stichprobe über die Startliste, ohne Browser, ohne KI, ohne zu speichern
+      await probeSources(cfg, { n: Number(option('n') ?? 60), kind: option('kind'), only: option('only')?.split(','), json: option('json') });
+      break;
+    }
     case 'reminders': {
       const db = openDb();
       const n = await sendReminders(db, cfg, new RunLog());
@@ -151,7 +159,8 @@ async function main(): Promise<void> {
         for (const c of res.candidates.slice(0, 40)) console.log(`  • ${c.title ?? '(ohne Titel)'}\n    ${c.url}  [${c.via}${c.prefilled ? ', Text vollständig' : ''}]`);
         const n = Number(option('details') ?? 3);
         for (const c of res.candidates.slice(0, n)) {
-          const r = c.prefilled ? { data: c.prefilled } : await extractPosting(http, c.url, { titleHint: c.title });
+          const viaApi = c.prefilled ? null : await atsDetail(http, c);
+          const r = c.prefilled ? { data: c.prefilled } : viaApi ? { data: viaApi } : await extractPosting(http, c.url, { titleHint: c.title });
           if (!r.data) {
             console.log(`\n✗ ${c.url}: nicht lesbar`);
             continue;
@@ -184,7 +193,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | agent <url> | reminders');
+      console.log('Befehle: seed | ingest [--only id,id] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders');
       process.exitCode = cmd ? 1 : 0;
   }
 }

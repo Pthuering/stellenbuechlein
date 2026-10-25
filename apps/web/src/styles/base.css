@@ -299,6 +299,12 @@ img {
   background: var(--neutral-soft);
   border-color: transparent;
 }
+/* Erfundene Anzeige: neutral, gestrichelt wie ein Bleistift-Entwurf */
+.chip--dummy {
+  background: transparent;
+  border: 1.5px dashed var(--text-subtle);
+  color: var(--text-muted);
+}
 .chip--secondary {
   background: var(--secondary-soft);
   border-color: transparent;

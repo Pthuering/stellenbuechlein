@@ -1,6 +1,6 @@
 # Stellenbüchlein
 
-Private App für die Suche nach Forschungsstellen mit Psychologie-Bezug in Deutschland: Universitäten, Hochschulen, Unikliniken und außeruniversitäre Institute (Max-Planck, Leibniz, Helmholtz, Fraunhofer, Ressortforschung). Die Anzeigen werden täglich gegen 12 Uhr (oder per Knopf) eingesammelt, nach einem einstellbaren Suchprofil sortiert und im Notizbuch-Look angezeigt. Dazu kommen Stellen außerhalb des Kernbereichs, die über eine „Brücke“ zu dir passen könnten, und in jedem Lauf mindestens drei Anzeigen von Websites, die noch nicht im Quellen-Register stehen.
+Private App für die Suche nach Stellen mit Psychologie-Bezug in Deutschland: Universitäten, Hochschulen, Kliniken, außeruniversitäre Institute (Max-Planck, Leibniz, Helmholtz, Fraunhofer, Ressortforschung) und Unternehmen, die hin und wieder Psycholog:innen suchen (Diagnostik, Marktforschung, UX und Human Factors, Digital Health, Beratung). Die Anzeigen werden täglich gegen 12 Uhr (oder per Knopf) eingesammelt, nach einem einstellbaren Suchprofil sortiert und im Notizbuch-Look angezeigt. Dazu kommen Stellen außerhalb des Kernbereichs, die über eine „Brücke“ zu dir passen könnten, und in jedem Lauf mindestens drei Anzeigen von Websites, die noch nicht im Quellen-Register stehen.
 
 „Stellenbüchlein“ ist ein Arbeitstitel.
 
@@ -11,10 +11,12 @@ Private App für die Suche nach Forschungsstellen mit Psychologie-Bezug in Deuts
 - **Fristen:** Offen ist nur, was nicht abgelaufen ist. Fristen ohne Jahr werden ergänzt, verlängerte Fristen erkannt, unplausible Daten von der KI mit wörtlichem Zitat nachgeprüft; was unsicher bleibt, ist gelb markiert.
 - **Blinde Flecken:** Jeder Lauf erkundet mit wechselnden Suchwörtern Websites außerhalb des Registers und bringt mindestens drei Anzeigen von dort mit. Neue Websites stehen unter *Quellen → Neu* und kommen per Probelauf ins Register.
 - **Neue Quellen mit Probelauf:** Website eingeben, die Pipeline liest Liste und Probe-Anzeigen, die KI beurteilt das Ergebnis (Stellenliste? wer schreibt aus? vollständig gelesen? nötige Einstellungen?). Übernommen wird erst nach deiner Bestätigung.
-- **Karte:** gemerkte (oder alle offenen) Anzeigen auf einer gezeichneten Deutschlandkarte. Tippen zoomt von Deutschland über Bundesland und Stadt bis zur Einrichtung. Orte lassen sich dort direkt als Lieblingsort markieren.
+- **Karte:** gemerkte (oder alle offenen) Anzeigen auf einer gezeichneten Deutschlandkarte. Tippen zoomt von Deutschland über Bundesland und Stadt bis zur Einrichtung; ein lavendelfarbener Ring zeigt, wo Horizont-Anzeigen dabei sind. Orte lassen sich dort direkt als Lieblingsort markieren.
 - **Gemerkt:** sortierbare Liste (Frist, Score, neu, Nähe), Fristen-Zettel für Herzensjobs, abgelaufene Gemerkte bleiben erhalten.
 - **Alle:** jede offene Anzeige, unabhängig vom Wischen, mit Suche, Filtern und Sortierung.
-- **Ich:** Suchprofil mit Herzchen-Score, Horizont, Steckbrief-Import, Lieblingsorte, Zuhause und Umkreis (Standard: Halle (Saale)), Fristen-Erinnerungen (1 Monat, 1 Woche, 1 Tag vorher, änderbar, auch als Push), Quellen mit Zustand, Vorschlägen, Aussortiertem und Lauf-Protokollen, Bilder auf den Karten an oder aus, helles und dunkles Notizbuch.
+- **Ich:** Suchprofil mit Herzchen-Score, Horizont, Steckbrief-Import, Lieblingsorte, Zuhause und Umkreis (Standard: Halle (Saale)), Fristen-Erinnerungen (1 Monat, 1 Woche, 1 Tag vorher, änderbar, auch als Push), Benachrichtigung bei neuen Anzeigen ab 85 % (einmal pro Lauf, Schwelle änderbar), Quellen mit Zustand, Vorschlägen, Aussortiertem und Lauf-Protokollen, Bilder auf den Karten an oder aus, helles und dunkles Notizbuch.
+
+- **Platzhalter-Checkliste:** Knopf oben (und unter *Ich*) mit allem, was noch Dummy, Beispiel oder Standardwert ist: Dummy-Anzeigen, Startprofil, Zuhause, Name, Konten und Schlüssel, Quellen. Was die App selbst erkennt, hakt sie ab.
 
 Gestaltung: Weiß und Beige als Fläche, Rosa als Primärfarbe, Lavendel sparsam für Orientierung, Hellgelb nur für Fristen und Herzensjobs. Die Regeln stehen in [docs/GESTALTUNG.md](docs/GESTALTUNG.md).
 
@@ -29,20 +31,29 @@ apps/ingest   Einsammel-Pipeline (Node, läuft in GitHub Actions) – Kaskade au
               Bewerbungsportalen, Sitemaps, KI-Auswertung und Browser-Agent (Playwright)
 packages/core Gemeinsame Logik: Score, Felder (Entgelt, Umfang, Befristung, Frist), Dubletten, Filter
 packages/db   Datenbankschema und -zugriff (D1, SQLite lokal, Fernzugriff für die Pipeline)
-data/seed     Startliste: 73 Städte, 158 Einrichtungen, Portale
+data/seed     Startliste: 160 Städte, 531 Einrichtungen mit 620 Stellenseiten (Recherche 23.10.2026), Portale
+data/dummy    erfundene Anzeigen für Demo und Website-Paket
 ```
 
 Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Die Website liefert Cloudflare aus, auf Wunsch unter eigener Domain; GitHub hält nur den Code und die Sammel-Läufe. Geld kosten nur die KI, je nach Anzahl neuer Anzeigen Cent-Beträge pro Lauf (DeepSeek-API, austauschbar), und gegebenenfalls die Domain. Ohne KI läuft alles regelbasiert, nur die Weite und die KI-Urteile fallen weg.
 
-## Schnell ausprobieren
+## Auf die eigene Website laden
 
 ```bash
 npm install
-npm run build:demo            # eine einzelne HTML-Datei mit echten Beispielanzeigen
+npm run build:site            # Paket in apps/web/dist-site/, Inhalt per FTP hochladen
+```
+
+Das Paket läuft auf jedem Webspace, auch in einem Unterordner (etwa `deine-website.de/stellen/`), und lässt sich aufs Handy installieren. Anfangs zeigt es **Dummy-Daten**: erfundene Anzeigen bei echten Einrichtungen, deren Fristen jeden Tag mitrücken, darunter Horizont- und Weite-Anzeigen und vier von neuen Websites. Echte Anzeigen gibt es, sobald der Server läuft; umgestellt wird mit einer Zeile in `config.json`. Anleitung: [docs/WEBSITE.md](docs/WEBSITE.md).
+
+## Schnell ausprobieren
+
+```bash
+npm run build:demo            # eine einzelne HTML-Datei mit den Dummy-Daten
 open apps/web/dist-demo/index.html
 ```
 
-Die Demo braucht keinen Server, alles bleibt im Browser. Sie enthält echte Anzeigen vom 9. und 12. Oktober 2026, darunter drei Horizont-Anzeigen und fünf von Websites außerhalb des Registers. Probelauf und KI-Vorschläge sind in der Demo nur nachgestellt. Die Beispielanzeigen haben keine Fotos; unter *Ich → Aussehen → Testfotos* lassen sich eigene Bilder darauf verteilen.
+Die Demo braucht keinen Server, alles bleibt im Browser. Probelauf, Läufe und KI-Vorschläge sind dort nur nachgestellt. Die Dummy-Anzeigen haben keine Fotos; unter *Ich → Aussehen → Testfotos* lassen sich eigene Bilder darauf verteilen.
 
 ## Lokal entwickeln
 
@@ -65,7 +76,7 @@ npm run cli -w @stellen/ingest -- agent https://www.example-uni.de/stellen/123
 
 ## Einrichten für den echten Betrieb
 
-Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Datenbank, Schlüssel, eigene Domain, GitHub-Secrets, App aufs Handy.
+Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Datenbank, Schlüssel, eigene Domain, GitHub-Secrets, App aufs Handy. Liegt die App auf deiner eigenen Website, kommt der Abschnitt „Mit dem Server verbinden“ aus [docs/WEBSITE.md](docs/WEBSITE.md) dazu.
 
 ## Prüfen
 
@@ -73,6 +84,7 @@ Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Da
 npm run typecheck
 npm test                      # Kernlogik, API, Pipeline gegen einen lokalen Testserver
 npm run build:demo && npm run smoke:demo -w @stellen/web   # Demo im echten Browser durchklicken
+                                                            # (mit Chrome: CHROMIUM_PATH=…/chrome.exe)
 ```
 
 ## Was noch offen ist

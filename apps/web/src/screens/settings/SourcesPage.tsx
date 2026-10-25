@@ -53,6 +53,8 @@ const STAT_LABELS: [string, string][] = [
   ['fehlerDetail', 'Anzeigen nicht lesbar'],
   ['quelle_fehler', 'Quellen mit Fehler'],
   ['robots', 'durch robots.txt gesperrt'],
+  ['erinnerungen', 'Fristen-Erinnerungen verschickt'],
+  ['benachrichtigtNeu', 'neue, sehr gut passende Anzeigen gemeldet'],
   ['ki', 'KI-Aufrufe'],
 ];
 
@@ -214,7 +216,7 @@ function SourceSheet({ src, inst, onClose, onSaved, onRecheck }: { src: Source; 
           <span>
             robots.txt übergehen
             <br />
-            <small className="hint">nur, wenn du das für diese Seite verantworten willst</small>
+            <small className="hint">Wirkt nur, wenn die Pipeline die robots.txt beachtet (ROBOTS=1). Standard ist: Sperren gelten nicht, Abstand und Crawl-delay schon.</small>
           </span>
           <input type="checkbox" checked={ignoreRobots} onChange={(e) => setIgnoreRobots(e.target.checked)} />
         </label>

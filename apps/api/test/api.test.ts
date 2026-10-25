@@ -176,6 +176,27 @@ describe('Probelauf, Funde und Horizont', () => {
     expect(d.discoveries.map((x) => x.siteKey)).not.toContain('arbeitgeber:stiftung x');
   });
 
+  it('erlaubt Anfragen von der eigenen Website (ALLOWED_ORIGIN), andere nicht', async () => {
+    const site = createApp({ db: () => db, env: () => ({ ...env, ALLOWED_ORIGIN: 'https://meine-seite.de, https://www.meine-seite.de/' }) });
+    const pre = await site.request('/api/bootstrap', { method: 'OPTIONS', headers: { origin: 'https://www.meine-seite.de' } });
+    expect(pre.status).toBe(204);
+    expect(pre.headers.get('access-control-allow-origin')).toBe('https://www.meine-seite.de');
+    const r = await site.request('/api/bootstrap', { headers: { ...auth, origin: 'https://meine-seite.de' } });
+    expect(r.status).toBe(200);
+    expect(r.headers.get('access-control-allow-origin')).toBe('https://meine-seite.de');
+    const fremd = await site.request('/api/bootstrap', { method: 'OPTIONS', headers: { origin: 'https://fremd.example' } });
+    expect(fremd.status).toBe(403);
+    expect(fremd.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('speichert die Haken der Platzhalter-Checkliste', async () => {
+    const value = { done: ['zuhause', 'name'], hideBanner: true };
+    const r = await app.request('/api/settings/checklist', { method: 'PUT', headers: auth, body: JSON.stringify({ value }) });
+    expect(r.status).toBe(200);
+    const b = (await (await app.request('/api/bootstrap', { headers: auth })).json()) as { settings: Record<string, unknown> };
+    expect(b.settings.checklist).toEqual(value);
+  });
+
   it('Brücken-Vorschläge der KI (ohne schon vorhandene)', async () => {
     const off = await app.request('/api/horizont/vorschlaege', { method: 'POST', headers: auth, body: '{}' });
     expect(off.status).toBe(501);

@@ -12,6 +12,11 @@ Die App läuft komplett in kostenlosen Kontingenten:
 
 Die Website, die du im Browser öffnest, liefert Cloudflare aus. GitHub hostet keine Seite: Dort liegen nur der Code und die Abläufe zum Einsammeln und Prüfen.
 
+**Zwei Wege zur Adresse der App:**
+
+- **App im Worker** (diese Anleitung): Cloudflare liefert App und Server unter einer Adresse aus, auf Wunsch unter einer Subdomain deiner Domain (Schritt 2a).
+- **App auf deiner eigenen Website** ([WEBSITE.md](WEBSITE.md)): Du lädst das Paket aus `npm run build:site` auf deinen Webspace; es zeigt zuerst Dummy-Daten. Der Worker aus dieser Anleitung dient dann nur als Server. Zusätzlich trägst du in `wrangler.toml` `ALLOWED_ORIGIN` ein und auf der Website in `config.json` die Adresse des Workers.
+
 Du brauchst: ein GitHub-Konto, ein Cloudflare-Konto, Node.js 22 auf dem Rechner (nur für die Einrichtung), für eine eigene Adresse eine Domain (Schritt 2a) und optional einen DeepSeek-API-Schlüssel.
 
 ## 1. Code in ein eigenes GitHub-Repository
@@ -26,10 +31,10 @@ Wichtig: Schlüssel gehören nie ins Repository, nur in die Secrets.
 npm install
 cd apps/api
 npx wrangler login
-npx wrangler d1 create stellenbuechlein
+npx wrangler d1 create stellenbuechlein --jurisdiction eu
 ```
 
-Die ausgegebene `database_id` in `apps/api/wrangler.toml` eintragen. Dann:
+`--jurisdiction eu` hält die Datenbank in der EU; das lässt sich nur beim Anlegen festlegen. Die ausgegebene `database_id` in `apps/api/wrangler.toml` eintragen. Dann:
 
 ```bash
 npm run db:migrate:remote              # legt alle Tabellen an; nach Updates erneut ausführen (neue Migrationen)
@@ -83,11 +88,13 @@ Im Repository unter *Settings → Secrets and variables → Actions → New repo
 | `BRAVE_API_KEY` | nein | Websuche (Brave Search API) als zusätzliche Quelle für die Erkundung neuer Websites; ohne sucht die Erkundung nur bei der Arbeitsagentur |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | nein | aus Schritt 3 |
 | `VAPID_SUBJECT` | nein | `mailto:` mit einer Adresse, unter der man dich erreicht |
-| `CRAWLER_CONTACT` | nein | Kontakt, der im User-Agent steht, damit Seitenbetreiber sich melden können |
+| `CRAWLER_CONTACT` | nein, aber empfohlen | Kontakt, der im User-Agent steht, damit Seitenbetreiber sich melden können (ohne: „privates Jobsuche-Werkzeug“) |
 
 Danach unter *Actions → Einsammeln → Run workflow* den ersten Lauf starten. Der Lauf legt zuerst die Startdaten an (Städte, Einrichtungen, Quellen) und sammelt dann ein. Das Protokoll steht in der App unter *Ich → Quellen & Läufe → Läufe*.
 
 **Zeitplan:** Der Workflow läuft täglich um 12 Uhr deutscher Zeit. GitHub rechnet in UTC, deshalb stehen zwei Zeiten im Workflow (10 und 11 Uhr UTC); ein kleiner erster Schritt prüft, welche davon gerade 12 Uhr in Deutschland ist, und lässt nur diese laufen. Sommer- und Winterzeit gehen so von selbst. Bei viel Betrieb startet GitHub geplante Läufe manchmal ein paar Minuten später. Eine andere Uhrzeit: die beiden `cron`-Zeilen und die Prüfung in `.github/workflows/einsammeln.yml` anpassen.
+
+**Neue, sehr gut passende Anzeigen:** Am Ende jedes Laufs berechnet die Pipeline für alle neuen Anzeigen den Score mit deinem Suchprofil und schickt, wenn welche über der Schwelle liegen (Standard 85 %, in der App unter *Ich → Erinnerungen*), eine gebündelte Benachrichtigung. Braucht die Push-Schlüssel aus Schritt 3.
 
 **Blinde Flecken:** Jeder Lauf endet mit der Erkundung. Sie sucht mit wechselnden Suchwörtern (Kernbereich und Brücken aus dem Horizont) bei der Jobsuche der Arbeitsagentur, mit `BRAVE_API_KEY` zusätzlich im Netz, und liest so lange Anzeigen von Websites, die noch nicht im Register stehen, bis mindestens drei neue dabei sind (`EXPLORE_MIN`). Schafft sie das nicht, steht eine Warnung im Lauf und in der App unter *Quellen & Läufe*.
 
@@ -143,6 +150,7 @@ Als Umgebungsvariablen im Workflow `einsammeln.yml` oder lokal:
 | Variable | Standard | Bedeutung |
 |---|---|---|
 | `HOST_INTERVAL_MS` | 1500 | Mindestabstand zwischen zwei Abrufen bei derselben Website |
+| `ROBOTS` | 0 | `1` = Sperren aus der robots.txt beachten; Standard: nicht beachten (Abstand und Crawl-delay gelten immer) |
 | `MAX_CRAWL_DELAY_MS` | 15000 | Obergrenze für `Crawl-delay` aus der robots.txt |
 | `MAX_LIST_PAGES` | 6 | Wie viele Seiten einer Stellenliste verfolgt werden |
 | `MAX_NEW_PER_SOURCE` | 80 | Neue Anzeigen pro Quelle und Lauf |
@@ -186,7 +194,7 @@ Von unterwegs erreichbar wird das erst mit einer HTTPS-Adresse (z. B. über eine
 - **`npm run deploy` lehnt die eigene Adresse ab:** Die Domain ist bei Cloudflare noch nicht aktiv (Nameserver beim Domain-Anbieter prüfen), oder für die Subdomain gibt es schon einen CNAME-Eintrag. Den Eintrag im Cloudflare-Dashboard löschen und erneut veröffentlichen.
 - **Seit dem Umzug auf die eigene Domain bricht das Einsammeln ab:** Das Secret `API_URL` zeigt noch auf die `workers.dev`-Adresse (Schritt 2a, Punkt 5).
 - **Pipeline bricht mit 401 ab:** `INGEST_KEY` in GitHub und im Worker unterscheiden sich.
-- **Quelle steht auf „blockiert“:** Die robots.txt verbietet den Abruf. Unter *Ich → Quellen* lässt sich das pro Quelle bewusst übergehen, die Portale decken sie sonst mit ab.
+- **Quelle steht auf „blockiert“:** Die Website lehnt den Abruf ab (HTTP 401 oder 403, oft ein Bot-Schutz). Häufig hilft der Browser-Agent („Seite im Browser öffnen“ in der Quelle); sonst decken die Portale sie mit ab. Sperren aus der robots.txt gelten nur, wenn `ROBOTS=1` gesetzt ist.
 - **Viele Quellen „ohne Adresse“:** Die Pipeline sucht nach und nach selbst und legt Vorschläge an (*Quellen → Neu*). Bis dahin finden die Portale deren Anzeigen.
 - **Probelauf bleibt auf „wartet“:** Ohne `GITHUB_TOKEN` im Worker startet er erst mit dem nächsten Einsammeln. Mit Token: unter *Actions → Quelle prüfen* nachsehen, ob der Workflow lief.
 - **Erkundung bringt weniger als drei Anzeigen:** Im Protokoll des Laufs steht, wie viele Suchen und Anzeigen es waren. Häufigster Grund: Die Schnittstelle der Arbeitsagentur hat sich geändert oder antwortet nicht. Mit `BRAVE_API_KEY` gibt es eine zweite Quelle.

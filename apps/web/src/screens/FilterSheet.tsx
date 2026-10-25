@@ -1,12 +1,12 @@
 // Filter für Stapel und Liste. Blenden nur aus – gelöscht wird nichts.
 
-import { DEFAULT_FILTER, INSTITUTION_KIND_LABELS, JOB_KIND_LABELS, LANE_LABELS, STATES, STATE_CODES, type InstitutionKind, type JobFilter, type JobKind, type Lane, type StateCode } from '@stellen/core';
+import { DEFAULT_FILTER, INSTITUTION_KIND_LABELS, INSTITUTION_KINDS, JOB_KIND_LABELS, LANE_LABELS, STATES, STATE_CODES, type InstitutionKind, type JobFilter, type JobKind, type Lane, type StateCode } from '@stellen/core';
 import { useAppState, useStore } from '../data/hooks';
 import { Sheet } from '../ui/Sheet';
 
 const RADII: (number | null)[] = [null, 25, 50, 100, 200, 300];
 const KINDS: JobKind[] = ['promotion', 'postdoc', 'wiss_ma', 'professur', 'projekt', 'lehre', 'klinik', 'shk', 'verwaltung'];
-const INST_KINDS: InstitutionKind[] = ['universitaet', 'ph', 'hochschule', 'privat', 'mpg', 'leibniz', 'helmholtz', 'fraunhofer', 'klinik', 'ressort', 'sonstige'];
+const INST_KINDS: readonly InstitutionKind[] = INSTITUTION_KINDS;
 const LANES: Lane[] = ['kern', 'horizont', 'weite'];
 
 function toggle<T>(list: T[], v: T): T[] {

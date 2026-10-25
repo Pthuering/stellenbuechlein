@@ -113,11 +113,16 @@ describe('Anzeige einlesen', () => {
     expect(r.data?.descriptionMd).toMatch(/Lernmotivation/);
     expect(r.data?.complete).toBe(true);
   });
-  it('robots.txt-gesperrte Seite wird nicht abgerufen', async () => {
-    const http = new Http(cfg, new RunLog(false));
-    const r = await extractPosting(http, `${srv.url}/privat/geheim.html`);
+  it('robots.txt: Sperren gelten nur mit ROBOTS=1', async () => {
+    const strict = new Http({ ...cfg, respectRobots: true }, new RunLog(false));
+    const r = await extractPosting(strict, `${srv.url}/privat/geheim.html`);
     expect(r.blockedByRobots).toBe(true);
     expect(srv.hits.get('/privat/geheim.html')).toBeUndefined();
+    expect(cfg.respectRobots).toBe(false);
+    const open = new Http(cfg, new RunLog(false));
+    const r2 = await extractPosting(open, `${srv.url}/privat/geheim.html`);
+    expect(r2.blockedByRobots).toBeFalsy();
+    expect(srv.hits.get('/privat/geheim.html')).toBe(1);
   });
 });
 
@@ -135,7 +140,7 @@ describe('Kompletter Lauf', () => {
     ]);
   });
 
-  it('legt Anzeigen an, filtert grob, überspringt gesperrte Seiten', async () => {
+  it('legt Anzeigen an, filtert grob, liest auch per robots.txt gesperrte Seiten', async () => {
     const p = new Pipeline(db, cfg, { browser: false, images: false, discovery: false, reminders: false }, new RunLog(false));
     const stats = await p.run();
     const { jobs } = await syncJobs(db, '', 100);
@@ -144,8 +149,10 @@ describe('Kompletter Lauf', () => {
     expect(titles).toContain('Postdoc (m/w/d) in Kognitiver Neurowissenschaft');
     expect(titles.some((t) => /Sozialpsychologie|Wissenschaftliche Mitarbeiterin \/ Wissenschaftlicher/.test(t))).toBe(true);
     expect(titles.some((t) => /Chemielabor/.test(t))).toBe(false);
-    // ohne Browser: Chemie-Stelle und die (statisch leere) JavaScript-Seite fallen durch den Grobfilter
-    expect(stats.grobfilter).toBe(2);
+    // ohne Browser: Chemie-Stelle, die (statisch leere) JavaScript-Seite und die interne Stelle der
+    // Personalabteilung (per robots.txt gesperrt, wird aber gelesen) fallen durch den Grobfilter
+    expect(stats.grobfilter).toBe(3);
+    expect(stats.robots ?? 0).toBe(0);
     expect((await listGateSkips(db)).map((s) => s.title)).toContain('Technische Assistenz (m/w/d) im Chemielabor');
 
     const job1 = jobs.find((j) => /Emotionsregulation/.test(j.title))!;

@@ -126,7 +126,7 @@ export async function runSourceCheck(rawUrl: string, existingSourceId: string | 
       }
     }
   }
-  if (res.status === 'blockiert') notes.push('Die robots.txt der Website sperrt das Einsammeln. Das lässt sich pro Quelle bewusst übergehen.');
+  if (res.status === 'blockiert') notes.push('Die Website lehnt den Abruf ab (meist ein Bot-Schutz). Der Browser-Agent kommt oft trotzdem durch; sonst decken die Portale sie ab.');
   if (res.methods.includes('browser')) {
     config = { ...config, render: true };
     notes.push('Die Liste erscheint erst per JavaScript; die Quelle wird im Browser geöffnet.');

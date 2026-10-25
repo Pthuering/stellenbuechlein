@@ -18,6 +18,7 @@
     "dev:web": "npm run dev -w @stellen/web",
     "build:web": "npm run build -w @stellen/web",
     "build:demo": "npm run build:demo -w @stellen/web",
+    "build:site": "npm run build:site -w @stellen/web",
     "seed:local": "npm run cli -w @stellen/ingest -- seed",
     "ingest:local": "npm run cli -w @stellen/ingest -- ingest",
     "deploy": "npm run build -w @stellen/web && npm run deploy -w @stellen/api"

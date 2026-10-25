@@ -160,6 +160,11 @@ describe('Register', () => {
   it('Website, Bewerbersystem oder Arbeitgeber', () => {
     expect(siteKeyOf('https://www.cispa.de/de/jobs/123')).toBe('cispa.de');
     expect(siteKeyOf('https://institut.jobs.personio.de/job/9')).toBe('institut.jobs.personio.de');
+    // Arbeitgeber im Pfad: jede Firma ist eine eigene Website
+    expect(siteKeyOf('https://jobs.lever.co/Beispielfirma/1234-abcd')).toBe('jobs.lever.co/beispielfirma');
+    expect(siteKeyOf('https://job-boards.greenhouse.io/firma/jobs/42')).toBe('job-boards.greenhouse.io/firma');
+    expect(siteKeyOf('https://jobs.smartrecruiters.com/BoschGroup/7440000')).toBe('jobs.smartrecruiters.com/boschgroup');
+    expect(siteKeyOf('https://join.com/companies/firma/123-ux')).toBe('join.com/firma');
     expect(siteKeyOf('https://www.arbeitsagentur.de/jobsuche/jobdetail/10000-1', 'Stiftung Beispiel gGmbH')).toBe('arbeitgeber:stiftung beispiel ggmbh');
     expect(siteKeyOf('https://www.arbeitsagentur.de/jobsuche/jobdetail/10000-1')).toBeNull();
   });

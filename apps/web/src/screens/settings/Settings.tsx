@@ -19,6 +19,7 @@ import { RemindersPage } from './RemindersPage';
 import { SourcesPage } from './SourcesPage';
 import { AboutPage } from './AboutPage';
 import { HorizontPage } from './HorizontPage';
+import { ChecklistPage, useChecklist } from './ChecklistPage';
 
 export function SubPage({ title, sub, children, labelId }: { title: string; sub?: ReactNode; children: ReactNode; labelId?: string }) {
   const id = labelId ?? `sub-${title.replace(/\W+/g, '-').toLowerCase()}`;
@@ -134,7 +135,7 @@ function TestPhotos() {
     <div className="notice notice--info" style={{ margin: '8px 0 4px' }}>
       <b>Testfotos für die Demo</b>
       <p style={{ margin: '4px 0 0' }}>
-        Die Beispielanzeigen haben noch keine Fotos. Wähl ein paar Bilder aus deiner Galerie, die Demo verteilt sie auf alle Einrichtungen. Sie bleiben nur in diesem Browser.
+        Die Dummy-Anzeigen haben keine Fotos. Wähl ein paar Bilder aus deiner Galerie, die Demo verteilt sie auf alle Einrichtungen. Sie bleiben nur in diesem Browser.
       </p>
       {photos.length > 0 && (
         <div className="photo-strip" aria-label={`${photos.length} Testfotos`}>
@@ -183,6 +184,7 @@ function SettingsHome() {
   const lastRun = s.runs[0];
   const h = horizontOf(s.settings.profile);
   const [triggering, setTriggering] = useState(false);
+  const checklist = useChecklist();
   const trigger = async () => {
     setTriggering(true);
     try {
@@ -198,6 +200,14 @@ function SettingsHome() {
   return (
     <section className="screen paper" aria-labelledby="me-title">
       <PageHead id="me-title" title="Ich" sub="Suchprofil, Orte und Einstellungen" />
+      <div className="group__card" style={{ marginBottom: 14 }}>
+        <Row
+          label="Platzhalter-Checkliste"
+          sub={s.demo ? 'Was noch Dummy, Beispiel oder Standardwert ist' : 'Was vor dem echten Betrieb noch zu ersetzen ist'}
+          value={checklist.open ? `${checklist.open} offen` : 'alles erledigt'}
+          onClick={() => navigate('/ich/checkliste')}
+        />
+      </div>
       <ProfileCard />
 
       <div className="group">
@@ -212,8 +222,8 @@ function SettingsHome() {
           <Row label="Lieblingsorte" sub="Bundesländer, Städte, Einrichtungen: stehen immer oben" value={favs ? String(favs) : 'keine'} onClick={() => navigate('/ich/orte')} />
           <Row label="Zuhause & Umkreis" sub={s.settings.home.label} value={s.settings.filter.radiusKm ? `${s.settings.filter.radiusKm} km` : 'ganz DE'} onClick={() => navigate('/ich/zuhause')} />
           <Row
-            label="Fristen-Erinnerungen"
-            sub={days.length ? `${days.map((d) => (d === 1 ? '1 Tag' : d === 0 ? 'am Tag' : `${d} Tage`)).join(', ')} vorher` : 'aus'}
+            label="Erinnerungen"
+            sub={`Fristen: ${days.length ? `${days.map((d) => (d === 1 ? '1 Tag' : d === 0 ? 'am Tag' : `${d} Tage`)).join(', ')} vorher` : 'aus'}; neue Anzeigen: ${s.settings.notifyHighScore.on ? `ab ${s.settings.notifyHighScore.min} %` : 'aus'}`}
             value={s.settings.reminders.push ? 'mit Push' : 'nur in der App'}
             onClick={() => navigate('/ich/erinnerungen')}
           />
@@ -304,13 +314,14 @@ function SettingsHome() {
               className="setting"
               onClick={() => {
                 lsDel('sb.demo.v1');
+                lsDel('sb.demo.v2');
                 lsDel('sb.queue');
                 location.reload();
               }}
             >
               <span className="setting__label">
                 Demo zurücksetzen
-                <small>Gemerkte, Weggelegte und Einstellungen löschen</small>
+                <small>Gemerkte, Weggelegte, Einstellungen und Haken der Checkliste auf den Anfang</small>
               </span>
             </button>
           ) : (
@@ -352,6 +363,8 @@ export function SettingsScreen({ sub }: { sub: string | null }) {
       return <HorizontPage />;
     case 'ueber':
       return <AboutPage />;
+    case 'checkliste':
+      return <ChecklistPage />;
     default:
       return <SettingsHome />;
   }

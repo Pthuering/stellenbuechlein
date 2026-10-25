@@ -1,71 +1,64 @@
 # Was noch offen ist
 
-Stand: 12. Oktober 2026. Gebaut und getestet sind App, API, Datenbank und Einsammel-Pipeline, seit diesem Stand auch Horizont mit Brücken und Weite, die Fristen-Prüfung, die Erkundung neuer Websites und der Probelauf für neue Quellen. Für die Veröffentlichung unter eigener Domain ist alles vorbereitet, samt Sicherheits-Kopfzeilen und Sperre für Suchmaschinen (118 automatische Tests, dazu Browser-Durchläufe der Demo und der echten App). Offen ist vor allem alles, was echte Websites, deine Konten oder deine Entscheidungen braucht.
+Stand: 23. Oktober 2026. Gebaut und getestet sind App, API, Datenbank und Einsammel-Pipeline mit Horizont, Weite, Fristen-Prüfung, Erkundung und Probelauf. Seit diesem Stand dazu:
+
+- **Website-Paket** für den eigenen Webspace ([WEBSITE.md](WEBSITE.md)), läuft auch in einem Unterordner und zeigt anfangs **Dummy-Daten**,
+- die **Platzhalter-Checkliste** in der App,
+- **Benachrichtigung bei neuen, sehr gut passenden Anzeigen** und **Horizont auf der Karte**,
+- eine **Adresssuche** fürs Zuhause,
+- neue Anbindungen: BITE-Schnittstelle (viele Hochschulen), Hidden Professionals (TU Darmstadt, Goethe, JGU), Greenhouse, Lever, SmartRecruiters, Recruitee, Ashby und beliebige JSON-Listen,
+- eine stark erweiterte **Startliste: 531 Einrichtungen mit 620 Stellenseiten** (vorher 158 und 127), davon 110 Unternehmen.
+
+Insgesamt laufen 131 automatische Tests und ein Browser-Durchlauf der Demo. Was jetzt noch Dummy, Beispiel oder Standardwert ist, zeigt die App selbst in der Checkliste. Die Liste hier ergänzt sie um Entscheidungen und Arbeit, die die App nicht sehen kann.
 
 ## 0. Kurz entscheiden
 
-- [ ] **„Morgens um 12“:** Eingestellt ist 12 Uhr mittags (deutsche Zeit) plus der Knopf „Jetzt einsammeln“. War Mitternacht gemeint, sind es zwei Zeilen in `.github/workflows/einsammeln.yml` (siehe [BETRIEB.md](BETRIEB.md)).
-- [ ] **Domain:** eine eigene nur für die App oder eine Subdomain einer Domain, die du ohnehin nutzen willst (zum Beispiel `stellen.deine-domain.de`). Eingetragen wird sie in `apps/api/wrangler.toml` (Schritt 2a in [BETRIEB.md](BETRIEB.md)).
+- [ ] **Wo die App wohnt:** auf deiner Website (Paket hochladen, Server bei Cloudflare, [WEBSITE.md](WEBSITE.md)) oder komplett im Cloudflare-Worker unter einer Subdomain ([BETRIEB.md](BETRIEB.md), Schritt 2a). Beides ist vorbereitet.
+- [ ] **„Morgens um 12“:** Eingestellt ist 12 Uhr mittags (deutsche Zeit) plus der Knopf „Jetzt einsammeln“. War Mitternacht gemeint, sind es zwei Zeilen in `.github/workflows/einsammeln.yml`.
+- [ ] **Benachrichtigung bei neuen Anzeigen:** ist an (ab 85 %). Mit dem Startprofil liegen fast alle Psychologie-Anzeigen darüber, es käme also täglich eine Sammelnachricht. Nach dem Steckbrief passt die Schwelle besser; sonst unter *Ich → Erinnerungen* ausschalten.
+- [ ] **Unternehmen im Stapel:** Firmen sind normale Quellen mit Grobfilter (nur Anzeigen mit Psychologie-Bezug, der Rest über Brücken). Sollen sie seltener erscheinen, lässt sich im Filter die Einrichtungsart „Unternehmen“ abwählen.
 
 ## 1. Bewusst später, als eigene Schritte
 
-- [ ] **Interview-Prompt und Steckbrief-Format.** Die App liest bis dahin einen Entwurf (Version 0, `packages/core/src/steckbrief.ts`), inzwischen mit Horizont-Abschnitt (Interessen, Fähigkeiten, Brücken). Steht das Format, wird nur dieser Import angepasst; Profil, Score und Oberfläche bleiben.
-- [ ] **Feinabstimmung des Scores.** Die Mechanik steht (Herzchen, Kategorien, „zählt halb“, „Lieber nicht“). Offen sind die Zahlen. Mit dem Startprofil landen fast alle Psychologie-Anzeigen über 75 %; trennscharf wird es erst mit dem Steckbrief.
-- [ ] **Brücken schärfen.** Bis zum Interview gilt ein breiter Start-Horizont mit zehn Brücken. Nach den ersten echten Läufen ansehen, welche Brücken Unpassendes bringen (dann Begriffe streichen oder die Brücke pausieren) und welche Felder fehlen (KI-Vorschläge unter *Ich → Horizont*).
-- [ ] **Endgültige Quellenauswahl** nach dem Interview: schärfen und ergänzen (siehe Punkt 4). Neue Websites aus der Erkundung lassen sich laufend per Probelauf aufnehmen.
+- [ ] **Interview-Prompt und Steckbrief-Format.** Die App liest bis dahin einen Entwurf (Version 0, `packages/core/src/steckbrief.ts`). Steht das Format, wird nur dieser Import angepasst.
+- [ ] **Feinabstimmung des Scores** (Zahlen), **Brücken schärfen**, **endgültige Quellenauswahl** nach dem Interview.
 
-## 2. Braucht dich zum Einrichten (etwa 30 Minuten, Anleitung in [BETRIEB.md](BETRIEB.md))
+## 2. Braucht dich zum Einrichten
 
-- [ ] Cloudflare-Konto, Datenbank anlegen, ID in `wrangler.toml` eintragen, `APP_KEY` und `INGEST_KEY` setzen, Migrationen anwenden, veröffentlichen.
-- [ ] **Eigene Domain** (empfohlen): besorgen, bei Cloudflare hinzufügen (Nameserver umstellen, kann bis zu einem Tag dauern), Adresse in `wrangler.toml` eintragen, erneut veröffentlichen, GitHub-Secret `API_URL` auf die neue Adresse setzen.
-- [ ] Code in ein GitHub-Repository, Secrets `API_URL` und `INGEST_KEY` eintragen, ersten Lauf starten.
-- [ ] **DeepSeek-Schlüssel** (empfohlen): als GitHub-Secret `DEEPSEEK_API_KEY` für die Pipeline und als Worker-Secret `LLM_API_KEY` für die Brücken-Vorschläge. Ohne ihn läuft alles regelbasiert; es fehlen dann Kurzfassungen, KI-Urteile im Horizont, die Weite, die KI-Nachprüfung von Fristen und das KI-Urteil im Probelauf.
-- [ ] **GitHub-Token im Worker** (empfohlen): für „Jetzt einsammeln“ und damit Probeläufe sofort starten statt mit dem nächsten Tageslauf.
-- [ ] Optional: `BRAVE_API_KEY` als zweite Quelle für die Erkundung (Konditionen beim Anbieter prüfen).
-- [ ] Optional: Push-Schlüssel (VAPID) für Erinnerungen als Benachrichtigung.
-- [ ] App aufs Handy (auf dem iPhone über „Zum Home-Bildschirm“, nur dann gibt es Push).
-- [ ] Name: „Stellenbüchlein“ ist ein Arbeitstitel.
+Die Punkte stehen mit Anleitung in der Checkliste der App (*Server und Konten*) und in [BETRIEB.md](BETRIEB.md): Cloudflare-Konto und Datenbank, `APP_KEY` und `INGEST_KEY`, GitHub-Repository mit Secrets, DeepSeek-Schlüssel, GitHub-Token für „Jetzt einsammeln“, Push-Schlüssel, Kontaktadresse (`CRAWLER_CONTACT`, `VAPID_SUBJECT`), bei Website-Hosting `ALLOWED_ORIGIN` und `config.json`.
 
-## 3. Noch nicht gegen echte Websites getestet
+## 3. Quellen: Stand der Recherche vom 23. Oktober
 
-Diese Arbeitsumgebung konnte weder Hochschul-Websites noch die Arbeitsagentur oder eine KI-Schnittstelle erreichen. Die Pipeline ist gegen einen nachgebauten Testserver geprüft (Listen, strukturierte Daten, PDFs, Cookie-Banner, per JavaScript geladene Seiten, KI-Agent, nachgebaute Jobsuche und eine Test-KI), aber nicht gegen die echten Dienste.
+Neun parallele Recherchen haben Hochschulen und Kliniken in allen Regionen, außeruniversitäre Institute und Unternehmen abgesucht und jede eingetragene Adresse abgerufen. 515 der 620 Stellenseiten wurden dabei geprüft (die Seite war erreichbar und listet Anzeigen, auch eine gerade leere Liste zählt). Was nicht geprüft werden konnte, hat eine Notiz mit Grund.
 
-- [ ] **Erster echter Lauf und Durchsicht:** Quellen mit „Fehler“, „leer“ oder „Warnung“ ansehen, Adressen und Linkmuster nachschärfen. Rechne mit einigen Runden über die ersten ein bis zwei Wochen.
-- [ ] **Erkundung live prüfen:** Ob die Jobsuche der Arbeitsagentur den Filter „veröffentlicht seit“ so annimmt und täglich genug Unbekanntes liefert. Die App zeigt im letzten Lauf, ob die drei Anzeigen von neuen Websites erreicht wurden; im Protokoll steht, welche Suchwörter liefen.
-- [ ] **KI-Anweisungen kalibrieren:** Horizont-Urteil („passt/eher/nein“), Fristen-Nachprüfung und Quellen-Urteil sind nur mit einer Test-KI geprüft. Nach den ersten Läufen stichprobenartig ansehen, ob die KI zu streng oder zu großzügig ist (*Quellen → Aussortiert* zeigt die „nein“-Fälle mit Begründung).
-- [ ] **Adapter nach Dokumentation gebaut, live zu prüfen:** Jobsuche-API der Bundesagentur für Arbeit (Version, Feldnamen), Workday, Softgarden, Personio, Brave Search, Linkmuster von PsychJob und den übrigen Portalen.
-- [ ] **Laufzeit eines kompletten Laufs** messen, jetzt mit Erkundung und KI-Prüfungen. Wichtig bei privatem GitHub-Repository (2.000 Minuten im Monat).
-- [ ] **robots.txt:** Wie viele Seiten den Abruf verbieten, zeigt erst der echte Lauf. Pro Quelle entscheiden, ob du sie bewusst übergehen willst; sonst decken die Portale sie ab.
-- [ ] **Bilder:** Die Reihenfolge Anzeige → Einrichtung → Stadt ist eingebaut, die Fotos kommen aus Wikipedia/Wikimedia. Die Abfrage ist nicht live getestet, und die Lizenzangaben unter den Bildern sollten einmal stichprobenartig geprüft werden. Die Demo hat keine echten Fotos; dafür gibt es dort die Testfotos.
-- [ ] **Entscheidung Fotos auf den Karten:** Mit Testfotos ausprobieren, ob Bilder im Stapel helfen oder zu unruhig sind. Der Schalter unter *Ich → Aussehen* steht auf „an“.
-
-## 4. Quellenliste unvollständig
-
-- [ ] **63 Einrichtungen ohne Adresse der Stellenseite.** Die Pipeline sucht sie selbst und legt Vorschläge an (*Ich → Quellen → Neu*). Bis dahin finden die Portale deren Anzeigen.
-- [ ] **Viele Adressen nicht verifiziert** (aus der Recherche übernommen). Der Probelauf („Probelauf wiederholen“ in jeder Quelle) prüft sie einzeln.
-- [ ] **Nicht recherchiert:** Unikliniken in Süddeutschland (Psychosomatik, Psychiatrie), private Hochschulen weitgehend, Fachhochschulen mit Psychologie-Studiengängen nur teilweise. Die Erkundung findet solche Websites nach und nach von selbst.
-- [ ] **Städteliste:** 73 Städte. Anzeigen aus Orten außerhalb der Liste stehen ohne Stadt da (mit Koordinaten aus der Jobsuche trotzdem auf der Karte). Bei Bedarf ergänzen (`data/seed/cities.json`).
+- [ ] **Erster echter Lauf und Durchsicht.** Quellen mit „Fehler“, „leer“ oder „Warnung“ unter *Ich → Quellen & Läufe* ansehen. Für gezielte Tests ohne Speichern: `npm run cli -w @stellen/ingest -- test-source <adresse>` und die Stichprobe `… -- probe --n 60` (Ergebnis siehe unten).
+- [ ] **17 Einrichtungen ohne Stellenseite**, u. a. BIPS (Website liefert leere Antworten), Touro Berlin, VICTORIA, HS Harz, HS Neu-Ulm (Bot-Schutz), BKH Landshut, forsa, viasto, concept m. Die Pipeline sucht selbst und legt Vorschläge an.
+- [ ] **Seiten hinter Bot-Schutz** (HU Berlin, GESIS, MPI-IS, MEDIAN) oder zeitweise nicht erreichbar (MHH, Universitätsmedizin Magdeburg und Greifswald, WZB, CISPA, Frankfurt UAS am Recherchetag). Beim ersten Lauf prüfen; die Portale decken solche Lücken ab.
+- [x] **robots.txt:** Sperren gelten nicht mehr (Standard `ROBOTS=0`); Abstand pro Website und Crawl-delay bleiben. Damit sind auch SmartRecruiters (Bosch, Aumovio, NIQ/GfK) und die bisher gesperrten Hochschulseiten lesbar.
+- [ ] **Große Konzerne** (BMW, Mercedes-Benz, SAP, Zalando, Telekom, Porsche) laden ihre Suche nur per JavaScript; dafür braucht es den Browser-Agenten. Nach dem ersten Lauf prüfen, ob die Stichwortsuche greift.
+- [ ] **Globale Listen** (NIQ, Kantar, Human8, Pearson) enthalten viel aus dem Ausland. Der Grobfilter sortiert nach Psychologie, nicht nach Land; ausländische Orte stehen ohne Stadt da.
+- [ ] **Koordinaten neuer Städte** (87) sind auf etwa 0,01 Grad genau aus der Recherche übernommen. Für die Karte reicht das.
+- [ ] **Abgleich mit dem Hochschulkompass** bleibt sinnvoll: Die Recherche hat nach Psychologie-Studiengängen gesucht, aber nicht systematisch Studiengang für Studiengang.
 - [ ] **Portale ohne vollständige Adresse, deshalb abgeschaltet:** EURAXESS, academics.de, Helmholtz-Stellenbörse, Interamt.
-- [ ] **Abgleich mit dem Hochschulkompass:** Alle Hochschulen mit Psychologie-Studiengang systematisch gegen die Startliste prüfen.
+
+## 4. Noch nicht gegen echte Dienste getestet
+
+- [ ] **Erkundung** (Jobsuche der Arbeitsagentur), **KI-Anweisungen** (Horizont-Urteil, Fristen-Nachprüfung, Quellen-Urteil), **Workday/Softgarden/Personio** im großen Lauf, **Laufzeit** eines kompletten Laufs mit jetzt rund 650 Quellen (wichtig bei privatem GitHub-Repository: 2.000 Minuten im Monat), **Bilder** aus Wikimedia.
+- Live geprüft sind seit diesem Stand: BITE, Hidden Professionals, Ashby, Lever, Greenhouse, JSON-Listen (LMU Klinikum, FOM) und die Adresssuche.
 
 ## 5. Noch nicht gebaut
 
-- [ ] **Push bei neuen, gut passenden Anzeigen** (zum Beispiel ab 85 %). Die Einstellung ist in der API vorgesehen, aber nicht umgesetzt. Willst du das?
-- [ ] **„Beworben“** ist gebaut (Knopf in jeder Anzeige, Markierung in den Listen), war aber nicht ausdrücklich besprochen. Passt das so?
-- [ ] **Horizont auf der Karte:** Horizont-Anzeigen sind auf der Karte noch nicht eigens markiert (in Stapel, Listen und Filter schon).
-- [ ] **Adresssuche für „Zuhause“.** Derzeit: Stadt wählen, aktuellen Standort nehmen oder Koordinaten eintragen. Standard bleibt Halle (Saale).
 - [ ] **Mehrere Personen oder Profile.** Die App ist für eine Person gebaut (ein Schlüssel, ein Profil).
 - [ ] **Systematischer Test mit Screenreader.** Bedienung per Tastatur und Beschriftungen sind da, ein gründlicher Test fehlt.
 
 ## 6. Bekannte Grenzen
 
-- Eingesammelt wird einmal am Tag gegen 12 Uhr (GitHub startet geplante Läufe manchmal ein paar Minuten später) und per Knopf. Benachrichtigungen kommen mit diesem Lauf.
+- Eingesammelt wird einmal am Tag gegen 12 Uhr und per Knopf. Benachrichtigungen kommen mit diesem Lauf.
 - Neue Anzeigen erscheinen in der App, sobald sie geöffnet wird (kein Hintergrund-Abgleich).
-- „Neue Website“ heißt: Weder die Website noch der Arbeitgeber standen beim Fund im Register. Bei Jobbörsen zählt der Arbeitgeber; Anzeigen ohne erkennbaren Arbeitgeber zählen nicht mit.
-- Über die Erkundung gefundene Anzeigen ohne Frist gelten nach 45 Tagen ohne neuen Fund als abgelaufen.
-- Eine Frist, die die KI mit Zitat belegt, gilt auch dann, wenn sie ungewöhnlich weit in der Zukunft liegt; eine Frist vor der Veröffentlichung gilt nie.
-- An die KI gehen Anzeigentexte und für Horizont, Weite und Vorschläge Stichworte aus dem Suchprofil (Themen, Methoden, Interessen, Brücken), keine Namen oder Kontaktdaten von dir.
-- Die Karte ist stilisiert: Einrichtungen ohne eigene Koordinaten liegen am Stadtmittelpunkt und werden dort im Kreis verteilt.
-- Die Demo enthält Anzeigen vom 9. und 12. Oktober 2026 als Kurzfassung in eigenen Worten. Ihre Fristen laufen nach und nach ab. Probelauf und KI-Vorschläge sind dort nur nachgestellt.
-- Die App speichert Anzeigentexte für dich privat. Soll sie später auch anderen zugänglich sein, wäre vorher zu klären, wie Anzeigentexte und Ausnahmen von der robots.txt dann zu handhaben sind und ob die Seite dann Impressum und Datenschutzerklärung braucht.
-- Unter der eigenen Domain ist die App öffentlich erreichbar, zeigt ohne Schlüssel aber nur die Anmeldung und ist für Suchmaschinen gesperrt.
+- Mit Dummy-Daten ist die App ohne Schlüssel für alle sichtbar, die die Adresse kennen; mit echten Daten nur mit Schlüssel. Suchmaschinen sind in beiden Fällen ausgesperrt.
+- Die Dummy-Anzeigen sind erfunden; ihre Einrichtungen, Städte und Quellen sind echt. Der Knopf in einer Dummy-Anzeige führt zur echten Stellenliste der Einrichtung.
+- Die Adresssuche schickt die Eingabe an OpenStreetMap (Nominatim); gespeichert wird der Ort auf etwa 100 m gerundet.
+- An die KI gehen Anzeigentexte und Stichworte aus dem Suchprofil, keine Namen oder Kontaktdaten von dir.
+- Die Karte ist stilisiert: Einrichtungen ohne eigene Koordinaten liegen am Stadtmittelpunkt.
+- „Neue Website“ heißt: Weder die Website noch der Arbeitgeber standen beim Fund im Register. Bei Jobbörsen und Bewerbermanagement-Systemen mit Firmennamen im Pfad (Lever, Greenhouse, SmartRecruiters, JOIN) zählt der Arbeitgeber.
+- Soll die App später auch anderen zugänglich sein, wäre vorher zu klären, wie Anzeigentexte, Ausnahmen von der robots.txt sowie Impressum und Datenschutzerklärung zu handhaben sind.

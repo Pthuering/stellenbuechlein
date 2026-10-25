@@ -11,7 +11,8 @@
     "map": "tsx scripts/build-map.ts",
     "icons": "tsx scripts/build-icons.ts",
     "demo-data": "tsx scripts/build-demo-data.ts",
-    "smoke:demo": "tsx scripts/smoke-demo.ts"
+    "smoke:demo": "tsx scripts/smoke-demo.ts",
+    "build:site": "vite build && tsx scripts/build-site.ts"
   },
   "dependencies": {
     "@fontsource-variable/literata": "5.3.0",

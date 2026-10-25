@@ -70,10 +70,10 @@ describe('Kopfzeilen der App (apps/web/public/_headers)', () => {
     }
   });
 
-  it('erlaubt Fotos von fremden https-Adressen, aber Abrufe nur von der eigenen', () => {
+  it('erlaubt Fotos von fremden https-Adressen, aber Abrufe nur von der eigenen (und der Adresssuche)', () => {
     const csp = headersFor(rules, '/')['content-security-policy'];
     expect(csp).toMatch(/img-src [^;]*https:/);
-    expect(csp).toMatch(/connect-src 'self'(;|$)/);
+    expect(csp).toMatch(/connect-src 'self' https:\/\/nominatim\.openstreetmap\.org(;|$)/);
     expect(headersFor(rules, '/')['permissions-policy']).toContain('geolocation=(self)');
   });
 });

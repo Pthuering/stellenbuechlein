@@ -11,7 +11,7 @@
 
 ## Welche Anzeigen hereinkommen
 
-Quellen sind Einrichtungen mit Psychologie-Forschung oder Psychologie-Studiengang, dazu benachbarte Forschung: Psychosomatik und Psychiatrie an Unikliniken, Bildungsforschung, Arbeitswissenschaft, Institute von Max-Planck, Leibniz, Helmholtz, Fraunhofer sowie Ressortforschung. Die Startliste steht in `data/seed/` und wird nach dem Interview noch einmal geschärft.
+Quellen sind Einrichtungen mit Psychologie-Forschung oder Psychologie-Studiengang, dazu benachbarte Forschung: Psychosomatik und Psychiatrie an Unikliniken und Fachkliniken, Bildungsforschung, Arbeitswissenschaft, Institute von Max-Planck, Leibniz, Helmholtz, Fraunhofer, DFKI, Ressortforschung von Bund und Ländern, Stiftungen und Verbände. Dazu kommen **Unternehmen**, die hin und wieder Psycholog:innen suchen: Testverlage und Eignungsdiagnostik, Markt- und Sozialforschung, UX und Human Factors (auch in Konzernen), Digital Health, Klinikträger, Beratung, Verkehrspsychologie, Bildungsverlage. Die Startliste steht in `data/seed/` (recherchiert am 23. Oktober 2026, mit Prüfstatus je Adresse) und wird nach dem Interview noch einmal geschärft.
 
 Zwei Arten von Quellen:
 
@@ -48,8 +48,8 @@ Das Ergebnis zeigt die App mit Urteil („gut geeignet“, „mit Einschränkung
 Für jede Quelle probiert die Pipeline nacheinander, bis Anzeigen gefunden sind:
 
 1. **Feed** (RSS, Atom, JSON Feed), wenn die Seite einen anbietet
-2. **Bewerbungsportal-Schnittstellen** (Personio, Workday, Softgarden, weitere über Linkmuster: Umantis, SuccessFactors, Bite, HelixJobs, Teamtailor, Stellenticket, Prescreen)
-3. **Listenseite** mit strukturierten Daten (JSON-LD `JobPosting`) und bewerteten Links, inklusive Seitenblättern
+2. **Bewerbungsportal-Schnittstellen**: Personio, Workday, Softgarden, BITE (die Liste vieler Hochschulen, gelesen über die Schnittstelle hinter dem eingebundenen Skript, ohne Browser), Hidden Professionals (Karriereseiten u. a. von TU Darmstadt, Goethe-Uni und JGU), für Unternehmen Greenhouse, Lever, SmartRecruiters, Recruitee und Ashby; weitere über Linkmuster (Umantis, SuccessFactors, HelixJobs, Teamtailor, Stellenticket, Prescreen)
+3. **Listenseite** mit strukturierten Daten (JSON-LD `JobPosting`) und bewerteten Links, inklusive Seitenblättern; ist die Adresse eine JSON-Schnittstelle (etwa beim LMU Klinikum), liest die Pipeline Titel und Adressen direkt daraus
 4. **Browser**, wenn die Liste erst per JavaScript erscheint
 5. **Sitemap** der Website
 6. **KI** wählt aus den Links der Seite die Anzeigen aus (wenn ein Schlüssel hinterlegt ist)
@@ -58,7 +58,7 @@ Jede einzelne Anzeige wird dann gelesen: strukturierte Daten zuerst, sonst der H
 
 **Portale als Sicherheitsnetz:** Die Jobsuche der Bundesagentur für Arbeit, PsychJob, die Stellenmärkte von Max-Planck, Leibniz und Fraunhofer, Academic Positions, APS und Berlin University Alliance laufen zusätzlich. Taucht dort eine Anzeige einer Einrichtung auf, deren eigene Quelle sie nicht gefunden hat, wird die Quelle mit einer Warnung markiert: ein Zeichen, dass dort etwas klemmt.
 
-**Höflichkeit:** robots.txt wird beachtet (pro Quelle bewusst abschaltbar), pro Website mindestens 1,5 Sekunden Abstand, ein ehrlicher User-Agent mit Kontaktangabe.
+**Höflichkeit:** Die App liest nur öffentliche Stellenanzeigen für eine Person. Sperren aus der robots.txt gelten deshalb nicht (Entscheidung vom 23. Oktober 2026; mit `ROBOTS=1` wieder einschaltbar). Was die Websites schont, bleibt: pro Website mindestens 1,5 Sekunden Abstand, ein in der robots.txt verlangter Crawl-delay (bis 15 Sekunden), höchstens 80 neue Anzeigen pro Quelle und Lauf, bekannte Anzeigen erst nach sechs Tagen erneut, ein ehrlicher User-Agent mit Kontaktangabe.
 
 ## Aus der Anzeige gelesen
 
@@ -100,6 +100,12 @@ Das Interview führt ein starkes Modell extern, das Ergebnis ist ein Steckbrief 
 ## Erinnerungen
 
 Herzensjobs (Stern) bekommen Erinnerungen vor der Frist, standardmäßig 1 Monat, 1 Woche und 1 Tag vorher (änderbar). Pro Anzeige kommt immer nur die nächstliegende fällige Stufe; wer einen Job erst eine Woche vor Fristende markiert, bekommt also keine verspätete „1 Monat“-Erinnerung. Benachrichtigungen verschickt der tägliche Einsammel-Lauf gegen 12 Uhr; in der App stehen fällige Fristen zusätzlich als Zettel oben unter „Gemerkt“.
+
+Bringt ein Lauf neue Anzeigen, die zum Suchprofil sehr gut passen (Standard: ab 85 %, änderbar unter *Ich → Erinnerungen*), kommt eine einzige gebündelte Benachrichtigung mit den drei besten. Der Score dafür wird in der Pipeline mit demselben Suchprofil berechnet wie in der App.
+
+## Dummy-Daten und Platzhalter
+
+Solange der Server nicht eingerichtet ist, zeigt die App erfundene Anzeigen (`data/dummy/anzeigen.json`) bei echten Einrichtungen, mit dem Etikett „Dummy“. Fristen und Fundtage stehen dort relativ zum Tag und rücken mit, damit die App nie leer ist. Alles, was noch Dummy, Beispiel oder Standardwert ist, steht in der **Platzhalter-Checkliste** (`apps/web/src/lib/checklist.ts`), erreichbar über den Knopf oben und unter *Ich*. Was die App erkennen kann (echte Server-Verbindung, https, eigenes Profil, eigenes Zuhause), hakt sie selbst ab.
 
 ## Technik in Kürze
 

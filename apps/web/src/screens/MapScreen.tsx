@@ -38,9 +38,14 @@ interface Pin {
   x: number;
   y: number;
   count: number;
+  /** davon Horizont oder Weite (lavendelfarbener Ring) */
+  horizon: number;
   label: string;
   fav: boolean;
 }
+
+/** Kam über eine Brücke oder die Weite herein (nicht Kern). */
+const isHorizon = (v: { lane: { lane: string } }) => v.lane.lane !== 'kern';
 
 const UNITS_PER_KM = MAP_HEIGHT / ((DE_BOUNDS.maxLat - DE_BOUNDS.minLat) * 111.2);
 const NO_INST = '_ohne';
@@ -152,6 +157,11 @@ export function MapScreen() {
     for (const v of located) m.set(v.place.state!, (m.get(v.place.state!) ?? 0) + 1);
     return m;
   }, [located]);
+  const horizonByState = useMemo(() => {
+    const m = new Map<StateCode, number>();
+    for (const v of located) if (isHorizon(v)) m.set(v.place.state!, (m.get(v.place.state!) ?? 0) + 1);
+    return m;
+  }, [located]);
 
   const isFav = (kind: FavoriteKind, ref: string) => s.favorites.some((f) => f.kind === kind && f.ref === ref);
 
@@ -185,36 +195,49 @@ export function MapScreen() {
       return spread(
         map.states
           .filter((st) => statesWithJobs.has(st.code))
-          .map((st): Pin => ({ key: `s:${st.code}`, level: 'state', ref: st.code, x: st.label[0], y: st.label[1], count: statesWithJobs.get(st.code)!, label: st.name, fav: isFav('state', st.code) })),
+          .map((st): Pin => ({ key: `s:${st.code}`, level: 'state', ref: st.code, x: st.label[0], y: st.label[1], count: statesWithJobs.get(st.code)!, horizon: horizonByState.get(st.code) ?? 0, label: st.name, fav: isFav('state', st.code) })),
         30 / pxPerUnit,
       );
     }
     if (!sel.city) {
-      const byCity = new Map<string, number>();
-      for (const v of located) if (v.place.state === sel.state && v.place.cityId) byCity.set(v.place.cityId, (byCity.get(v.place.cityId) ?? 0) + 1);
+      const byCity = new Map<string, { count: number; horizon: number }>();
+      for (const v of located) {
+        if (v.place.state !== sel.state || !v.place.cityId) continue;
+        const e = byCity.get(v.place.cityId) ?? { count: 0, horizon: 0 };
+        e.count++;
+        if (isHorizon(v)) e.horizon++;
+        byCity.set(v.place.cityId, e);
+      }
       const list: Pin[] = [];
-      for (const [id, count] of byCity) {
+      for (const [id, { count, horizon }] of byCity) {
         const c = s.cities.get(id);
         if (!c) continue;
         const [x, y] = project(c.lon, c.lat);
-        list.push({ key: `c:${id}`, level: 'city', ref: id, x, y, count, label: c.name, fav: isFav('city', id) });
+        list.push({ key: `c:${id}`, level: 'city', ref: id, x, y, count, horizon, label: c.name, fav: isFav('city', id) });
       }
       return list;
     }
     const city = s.cities.get(sel.city);
     if (!city) return [];
-    const byInst = new Map<string, number>();
-    for (const v of located) if (v.place.cityId === sel.city) byInst.set(v.job.institutionId ?? NO_INST, (byInst.get(v.job.institutionId ?? NO_INST) ?? 0) + 1);
+    const byInst = new Map<string, { count: number; horizon: number }>();
+    for (const v of located) {
+      if (v.place.cityId !== sel.city) continue;
+      const key = v.job.institutionId ?? NO_INST;
+      const e = byInst.get(key) ?? { count: 0, horizon: 0 };
+      e.count++;
+      if (isHorizon(v)) e.horizon++;
+      byInst.set(key, e);
+    }
     const list: Pin[] = [];
-    for (const [id, count] of byInst) {
+    for (const [id, { count, horizon }] of byInst) {
       const inst = id === NO_INST ? undefined : s.institutions.get(id);
       const [x, y] = inst?.lat != null && inst.lon != null ? project(inst.lon, inst.lat) : project(city.lon, city.lat);
-      list.push({ key: `i:${id}`, level: 'inst', ref: id, x, y, count, label: inst ? institutionName(inst, true) : 'Ohne Einrichtung', fav: inst ? isFav('institution', id) : false });
+      list.push({ key: `i:${id}`, level: 'inst', ref: id, x, y, count, horizon, label: inst ? institutionName(inst, true) : 'Ohne Einrichtung', fav: inst ? isFav('institution', id) : false });
     }
     // Einrichtungen am selben Ort auseinanderziehen (Abstand in Kartenpunkten bei aktuellem Zoom)
     return spread(list, 26 / (pxPerUnit * view.s));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, sel.state, sel.city, statesWithJobs, located, s.cities, s.institutions, s.favorites, pxPerUnit, view.s]);
+  }, [map, sel.state, sel.city, statesWithJobs, horizonByState, located, s.cities, s.institutions, s.favorites, pxPerUnit, view.s]);
 
   const toScreen = (x: number, y: number): [number, number] => [x * view.s + view.tx, y * view.s + view.ty];
   const u = (px: number) => px / pxPerUnit; // Bildschirmpixel → Kartenpunkte (ungezoomt)
@@ -358,7 +381,7 @@ export function MapScreen() {
                   }}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${p.label}: ${plural(p.count, 'Anzeige', 'Anzeigen')}`}
+                  aria-label={`${p.label}: ${plural(p.count, 'Anzeige', 'Anzeigen')}${p.horizon ? `, davon ${p.horizon} im Horizont` : ''}`}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -367,6 +390,7 @@ export function MapScreen() {
                   }}
                 >
                   <circle className="bubble__hit" r={Math.max(r + u(4), u(23))} />
+                  {p.horizon > 0 && <circle className="bubble__horizon" r={r + u(4.5)} strokeWidth={u(2.2)} strokeDasharray={`${u(4)} ${u(3)}`} />}
                   <circle r={r} strokeWidth={u(selected ? 3 : 2)} />
                   {p.fav && <path className="bubble__heart" transform={`translate(${r * 0.72} ${-r * 0.72}) scale(${u(0.62)})`} d="M0 6.5s-6.2-3.6-6.9-7.9c-.5-2.7 1.3-4.7 3.5-4.6 1.4 0 2.6.8 3.4 2.1.8-1.3 2-2.1 3.4-2.1 2.2-.1 4 1.9 3.5 4.6-.7 4.3-6.9 7.9-6.9 7.9Z" />}
                   <text style={{ fontSize: u(14) }}>{p.count}</text>
@@ -390,6 +414,11 @@ export function MapScreen() {
           <span className="legend-item">
             <span className="swatch swatch--home" /> Zuhause
           </span>
+          {pins.some((p) => p.horizon > 0) && (
+            <span className="legend-item">
+              <span className="swatch swatch--horizon" /> mit Horizont
+            </span>
+          )}
           {radius != null && (
             <span className="legend-item">
               <span className="swatch swatch--radius" /> Umkreis {radius} km

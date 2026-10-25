@@ -4,9 +4,11 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { fileURLToPath } from 'node:url';
 
-// Zwei Ausgaben:
-//   npm run build        → PWA für den Worker (dist/), mit Service Worker und Push
-//   npm run build:demo   → eine einzelne HTML-Datei mit echten Beispielanzeigen (dist-demo/), ohne Server
+// Drei Ausgaben:
+//   npm run build        → PWA (dist/), mit Service Worker und Push; der Cloudflare-Worker liefert sie aus
+//   npm run build:site   → dieselbe PWA als Paket für die eigene Website (dist-site/), anfangs mit Dummy-Daten
+//   npm run build:demo   → eine einzelne HTML-Datei mit Dummy-Daten (dist-demo/), ohne Server
+// Alle Pfade sind relativ (base "./"), damit die App auch in einem Unterordner einer Website läuft.
 /** Die Demo ist eine einzelne Datei ohne /icons – Verweise darauf entfernen. */
 const demoHtml = (): Plugin => ({
   name: 'demo-html',
@@ -16,6 +18,7 @@ const demoHtml = (): Plugin => ({
 export default defineConfig(({ mode }) => {
   const demo = mode === 'demo';
   return {
+    base: './',
     plugins: [
       react(),
       demo
@@ -31,8 +34,8 @@ export default defineConfig(({ mode }) => {
               short_name: 'Stellenbüchlein',
               description: 'Forschungsstellen mit Psychologie-Bezug – gesammelt, sortiert, gemerkt.',
               lang: 'de',
-              start_url: '/#/stapel',
-              scope: '/',
+              start_url: './#/stapel',
+              scope: './',
               display: 'standalone',
               orientation: 'portrait',
               background_color: '#FFFBF7',

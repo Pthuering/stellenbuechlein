@@ -54,18 +54,22 @@ export const JOB_KIND_LABELS: Record<JobKind, string> = {
   sonstige: 'Sonstiges',
 };
 
-export type InstitutionKind =
-  | 'universitaet'
-  | 'ph'
-  | 'hochschule'
-  | 'privat'
-  | 'mpg'
-  | 'leibniz'
-  | 'helmholtz'
-  | 'fraunhofer'
-  | 'klinik'
-  | 'ressort'
-  | 'sonstige';
+export const INSTITUTION_KINDS = [
+  'universitaet',
+  'ph',
+  'hochschule',
+  'privat',
+  'mpg',
+  'leibniz',
+  'helmholtz',
+  'fraunhofer',
+  'klinik',
+  'ressort',
+  'sonstige',
+  'unternehmen',
+] as const;
+
+export type InstitutionKind = (typeof INSTITUTION_KINDS)[number];
 
 export const INSTITUTION_KIND_LABELS: Record<InstitutionKind, string> = {
   universitaet: 'Universität',
@@ -76,9 +80,10 @@ export const INSTITUTION_KIND_LABELS: Record<InstitutionKind, string> = {
   leibniz: 'Leibniz-Institut',
   helmholtz: 'Helmholtz-Zentrum',
   fraunhofer: 'Fraunhofer-Institut',
-  klinik: 'Uniklinikum',
+  klinik: 'Klinikum',
   ressort: 'Bundes-/Landesinstitut',
-  sonstige: 'Forschungseinrichtung',
+  sonstige: 'Forschung, Stiftung, Verband',
+  unternehmen: 'Unternehmen',
 };
 
 export interface City {
@@ -242,6 +247,8 @@ export interface Job {
   foundVia?: FoundVia | null;
   /** Arbeitgeber, wie er in der Anzeige steht (für Einrichtungen außerhalb des Registers). */
   employer?: string | null;
+  /** Erfundene Anzeige aus den Dummy-Daten (Demo und Website-Paket vor dem Einrichten). */
+  dummy?: boolean;
 }
 
 export type Decision = 'gemerkt' | 'abgelehnt';

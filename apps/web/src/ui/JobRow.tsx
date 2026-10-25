@@ -54,13 +54,14 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
       <div className="row__main">
         <p className="row__title">{job.title}</p>
         <p className="row__sub">{where}</p>
-        {(showDecision && rejected) || mark?.appliedAt || v.favorite || lane || job.newSite ? (
+        {(showDecision && rejected) || mark?.appliedAt || v.favorite || lane || job.newSite || job.dummy ? (
           <p className="row__tags">
             {v.favorite && <span className="chip chip--primary chip--tiny">Lieblingsort</span>}
             {lane && <span className="lane-tag lane-tag--tiny">{lane}</span>}
             {job.newSite && <span className="chip chip--neutral chip--tiny">neue Website</span>}
             {mark?.appliedAt && <span className="chip chip--secondary chip--tiny">beworben</span>}
             {showDecision && rejected && <span className="chip chip--tiny">weggelegt</span>}
+            {job.dummy && <span className="chip chip--neutral chip--tiny chip--dummy">Dummy</span>}
           </p>
         ) : null}
       </div>

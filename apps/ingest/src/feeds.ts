@@ -175,3 +175,42 @@ export function parsePersonioXml(body: string, origin: string): Candidate[] {
     } satisfies Candidate;
   });
 }
+
+const JSON_TITLE_KEYS = ['title', 'job_title', 'jobTitle', 'titel', 'name', 'position', 'stellenbezeichnung', 'bezeichnung', 'text'];
+const JSON_URL_KEYS = ['url', 'link', 'href', 'detailUrl', 'detail_url', 'advertUrl', 'jobUrl', 'hostedUrl', 'absolute_url', 'careers_url', 'applyOnlineUrl', 'publicUrl', 'permalink'];
+
+/**
+ * Beliebige JSON-Stellenliste (eigene Schnittstellen von Kliniken, Hochschulen, Firmen): sucht Objekte
+ * mit Titel- und Adressfeld. Den Text liest danach die normale Detailseite. Die Adresse darf relativ sein.
+ */
+export function candidatesFromJson(body: string, baseUrl: string): Candidate[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    return [];
+  }
+  const out = new Map<string, Candidate>();
+  const visit = (v: unknown, depth: number): void => {
+    if (depth > 6 || !v || typeof v !== 'object') return;
+    if (Array.isArray(v)) {
+      for (const x of v) visit(x, depth + 1);
+      return;
+    }
+    const o = v as Record<string, unknown>;
+    const title = JSON_TITLE_KEYS.map((k) => o[k]).find((x): x is string => typeof x === 'string' && x.trim().length > 3);
+    const rawUrl = JSON_URL_KEYS.map((k) => o[k]).find((x): x is string => typeof x === 'string' && x.trim().length > 1 && !/\.(?:png|jpe?g|svg|gif|webp)(?:\?|$)/i.test(x));
+    if (title && rawUrl) {
+      try {
+        const url = new URL(rawUrl.trim(), baseUrl).toString();
+        if (/^https?:/.test(url) && !out.has(url)) out.set(url, { url, title: title.trim(), via: 'json' });
+        return;
+      } catch {
+        // ungültige Adresse: weiter in die Tiefe
+      }
+    }
+    for (const x of Object.values(o)) visit(x, depth + 1);
+  };
+  visit(data, 0);
+  return [...out.values()];
+}

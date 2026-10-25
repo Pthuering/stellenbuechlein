@@ -3,6 +3,11 @@
 export interface IngestConfig {
   userAgent: string;
   uaToken: string;
+  /**
+   * Sperren aus der robots.txt beachten (ROBOTS=1). Standard: nein – die App liest nur öffentliche
+   * Stellenanzeigen für eine Person. Abstand pro Website und Crawl-delay gelten trotzdem immer.
+   */
+  respectRobots: boolean;
   minHostIntervalMs: number;
   maxCrawlDelayMs: number;
   requestTimeoutMs: number;
@@ -58,11 +63,13 @@ function num(v: string | undefined, d: number): number {
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfig {
-  const contact = env.CRAWLER_CONTACT ?? 'privates Jobsuche-Werkzeug';
+  // `||` statt `??`: GitHub Actions setzt fehlende Secrets als leeren Text.
+  const contact = env.CRAWLER_CONTACT || 'privates Jobsuche-Werkzeug';
   const uaToken = 'Stellenbuechlein';
   return {
     uaToken,
     userAgent: env.CRAWLER_UA ?? `Mozilla/5.0 (compatible; ${uaToken}/0.1; ${contact})`,
+    respectRobots: (env.ROBOTS ?? '0') === '1',
     minHostIntervalMs: num(env.HOST_INTERVAL_MS, 1500),
     maxCrawlDelayMs: num(env.MAX_CRAWL_DELAY_MS, 15_000),
     requestTimeoutMs: num(env.REQUEST_TIMEOUT_MS, 25_000),
@@ -74,7 +81,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
     sourceConcurrency: num(env.SOURCE_CONCURRENCY, 6),
     llm: {
       baseUrl: env.LLM_BASE_URL ?? 'https://api.deepseek.com',
-      apiKey: env.LLM_API_KEY ?? env.DEEPSEEK_API_KEY ?? null,
+      apiKey: env.LLM_API_KEY || env.DEEPSEEK_API_KEY || null,
       model: env.LLM_MODEL ?? 'deepseek-chat',
       maxCalls: num(env.LLM_MAX_CALLS, 900),
       summaries: (env.LLM_SUMMARIES ?? '1') !== '0',
@@ -103,7 +110,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
     baApiBase: env.BA_API_BASE ?? 'https://rest.arbeitsagentur.de/jobboerse/jobsuche-service',
     vapid:
       env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY
-        ? { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT ?? 'mailto:stellenbuechlein@example.org' }
+        ? { publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY, subject: env.VAPID_SUBJECT || 'mailto:stellenbuechlein@example.org' }
         : null,
   };
 }

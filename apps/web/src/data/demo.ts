@@ -1,23 +1,47 @@
-// Demo-Backend: echte Beispielanzeigen aus der Recherche, alles bleibt im Browser.
-// Probeläufe für neue Quellen und KI-Vorschläge werden nur nachgestellt (es wird nichts abgerufen).
+// Demo-Backend mit Dummy-Daten: erfundene Anzeigen (data/dummy/anzeigen.json), alles bleibt im Browser.
+// Fristen und Fundtage stehen relativ zum Tag und werden beim Laden auf heute umgerechnet.
+// Probeläufe für neue Quellen, KI-Vorschläge und Läufe werden nur nachgestellt (es wird nichts abgerufen).
 
-import { normalizeText, siteKeyOf, siteLabel, type Bruecke, type City, type Favorite, type FavoriteKind, type Institution, type Job, type Mark, type RunInfo, type Source, type Suchprofil } from '@stellen/core';
+import { addDays, formatDateDe, normalizeText, siteKeyOf, siteLabel, todayBerlin, type Bruecke, type City, type Decision, type Favorite, type FavoriteKind, type Institution, type Job, type Mark, type RunInfo, type Source, type Suchprofil } from '@stellen/core';
 import { horizontOf, truncate } from '@stellen/core';
 import type { AcceptCheckBody, Backend, BootstrapData, CheckResult, Discovery, GateSkip, NewSourceBody, SourceCheck, SourcePatchBody, SourcesData, SyncPage } from './backend';
 import { lsGet, lsSet } from './local';
 import data from './demo-data.json';
 
 interface DemoData {
-  generatedAt: string;
-  dates: string[];
   cities: City[];
   institutions: Institution[];
   sources: Source[];
-  jobs: Job[];
+  /** rel: Frist in Tagen ab heute (null = ohne), Fund vor so vielen Tagen */
+  jobs: (Job & { rel: { deadline: number | null; seen: number } })[];
+  marks: { jobId: string; decision: Decision | null; star: boolean; decidedDaysAgo: number; appliedDaysAgo?: number; note?: string }[];
+  favorites: Favorite[];
+  skips: { title: string; institutionId: string | null; url: string; reason: string; note: string | null; seen: number }[];
+  run: { stats: Record<string, number> };
 }
 
 const D = data as unknown as DemoData;
-const KEY = 'sb.demo.v1';
+const KEY = 'sb.demo.v2';
+
+/** Zeitpunkt vor so vielen Tagen, gegen Mittag deutscher Zeit (wie der tägliche Lauf). */
+function daysAgoIso(days: number, minute = 0): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  d.setUTCHours(10, minute, 0, 0);
+  // Vor dem Mittagslauf gilt noch der von gestern
+  if (d.getTime() > Date.now()) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString();
+}
+
+/** Dummy-Anzeigen auf heute umrechnen: Fristen, Fundtage und {frist} im Text. */
+function materialize(today: string): Job[] {
+  return D.jobs.map(({ rel, ...j }, i) => {
+    const deadline = rel.deadline == null ? null : addDays(today, rel.deadline);
+    const seen = daysAgoIso(rel.seen, 5 + (i % 50));
+    const fill = (t: string | null | undefined) => (t && deadline ? t.replace(/\{frist\}/g, formatDateDe(deadline)) : (t ?? null));
+    return { ...j, deadline, descriptionMd: fill(j.descriptionMd) ?? '', deadlineNote: fill(j.deadlineNote), firstSeenAt: seen, lastSeenAt: daysAgoIso(0), updatedAt: seen, postedAt: seen.slice(0, 10) };
+  });
+}
 
 interface DemoState {
   marks: Record<string, Mark>;
@@ -29,16 +53,26 @@ interface DemoState {
   discoveries?: Record<string, Discovery['status']>;
 }
 
+/** Beim ersten Start: Beispiel-Markierungen und -Lieblingsorte aus den Dummy-Daten. */
+function initialState(): DemoState {
+  const marks: Record<string, Mark> = {};
+  for (const m of D.marks) {
+    const at = daysAgoIso(m.decidedDaysAgo, 30);
+    marks[m.jobId] = { jobId: m.jobId, decision: m.decision, decidedAt: at, star: m.star, appliedAt: m.appliedDaysAgo != null ? daysAgoIso(m.appliedDaysAgo, 40) : null, note: m.note ?? null, updatedAt: at };
+  }
+  return { marks, favorites: [...D.favorites], settings: {}, sources: {} };
+}
+
 function load(): DemoState {
-  return lsGet<DemoState>(KEY, { marks: {}, favorites: [], settings: {}, sources: {} });
+  return lsGet<DemoState | null>(KEY, null) ?? initialState();
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Neu entdeckte Websites der Demo: aus den Beispielanzeigen, deren Arbeitgeber nicht im Register steht. */
-function demoDiscoveries(): Discovery[] {
+/** Neu entdeckte Websites der Demo: aus den Dummy-Anzeigen, deren Arbeitgeber nicht im Register steht. */
+function demoDiscoveries(jobs: Job[]): Discovery[] {
   const map = new Map<string, Discovery>();
-  for (const j of D.jobs) {
+  for (const j of jobs) {
     if (!j.newSite) continue;
     const key = siteKeyOf(j.url, j.employer);
     if (!key) continue;
@@ -49,11 +83,11 @@ function demoDiscoveries(): Discovery[] {
   return [...map.values()];
 }
 
-/** Nachgestellter Probelauf: echte Beispielanzeigen derselben Website, sonst ein ehrlich beschriftetes Beispiel. */
-function demoCheckResult(url: string): CheckResult {
+/** Nachgestellter Probelauf: Dummy-Anzeigen derselben Website, sonst ein ehrlich beschriftetes Beispiel. */
+function demoCheckResult(url: string, jobs: Job[]): CheckResult {
   const key = siteKeyOf(url);
-  const own = D.jobs.filter((j) => key && siteKeyOf(j.url, j.employer) === key);
-  const samples = (own.length ? own : D.jobs.slice(0, 3)).slice(0, 3).map((j) => ({
+  const own = jobs.filter((j) => key && siteKeyOf(j.url, j.employer) === key);
+  const samples = (own.length ? own : jobs.slice(0, 3)).slice(0, 3).map((j) => ({
     url: j.url,
     title: j.title,
     chars: j.descriptionMd.length,
@@ -86,8 +120,8 @@ function demoCheckResult(url: string): CheckResult {
     ai: {
       verdict: own.length ? 'gut' : 'mit_einschraenkungen',
       summary: own.length
-        ? `Nachgestellt für die Demo: Die Seite listet aktuelle Stellen von ${name ?? 'dieser Einrichtung'}. In der eingerichteten App liest die Pipeline die Seite und ein paar Anzeigen wirklich, und die KI beurteilt das Ergebnis.`
-        : 'Nachgestellt für die Demo: Diese Website wurde nicht abgerufen. Die Proben unten sind Beispielanzeigen aus der Demo und zeigen nur, wie ein Ergebnis aussieht.',
+        ? `Nachgestellt für die Demo: Die Seite listet Stellen von ${name ?? 'dieser Einrichtung'}. In der eingerichteten App liest die Pipeline die Seite und ein paar Anzeigen wirklich, und die KI beurteilt das Ergebnis.`
+        : 'Nachgestellt für die Demo: Diese Website wurde nicht abgerufen. Die Proben unten sind Dummy-Anzeigen und zeigen nur, wie ein Ergebnis aussieht.',
     },
     verdict: own.length ? 'gut' : 'mit_einschraenkungen',
     notes: ['Demo: Es wurde nichts abgerufen. Im echten Betrieb dauert ein Probelauf zwei bis vier Minuten.'],
@@ -106,6 +140,7 @@ const DEMO_BRIDGES: Omit<Bruecke, 'id'>[] = [
 export class DemoBackend implements Backend {
   readonly demo = true;
   private s = load();
+  private readonly jobs = materialize(todayBerlin());
   /** Wie oft nach einem Probelauf gefragt wurde (er ist nach zwei Abfragen „fertig“). */
   private polls = new Map<number, number>();
 
@@ -121,7 +156,7 @@ export class DemoBackend implements Backend {
       marks: Object.values(this.s.marks),
       favorites: this.s.favorites,
       settings: this.s.settings,
-      runs: [],
+      runs: [DEMO_RUN],
       sourceSummary: {
         total: enabled.length + (this.s.added?.length ?? 0),
         ok: 0,
@@ -136,7 +171,7 @@ export class DemoBackend implements Backend {
   }
 
   async sync(cursor: string): Promise<SyncPage> {
-    return { jobs: cursor ? [] : D.jobs, next: null, deleted: [], serverTime: new Date().toISOString() };
+    return { jobs: cursor ? [] : this.jobs, next: null, deleted: [], serverTime: new Date().toISOString() };
   }
 
   async putMarks(marks: Mark[]): Promise<void> {
@@ -162,7 +197,7 @@ export class DemoBackend implements Backend {
       suggestions: [],
       browserQueue: {},
       checks: [...(this.s.checks ?? [])].reverse().map((c) => this.settle(c)),
-      discoveries: demoDiscoveries()
+      discoveries: demoDiscoveries(this.jobs)
         .map((d) => ({ ...d, status: status[d.siteKey] ?? d.status }))
         .filter((d) => d.status === 'offen'),
     };
@@ -171,7 +206,7 @@ export class DemoBackend implements Backend {
   /** Nach ein paar Sekunden (oder zwei Abfragen) ist der nachgestellte Probelauf „fertig“. */
   private settle(c: SourceCheck): SourceCheck {
     if (c.status === 'laeuft' && (Date.now() - Date.parse(c.requestedAt) > 2400 || (this.polls.get(c.id) ?? 0) >= 2)) {
-      const done: SourceCheck = { ...c, status: 'fertig', finishedAt: new Date().toISOString(), result: demoCheckResult(c.url) };
+      const done: SourceCheck = { ...c, status: 'fertig', finishedAt: new Date().toISOString(), result: demoCheckResult(c.url, this.jobs) };
       this.s.checks = (this.s.checks ?? []).map((x) => (x.id === c.id ? done : x));
       this.save();
       return done;
@@ -250,15 +285,15 @@ export class DemoBackend implements Backend {
   }
 
   async runs(): Promise<RunInfo[]> {
-    return [];
+    return [DEMO_RUN];
   }
 
   async runLog(): Promise<string> {
-    return '';
+    return DEMO_LOG;
   }
 
   async skips(): Promise<GateSkip[]> {
-    return [];
+    return D.skips.map((k) => ({ url: k.url, title: `${k.title} (Dummy)`, sourceId: null, institutionId: k.institutionId, seenAt: daysAgoIso(k.seen), reason: k.reason, note: k.note }));
   }
 
   async pushSubscribe(): Promise<void> {
@@ -274,5 +309,16 @@ export class DemoBackend implements Backend {
   }
 }
 
-export const DEMO_DATE = D.generatedAt;
-export const DEMO_DATES = D.dates ?? [D.generatedAt];
+/** Nachgestellter Lauf von heute gegen 12 Uhr. */
+const DEMO_RUN: RunInfo = { id: 1, startedAt: daysAgoIso(0), finishedAt: daysAgoIso(0, 23), ok: true, stats: D.run.stats };
+const DEMO_LOG = [
+  'Dummy-Protokoll: In der Demo läuft keine Pipeline. So sieht ein Lauf im echten Betrieb ungefähr aus.',
+  '',
+  '12:00 Startdaten geprüft (Städte, Einrichtungen, Quellen)',
+  '12:01 Quellen einsammeln: Feeds, Bewerbungsportale, Listenseiten, Sitemaps',
+  '12:14 Portale als Sicherheitsnetz: Arbeitsagentur, PsychJob, Max-Planck, Leibniz, Fraunhofer',
+  '12:18 Erkundung neuer Websites: mindestens 3 Anzeigen außerhalb des Registers',
+  '12:21 Fristen geprüft, Kurzfassungen geschrieben, Horizont beurteilt',
+  '12:23 Erinnerungen verschickt',
+  `Fertig: ${JSON.stringify(D.run.stats)}`,
+].join('\n');

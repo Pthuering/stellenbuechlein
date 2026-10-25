@@ -5,6 +5,7 @@ import { HttpBackend } from '../data/api';
 import { AuthError, OfflineError } from '../data/backend';
 import { useAppState, useStore } from '../data/hooks';
 import { lsSet } from '../data/local';
+import { apiBase } from '../lib/config';
 import { Doodle } from '../ui/bits';
 
 export function Login() {
@@ -20,7 +21,7 @@ export function Login() {
     if (!k) return setError('Bitte den App-Schlüssel eingeben.');
     setBusy(true);
     setError(null);
-    const backend = new HttpBackend(k);
+    const backend = new HttpBackend(k, apiBase());
     try {
       await backend.bootstrap();
       lsSet('sb.key', k);

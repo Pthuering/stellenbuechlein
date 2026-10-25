@@ -29,6 +29,7 @@ import {
   normalizeText,
   parseProfile,
   profileSummary,
+  scoreJob,
   searchTextOf,
   starterProfile,
   stripMarkdown,
@@ -86,13 +87,14 @@ import { Llm } from './llm';
 import { BrowserPool } from './browser';
 import { agentReadPosting } from './agent';
 import { discover, workdayDetail, type DiscoverContext } from './discover';
+import { atsDetail } from './ats';
 import { assessCompleteness, extractPosting, type Candidate, type PostingData } from './extract';
 import { htmlToMarkdown } from './html';
 import { baDetail, isOutsideGermany } from './portals';
 import { CityMatcher, InstitutionMatcher } from './matching';
 import { wikipediaImage } from './images';
 import { findJobsPage } from './sourceDiscovery';
-import { sendReminders } from './push';
+import { sendHighScoreAlert, sendReminders } from './push';
 import { Registry } from './registry';
 import { exploreBa, exploreQueries, exploreWeb } from './explore';
 import { processPendingChecks } from './sourceCheck';
@@ -171,6 +173,8 @@ export class Pipeline {
   private profile: Suchprofil = starterProfile();
   private horizon: Horizont = horizontOf(this.profile);
   private summaryForAi = '';
+  /** Neue Anzeigen dieses Laufs mit Score, für die Benachrichtigung über sehr gut passende */
+  private newScored: { id: string; title: string; score: number }[] = [];
   private registry = new Registry([], []);
   private weiteChecks = 0;
   /** Sonderquelle für die Erkundung (in der Datenbank angelegt, wird nie direkt eingesammelt). */
@@ -306,7 +310,10 @@ export class Pipeline {
         await expireJobs(this.db, this.today, new Date(t - this.cfg.goneAfterDays * 86_400_000).toISOString(), this.now, new Date(t - 45 * 86_400_000).toISOString()),
       );
       this.bump('geloescht', await purgeExpired(this.db, new Date(t - this.cfg.purgeAfterDays * 86_400_000).toISOString(), this.now));
-      if (this.opts.reminders !== false) this.bump('erinnerungen', await sendReminders(this.db, this.cfg, this.log, this.today));
+      if (this.opts.reminders !== false) {
+        this.bump('erinnerungen', await sendReminders(this.db, this.cfg, this.log, this.today));
+        this.bump('benachrichtigtNeu', await sendHighScoreAlert(this.db, this.cfg, this.log, this.newScored));
+      }
       ok = true;
     } catch (e) {
       this.log.error(`Lauf abgebrochen: ${errText(e)}`);
@@ -502,6 +509,7 @@ export class Pipeline {
     this.indexJob(job, [c.url]);
     this.sourcesByJob.set(job.id, new Set([source.id]));
     this.bump('neu');
+    this.newScored.push({ id: job.id, title: job.title, score: scoreJob(job, searchTextOf(job), this.profile).score });
     if (job.lane === 'horizont') this.bump('neuHorizont');
     if (job.lane === 'weite') this.bump('neuWeite');
     if (job.newSite) {
@@ -567,6 +575,10 @@ export class Pipeline {
         const a = assessCompleteness(md);
         return this.withHints({ url: c.url, title: d.title, descriptionMd: md, locationText: d.location, method: 'ats:workday', complete: a.complete, incompleteReason: a.reason }, c);
       }
+    }
+    if (c.via === 'ats:smartrecruiters' || c.via === 'ats:hpcareer') {
+      const d = await atsDetail(this.http, c, !!source.config.ignoreRobots);
+      if (d) return this.withHints(d, c);
     }
     const r = await extractPosting(this.http, c.url, { titleHint: c.title, ignoreRobots: !!source.config.ignoreRobots });
     if (r.notAPosting) {

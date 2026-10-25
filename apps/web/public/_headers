@@ -2,12 +2,13 @@
 # Cloudflare wendet sie beim Ausliefern an, der Node-Server (apps/api/src/node.ts) liest dieselbe Datei.
 # Die API unter /api setzt ihre Kopfzeilen selbst.
 #
-# Content-Security-Policy: Skripte, Schriften und Abrufe nur von der eigenen Adresse.
+# Content-Security-Policy: Skripte, Schriften und Abrufe nur von der eigenen Adresse; Abrufe zusätzlich
+# bei der Adresssuche von OpenStreetMap (nur auf Knopfdruck unter Ich → Zuhause).
 # Bilder auch von fremden https-Adressen (Fotos aus Anzeigen und Wikimedia).
 # X-Robots-Tag: Die App ist privat und soll in keiner Suchmaschine auftauchen (siehe auch robots.txt).
 
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://nominatim.openstreetmap.org; manifest-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY

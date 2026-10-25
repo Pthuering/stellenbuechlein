@@ -39,6 +39,7 @@ import {
   bridgeSuggestionMessages,
   BridgeSuggestionSchema,
   canonicalUrl,
+  INSTITUTION_KINDS,
   parseProfile,
   siteKeyOf,
   starterProfile,
@@ -92,9 +93,7 @@ const markSchema = z.object({
   updatedAt: z.string().optional(),
 });
 
-const SETTINGS_KEYS = new Set(['profile', 'filter', 'home', 'reminders', 'gateTerms', 'sort', 'ui', 'notifyHighScore']);
-
-const INSTITUTION_KINDS = ['universitaet', 'ph', 'hochschule', 'privat', 'mpg', 'leibniz', 'helmholtz', 'fraunhofer', 'klinik', 'ressort', 'sonstige'] as const;
+const SETTINGS_KEYS = new Set(['profile', 'filter', 'home', 'reminders', 'gateTerms', 'sort', 'ui', 'notifyHighScore', 'checklist']);
 
 const newInstitutionSchema = z.object({
   name: z.string().min(2).max(200),
@@ -128,11 +127,20 @@ export function createApp(deps: AppDeps): Hono {
 
   app.use('/api/*', async (c, next) => {
     const env = deps.env(c);
+    // Liegt die App auf einer anderen Website (Website-Paket), erlaubt ALLOWED_ORIGIN deren Adresse(n),
+    // mehrere mit Komma getrennt, z. B. "https://meine-seite.de, https://www.meine-seite.de".
     if (env.ALLOWED_ORIGIN) {
-      c.header('Access-Control-Allow-Origin', env.ALLOWED_ORIGIN);
-      c.header('Access-Control-Allow-Headers', 'authorization, content-type');
-      c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-      if (c.req.method === 'OPTIONS') return c.body(null, 204);
+      const allowed = env.ALLOWED_ORIGIN.split(',').map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean);
+      const origin = c.req.header('origin');
+      const match = allowed.includes('*') ? '*' : origin && allowed.includes(origin) ? origin : null;
+      if (match) {
+        c.header('Access-Control-Allow-Origin', match);
+        c.header('Access-Control-Allow-Headers', 'authorization, content-type');
+        c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        c.header('Access-Control-Max-Age', '86400');
+      }
+      c.header('Vary', 'Origin');
+      if (c.req.method === 'OPTIONS') return c.body(null, match ? 204 : 403);
     }
     c.header('Cache-Control', 'no-store');
     const path = new URL(c.req.url).pathname;

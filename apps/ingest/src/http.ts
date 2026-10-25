@@ -1,5 +1,6 @@
-// Höflicher HTTP-Client: eigener User-Agent, robots.txt, Abstand pro Host, Wiederholungen,
-// Zeichensatz-Erkennung, Zwischenspeicher pro Lauf.
+// Höflicher HTTP-Client: eigener User-Agent, Abstand pro Host und Crawl-delay aus der robots.txt,
+// Wiederholungen, Zeichensatz-Erkennung, Zwischenspeicher pro Lauf. Sperren aus der robots.txt gelten
+// nur mit ROBOTS=1 (siehe config.ts).
 
 import { isAllowed, parseRobots, crawlDelaySeconds, type RobotsInfo } from './robots';
 import type { IngestConfig } from './config';
@@ -118,11 +119,12 @@ export class Http {
       return this.fail(url, 0, 'Ungültige Adresse');
     }
     if (!/^https?:$/.test(u.protocol)) return this.fail(url, 0, 'Nur http(s) wird unterstützt');
-    if (!opts.ignoreRobots) {
+    if (this.cfg.respectRobots && !opts.ignoreRobots) {
       const ok = await this.allowed(url).catch(() => true);
       if (!ok) return { ...this.fail(url, 0, 'Durch robots.txt gesperrt'), blockedByRobots: true };
     } else {
-      await this.robotsFor(u.origin).catch(() => null); // für Crawl-delay
+      // Sperren gelten nicht (ROBOTS=0, Standard); die robots.txt wird nur für den Crawl-delay gelesen
+      await this.robotsFor(u.origin).catch(() => null);
     }
     return this.schedule(u.host, () => this.rawFetchWithRetry(url, opts));
   }

@@ -1,4 +1,4 @@
-// Einstieg: Schriften laden, Backend wählen (echte API oder Demo), App starten.
+// Einstieg: Schriften laden, Backend wählen (echte API oder Dummy-Daten), App starten.
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -12,6 +12,7 @@ import { StoreContext } from './data/hooks';
 import { lsGet, lsSet } from './data/local';
 import { Store } from './data/store';
 import { loadTestPhotos } from './data/testPhotos';
+import { apiBase, loadConfig } from './lib/config';
 import { applyTheme } from './lib/theme';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -44,8 +45,10 @@ async function start(): Promise<void> {
   window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyTheme());
   loadFonts();
 
+  // Dummy-Daten oder Server: steht in config.json neben index.html (siehe lib/config.ts)
+  const dummy = (await loadConfig()).daten === 'dummy';
   let backend: Backend | null = null;
-  if (__DEMO__) {
+  if (dummy) {
     const { DemoBackend } = await import('./data/demo');
     backend = new DemoBackend();
     void loadTestPhotos();
@@ -53,10 +56,10 @@ async function start(): Promise<void> {
     const fromLink = keyFromLink();
     if (fromLink) lsSet('sb.key', fromLink);
     const key = fromLink ?? lsGet<string | null>('sb.key', null);
-    if (key) backend = new HttpBackend(key);
+    if (key) backend = new HttpBackend(key, apiBase());
   }
 
-  const store = new Store(backend, __DEMO__);
+  const store = new Store(backend, dummy);
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <StoreContext.Provider value={store}>

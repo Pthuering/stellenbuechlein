@@ -9,7 +9,7 @@ export function AboutPage() {
     <SubPage title="Über das Stellenbüchlein" sub={`Version ${__APP_VERSION__}${s.demo ? ', Demo' : ''}`}>
       <h2 className="section-title">Wie es arbeitet</h2>
       <p>
-        Zweimal am Tag sammelt eine Pipeline Stellenanzeigen von Hochschulen, Universitätskliniken und Forschungsinstituten mit Psychologie-Bezug ein. Sie probiert dabei nacheinander strukturierte Daten, Feeds, Bewerbungsportale, Sitemaps, eine KI-Auswertung und zuletzt einen Browser-Agenten. Portale wie die Jobsuche der Bundesagentur für Arbeit dienen als Sicherheitsnetz.
+        Einmal am Tag gegen 12 Uhr (und auf Knopfdruck) sammelt eine Pipeline Stellenanzeigen mit Psychologie-Bezug ein: von Hochschulen, Kliniken, Forschungsinstituten und Unternehmen. Sie probiert dabei nacheinander strukturierte Daten, Feeds, Bewerbungsportale, Sitemaps, eine KI-Auswertung und zuletzt einen Browser-Agenten. Portale wie die Jobsuche der Bundesagentur für Arbeit dienen als Sicherheitsnetz.
       </p>
       <p>Aussortiert wird nur bei breiten Quellen, und nur, wenn kein Begriff aus dem Grobfilter vorkommt. Alles Aussortierte ist unter „Quellen“ einsehbar. Dein Suchprofil sortiert ausschließlich die Reihenfolge.</p>
       <p>Wischen ist nur Anzeige: Die App lernt daraus nichts und verändert den Score nicht.</p>
@@ -28,9 +28,13 @@ export function AboutPage() {
 
       {s.demo && (
         <>
-          <h2 className="section-title">Zur Demo</h2>
+          <h2 className="section-title">Zu den Dummy-Daten</h2>
           <p>
-            Die Demo zeigt echte Anzeigen, recherchiert am 9. Oktober 2026. Die Texte sind in eigenen Worten gekürzt, der Link führt jeweils zum Original. Fristen können inzwischen abgelaufen sein. Was du merkst oder einstellst, bleibt nur in diesem Browser.
+            Alle Anzeigen sind erfunden und tragen das Etikett „Dummy“. Einrichtungen, Städte und Quellen sind dagegen echt: Der Knopf in einer Dummy-Anzeige führt zur echten Stellenliste der Einrichtung. Fristen und Fundtage rücken jeden Tag mit, damit immer etwas zu sehen ist. Was du merkst oder einstellst, bleibt nur in diesem Browser.
+          </p>
+          <p>
+            Was noch zu ersetzen ist, steht in der{' '}
+            <a href="#/ich/checkliste">Platzhalter-Checkliste</a>.
           </p>
         </>
       )}

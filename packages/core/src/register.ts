@@ -18,7 +18,11 @@ export const ATS_HOSTS = new Set([
   'successfactors.com', 'b-ite.com', 'b-ite.de', 'helixjobs.com', 'teamtailor.com', 'stellenticket.de', 'onlyfy.jobs', 'prescreenapp.io',
   'join.com', 'recruitee.com', 'greenhouse.io', 'lever.co', 'smartrecruiters.com', 'dvinci.de', 'dvinci-easy.com', 'rexx-systems.com',
   'concludis.de', 'jobbase.io', 'kenjo.io', 'hr4you.org', 'mein-check-in.de', 'bewerbung.dvinci.de', 'jobs.b-ite.com',
+  'ashbyhq.com', 'pinpointhq.com', 'workable.com', 'avature.net',
 ]);
+
+/** Bewerbermanagement-Systeme, bei denen der Arbeitgeber im Pfad steht (jobs.lever.co/firma). */
+const PATH_ATS = /^(?:jobs(?:\.eu)?\.lever\.co|(?:job-)?boards(?:\.eu)?\.greenhouse\.io|(?:jobs|careers)\.smartrecruiters\.com|jobs\.ashbyhq\.com|apply\.workable\.com|join\.com)$/;
 
 export function isAggregatorUrl(url: string | null | undefined): boolean {
   const h = url ? registrableHost(url) : null;
@@ -34,8 +38,14 @@ export function isAggregatorUrl(url: string | null | undefined): boolean {
 export function siteKeyOf(url: string | null | undefined, org?: string | null): string | null {
   if (url) {
     try {
-      const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+      const u = new URL(url);
+      const host = u.hostname.toLowerCase().replace(/^www\./, '');
       const reg = registrableHost(url);
+      if (PATH_ATS.test(host)) {
+        const parts = u.pathname.split('/').filter(Boolean);
+        const company = (parts[0] === 'companies' ? parts[1] : parts[0])?.toLowerCase();
+        if (company) return `${host}/${company}`;
+      }
       if (reg && ATS_HOSTS.has(reg)) return host;
       if (reg && !AGGREGATOR_HOSTS.has(reg)) return reg;
     } catch {

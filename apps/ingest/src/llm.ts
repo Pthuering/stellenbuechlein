@@ -3,6 +3,7 @@
 // Browser-Agent braucht eine Entscheidung, Kurzfassung für die Karte.
 
 import { z } from 'zod';
+import { INSTITUTION_KINDS } from '@stellen/core';
 import type { IngestConfig } from './config';
 import type { RunLog } from './log';
 
@@ -215,7 +216,7 @@ export class Llm {
       is_job_list: z.boolean(),
       institution_name: z.string().nullable(),
       city: z.string().nullable(),
-      institution_type: z.enum(['universitaet', 'ph', 'hochschule', 'privat', 'mpg', 'leibniz', 'helmholtz', 'fraunhofer', 'klinik', 'ressort', 'sonstige']).nullable(),
+      institution_type: z.enum(INSTITUTION_KINDS).nullable(),
       is_department_page: z.boolean(),
       sample_checks: z.array(z.object({ index: z.number().int(), is_posting: z.boolean(), problems: z.array(z.string()) })),
       link_pattern: z.string().nullable(),

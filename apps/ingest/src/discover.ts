@@ -5,8 +5,9 @@
 import type { Source, SourceConfig, SourceStatus } from '@stellen/core';
 import { canonicalUrl, registrableHost } from '@stellen/core';
 import { extractLinks, findFeedLinks, jobPostingsFrom, load, looksLikeJsShell, visibleText, type PageLink } from './html';
-import { parseFeed, parseJsonFeed, parsePersonioXml, parseSitemap } from './feeds';
+import { candidatesFromJson, parseFeed, parseJsonFeed, parsePersonioXml, parseSitemap } from './feeds';
 import { baDiscover } from './portals';
+import { biteListingsIn, JSON_ATS, jsonAtsOf, viaBite, viaJsonAts, type JsonAts } from './ats';
 import type { Candidate } from './extract';
 import type { Http } from './http';
 import type { Llm } from './llm';
@@ -143,7 +144,7 @@ function atsOf(url: string, cfg: SourceConfig): string | null {
   if (/helixjobs\.com/i.test(url)) return 'helixjobs';
   if (/onlyfy\.jobs|prescreenapp\.io/i.test(url)) return 'prescreen';
   if (/teamtailor\.com|career[s-]?\w*\.mpib-berlin/i.test(url)) return 'teamtailor';
-  return null;
+  return jsonAtsOf(url);
 }
 
 async function viaPersonio(url: string, ctx: DiscoverContext): Promise<Candidate[]> {
@@ -316,6 +317,14 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
     const list = await viaWorkday(source.url, ctx, maxPages);
     if (list.length) methods.push('ats:workday');
     merge(found, list);
+  } else if (ats && (JSON_ATS as readonly string[]).includes(ats)) {
+    const list = await viaJsonAts(ats as JsonAts, source.url, ctx.http, maxPages, ignoreRobots);
+    if (list.length) {
+      // Die Schnittstelle liefert die vollständige Liste; die HTML-Seite brauchen wir dann nicht mehr.
+      merge(found, list);
+      return { candidates: [...found.values()], methods: [...methods, `ats:${ats}`], status: 'ok', note: null };
+    }
+    notes.push(`Schnittstelle von ${ats} lieferte nichts, versuche die Seite`);
   } else if (ats === 'softgarden' && !cfg.feedUrl) {
     const origin = new URL(source.url).origin;
     const r = await ctx.http.get(`${origin}/jobs.feed.json`, { accept: 'application/json', ignoreRobots });
@@ -330,6 +339,9 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
   let listHtml = '';
   let listStatus = 0;
   let blocked = false;
+  // Die Adresse ist eine JSON-Schnittstelle, keine Seite: kein Browser, keine Sitemap
+  let isApi = false;
+  let biteApi = false;
   const first = await ctx.http.get(source.url, { ignoreRobots });
   listStatus = first.status;
   if (first.blockedByRobots) {
@@ -340,10 +352,23 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
   } else if (first.isPdf) {
     merge(found, [{ url: first.url, via: 'pdf' }]);
     methods.push('pdf');
+  } else if (/^\s*[[{]/.test(first.text)) {
+    // Eigene JSON-Schnittstelle als Liste (z. B. LMU Klinikum, FOM): Titel und Adressen herauslesen
+    const list = candidatesFromJson(first.text, first.url);
+    if (merge(found, list) > 0) methods.push('json');
+    else notes.push('JSON-Liste ohne erkennbare Anzeigen');
+    isApi = true;
   } else {
     listHtml = first.text;
     const { candidates, links, feeds } = candidatesFromListHtml(first.text, first.url, cfg, 'liste');
-    if (merge(found, candidates) > 0) methods.push('liste');
+    // BITE bindet die Liste per JavaScript ein; die Schnittstelle liefert sie auch ohne Browser.
+    // Antwortet sie, zählen nur ihre Anzeigen (die übrigen Links der Seite sind Navigation).
+    const bite = biteListingsIn(first.text).length ? await viaBite(first.text, ctx.http, maxPages, ignoreRobots) : [];
+    if (bite.length) {
+      merge(found, bite);
+      methods.push('ats:bite');
+      biteApi = true;
+    } else if (merge(found, candidates) > 0) methods.push('liste');
     for (const f of feeds.slice(0, 2)) {
       if (f === cfg.feedUrl) continue;
       const list = await viaFeed(f, ctx, 'feed', ignoreRobots);
@@ -379,8 +404,8 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
   }
 
   // 4) Browser, wenn statisch nichts kam oder die Seite JavaScript braucht
-  const needsRender = cfg.render || (listHtml && looksLikeJsShell(listHtml)) || ats === 'bite' || ats === 'teamtailor';
-  if (ctx.browser && (needsRender || (found.size === 0 && !blocked)) && ctx.browser.budgetLeft) {
+  const needsRender = cfg.render || (listHtml && looksLikeJsShell(listHtml)) || (ats === 'bite' && !biteApi) || ats === 'teamtailor';
+  if (ctx.browser && !isApi && (needsRender || (found.size === 0 && !blocked)) && ctx.browser.budgetLeft) {
     const rendered = await ctx.browser.renderList(source.url);
     if (rendered) {
       listHtml = rendered.html;
@@ -391,7 +416,7 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
   }
 
   // 5) Sitemap als zusätzliches Netz, wenn bisher nichts gefunden wurde
-  if (found.size === 0 && !blocked && source.kind !== 'portal') {
+  if (found.size === 0 && !blocked && !isApi && source.kind !== 'portal') {
     const list = await viaSitemap(source.url, ctx, ignoreRobots);
     if (merge(found, list) > 0) methods.push('sitemap');
   }

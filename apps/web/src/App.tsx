@@ -9,6 +9,7 @@ import { MapScreen } from './screens/MapScreen';
 import { SavedScreen } from './screens/Saved';
 import { AllJobsScreen } from './screens/AllJobs';
 import { SettingsScreen } from './screens/settings/Settings';
+import { useChecklist } from './screens/settings/ChecklistPage';
 import { JobDetail } from './screens/JobDetail';
 import { Login } from './screens/Login';
 import { Toasts, Doodle } from './ui/bits';
@@ -22,6 +23,25 @@ const TAB_ICON: Record<Tab, (p: { width: number; height: number }) => React.Reac
   alle: (p) => <IconList {...p} />,
   ich: (p) => <IconMe {...p} />,
 };
+
+/** Leiste oben: mit Dummy-Daten immer, sonst solange Platzhalter offen sind (abschaltbar). */
+function ChecklistBanner() {
+  const s = useAppState();
+  const c = useChecklist();
+  const route = useRoute();
+  if (!s.demo && (c.openRequired === 0 || s.settings.checklist.hideBanner)) return null;
+  const onPage = route.tab === 'ich' && route.sub === 'checkliste';
+  return (
+    <div className="demo-banner" role="note">
+      <span>{s.demo ? 'Dummy-Daten: erfundene Anzeigen, alles bleibt in diesem Browser.' : `Noch ${c.openRequired} Platzhalter offen.`}</span>
+      {!onPage && (
+        <button type="button" className="demo-banner__btn" onClick={() => navigate('/ich/checkliste')}>
+          Checkliste{c.open ? ` · ${c.open} offen` : ''}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function Loading() {
   return (
@@ -76,11 +96,8 @@ export function App() {
   return (
     <div className="app">
       <SvgDefs />
-      {s.demo && (
-        <p className="demo-banner">
-          Demo mit echten Anzeigen vom 9. und 12. Oktober 2026, alles bleibt in diesem Browser. Eigene Testfotos: unter „Ich“.
-        </p>
-      )}
+      <ChecklistBanner />
+
       <main className="main" key={`${route.tab}/${route.sub ?? ''}`}>
         {screen}
       </main>

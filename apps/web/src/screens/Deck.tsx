@@ -190,10 +190,11 @@ function DeckCard({
         </div>
       )}
       <div className="card__body">
-        {(lane || job.newSite) && (
+        {(lane || job.newSite || job.dummy) && (
           <p className="card__tags">
             {lane && <span className="lane-tag">{lane}</span>}
             {job.newSite && <span className="chip chip--neutral chip--tiny">neue Website</span>}
+            {job.dummy && <span className="chip chip--neutral chip--tiny chip--dummy">Dummy</span>}
           </p>
         )}
         <p className="card__inst">

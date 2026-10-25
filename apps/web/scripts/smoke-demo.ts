@@ -1,5 +1,6 @@
 // Rauchtest für die gebaute Demo (dist-demo/index.html) im echten Browser:
-// Wischen, Rückgängig, Detail, Filter, Steckbrief-Import, Karte – und keine Laufzeitfehler.
+// Wischen, Rückgängig, Detail, Filter, Steckbrief-Import, Karte, Platzhalter-Checkliste – und keine Laufzeitfehler.
+// Mit installiertem Chrome statt Playwright-Chromium: CHROMIUM_PATH="…/chrome.exe".
 //   npm run build:demo && npx tsx apps/web/scripts/smoke-demo.ts
 
 import { strict as assert } from 'node:assert';
@@ -23,8 +24,6 @@ const waiting = async (page: Page): Promise<number> => {
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-// Fester Tag, damit der Test nicht von abgelaufenen Fristen der Beispielanzeigen abhängt
-await page.clock.setFixedTime(new Date('2026-10-12T08:00:00Z'));
 const errors: string[] = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -147,7 +146,8 @@ try {
   // Neue Website per Probelauf ins Register
   await page.goto(`${url}#/ich/quellen`);
   await page.click('text=Website hinzufügen');
-  await page.fill('.sheet input[type=url]', 'https://career.cispa.de/jobs');
+  // eine der erfundenen „neuen Websites“ aus den Dummy-Daten
+  await page.fill('.sheet input[type=url]', 'https://muster-institut-fuer-nutzerforschung.example/karriere/');
   await page.click('text=Probelauf starten');
   await page.waitForSelector('.verdict', { timeout: 10_000 });
   assert.ok((await page.locator('.check-sample').count()) >= 1, 'Probe-Anzeigen fehlen');
@@ -156,10 +156,22 @@ try {
   await page.click('[role=tab] >> text=/^Neu/');
   assert.ok((await page.locator('.suggestion').count()) >= 3, 'Neu entdeckte Websites fehlen');
 
+  // Platzhalter-Checkliste: Knopf oben, Haken zählt mit
+  await page.goto(`${url}#/stapel`);
+  await page.click('.demo-banner__btn');
+  await page.waitForSelector('.check-item');
+  const before = (await page.locator('.page-sub').first().textContent()) ?? '';
+  await page.locator('.check-item').filter({ hasText: 'Zuhause' }).locator('input').check();
+  await page.waitForTimeout(200);
+  const after = (await page.locator('.page-sub').first().textContent()) ?? '';
+  assert.equal(Number(after.match(/d+/)?.[0]), Number(before.match(/d+/)?.[0]) + 1, 'Haken in der Checkliste zählt nicht');
+  assert.ok((await page.locator('.check-item').count()) >= 20, 'Checkliste unvollständig');
+
   // Neue Websites: mindestens drei Anzeigen in „Alle“ markiert
   await page.goto(`${url}#/alle`);
   await page.waitForSelector('.list .row');
   assert.ok((await page.locator('.row .chip >> text=neue Website').count()) >= 3, 'Markierung „neue Website“ fehlt');
+  assert.ok((await page.locator('.row .chip--dummy').count()) >= 10, 'Etikett „Dummy“ fehlt');
 
   assert.deepEqual(errors, [], `Laufzeitfehler:\n${errors.join('\n')}`);
   console.log('Rauchtest bestanden.');

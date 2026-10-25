@@ -1,4 +1,4 @@
-// Fristen-Erinnerungen für Herzensjobs: Stufen wählen, Benachrichtigungen einschalten.
+// Fristen-Erinnerungen für Herzensjobs und Meldung neuer, sehr gut passender Anzeigen; Benachrichtigungen einschalten.
 
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, DEFAULT_REMINDER_DAYS, daysUntil, formatDateDe, todayBerlin } from '@stellen/core';
@@ -8,6 +8,7 @@ import { pushState, subscribePush, unsubscribePush, type PushState } from '../..
 import { SubPage } from './Settings';
 
 const OPTIONS = [60, 30, 14, 7, 3, 1, 0];
+const HS_OPTIONS = [80, 85, 90, 95];
 
 function dayLabel(d: number): string {
   if (d === 0) return 'am Tag selbst';
@@ -32,6 +33,7 @@ export function RemindersPage() {
   const store = useStore();
   const views = useViews();
   const r = s.settings.reminders;
+  const hs = s.settings.notifyHighScore;
   const [push, setPush] = useState<PushState | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export function RemindersPage() {
   };
 
   return (
-    <SubPage title="Fristen-Erinnerungen" sub="für Herzensjobs (Stern)">
+    <SubPage title="Erinnerungen" sub="Fristen von Herzensjobs und neue, sehr gut passende Anzeigen">
       <p className="notice">Markierst du eine gemerkte Anzeige mit dem Stern als Herzensjob, erinnert dich das Büchlein vor der Frist. Fällige Erinnerungen stehen immer oben unter „Gemerkt“, auf Wunsch zusätzlich als Benachrichtigung.</p>
 
       <h2 className="section-title">Wann erinnern?</h2>
@@ -106,6 +108,26 @@ export function RemindersPage() {
         </button>
       )}
       {r.days.length === 0 && <p className="hint">Keine Stufe gewählt: Es gibt keine Erinnerungen.</p>}
+
+      <h2 className="section-title">Neue Anzeigen, die sehr gut passen</h2>
+      <label className="toggle">
+        <span>
+          Melden, wenn ein Lauf neue Anzeigen ab {hs.min} % bringt
+          <br />
+          <small className="hint">eine gebündelte Benachrichtigung pro Lauf, mit den drei besten</small>
+        </span>
+        <input type="checkbox" checked={hs.on} onChange={(e) => store.updateSettings('notifyHighScore', { ...hs, on: e.target.checked })} />
+      </label>
+      {hs.on && (
+        <div className="chips" role="group" aria-label="Schwelle">
+          {HS_OPTIONS.map((m) => (
+            <button key={m} type="button" className="chip" aria-pressed={hs.min === m} onClick={() => store.updateSettings('notifyHighScore', { ...hs, min: m })}>
+              ab {m} %
+            </button>
+          ))}
+        </div>
+      )}
+      {hs.on && s.settings.profile.origin === 'start' && <p className="hint">Mit dem Startprofil liegen fast alle Psychologie-Anzeigen über 75 %. Trennscharf wird das erst mit deinem Steckbrief.</p>}
 
       <h2 className="section-title">Benachrichtigungen</h2>
       {s.demo ? (

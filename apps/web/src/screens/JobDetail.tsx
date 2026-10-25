@@ -258,10 +258,22 @@ export function JobDetail({ id }: { id: string }) {
         ))}
       </ul>
 
+      {job.dummy && (
+        <p className="notice notice--info" style={{ marginTop: 14 }}>
+          <b>Dummy-Anzeige.</b> Erfunden, damit sich die App ausprobieren lässt.{' '}
+          {job.institutionId ? 'Der Knopf führt zur echten Stellenliste der Einrichtung; diese Stelle gibt es dort nicht.' : 'Den Arbeitgeber gibt es nicht.'}
+        </p>
+      )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0 4px' }}>
-        <a className="btn btn--primary" href={job.url} target="_blank" rel="noopener noreferrer">
-          <IconExternal width={20} height={20} /> Original-Anzeige
-        </a>
+        {!job.dummy ? (
+          <a className="btn btn--primary" href={job.url} target="_blank" rel="noopener noreferrer">
+            <IconExternal width={20} height={20} /> Original-Anzeige
+          </a>
+        ) : job.institutionId ? (
+          <a className="btn btn--primary" href={job.url} target="_blank" rel="noopener noreferrer">
+            <IconExternal width={20} height={20} /> Stellenliste der Einrichtung
+          </a>
+        ) : null}
         {job.pdfUrl && (
           <a className="btn" href={job.pdfUrl} target="_blank" rel="noopener noreferrer">
             <IconDoc width={20} height={20} /> PDF
@@ -306,9 +318,16 @@ export function JobDetail({ id }: { id: string }) {
         {(job.sources ?? []).map((src) => (
           <li key={src.sourceId}>
             <span className="facts__k">{src.label ?? 'Quelle'}</span>
-            <a className="facts__v" href={src.url} target="_blank" rel="noopener noreferrer" style={{ overflowWrap: 'anywhere', fontSize: 14 }}>
-              {src.url.replace(/^https?:\/\//, '').slice(0, 70)}
-            </a>
+            {/\.example\//.test(src.url) ? (
+              // erfundene Adresse der Dummy-Daten: kein Link
+              <span className="facts__v" style={{ overflowWrap: 'anywhere', fontSize: 14 }}>
+                {src.url.replace(/^https?:\/\//, '').slice(0, 70)}
+              </span>
+            ) : (
+              <a className="facts__v" href={src.url} target="_blank" rel="noopener noreferrer" style={{ overflowWrap: 'anywhere', fontSize: 14 }}>
+                {src.url.replace(/^https?:\/\//, '').slice(0, 70)}
+              </a>
+            )}
           </li>
         ))}
         <li>

@@ -40,6 +40,33 @@ export function HomePage() {
     setHome(custom.label.trim() || 'Eigener Ort', lat, lon);
   };
 
+  // Adresssuche über OpenStreetMap (Nominatim): nur auf Knopfdruck, auf etwa 100 m gerundet
+  const [addr, setAddr] = useState('');
+  const [hits, setHits] = useState<{ label: string; lat: number; lon: number }[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const searchAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = addr.trim();
+    if (query.length < 4) return setMsg('Bitte Straße und Ort eingeben, z. B. „Marktplatz, Halle“.');
+    setSearching(true);
+    setMsg(null);
+    try {
+      const u = new URL('https://nominatim.openstreetmap.org/search');
+      for (const [k, v] of Object.entries({ format: 'jsonv2', countrycodes: 'de', limit: '5', 'accept-language': 'de', q: query })) u.searchParams.set(k, v);
+      // Die Nutzungsregeln von Nominatim verlangen eine erkennbare Herkunft: hier nur die Adresse der App, ohne Pfad
+      const r = await fetch(u, { headers: { accept: 'application/json' }, referrerPolicy: 'origin' });
+      if (!r.ok) throw new Error(String(r.status));
+      const list = (await r.json()) as { display_name: string; lat: string; lon: string }[];
+      const round = (x: string) => Math.round(Number(x) * 1000) / 1000;
+      setHits(list.map((x) => ({ label: x.display_name.split(', ').slice(0, 3).join(', '), lat: round(x.lat), lon: round(x.lon) })));
+      if (list.length === 0) setMsg('Nichts gefunden. Mit Ort versuchen, z. B. „Marktplatz, Halle (Saale)“.');
+    } catch {
+      setMsg('Die Adresssuche ist gerade nicht erreichbar (offline?). Koordinaten lassen sich weiter unten eintragen.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
   const useLocation = () => {
     if (!navigator.geolocation) return setMsg('Dieses Gerät gibt keinen Standort heraus.');
     setMsg('Standort wird abgefragt …');
@@ -108,9 +135,44 @@ export function HomePage() {
         </button>
       </div>
 
+      <h2 className="section-title">Adresse suchen</h2>
+      <form onSubmit={(e) => void searchAddress(e)} style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+        <label className="search" style={{ flex: 1 }}>
+          <span className="visually-hidden">Adresse</span>
+          <IconSearch />
+          <input className="input" type="search" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="Straße und Ort" enterKeyHint="search" autoComplete="street-address" />
+        </label>
+        <button type="submit" className="btn btn--small" disabled={searching}>
+          {searching ? 'sucht …' : 'Suchen'}
+        </button>
+      </form>
+      <p className="hint">
+        Die Eingabe geht an die Adresssuche von OpenStreetMap (Nominatim, Daten © OpenStreetMap-Mitwirkende, ODbL). Gespeichert wird der Ort auf etwa 100 m gerundet.
+      </p>
+      {hits && hits.length > 0 && (
+        <ul className="list">
+          {hits.map((h) => (
+            <li key={`${h.lat},${h.lon},${h.label}`} className="pick">
+              <button
+                type="button"
+                className="pick__btn"
+                onClick={() => {
+                  setHome(h.label, h.lat, h.lon);
+                  setHits(null);
+                  setAddr('');
+                }}
+              >
+                <IconHome width={20} height={20} />
+                <span>{h.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       <details className="help">
         <summary>Genaue Adresse als Koordinaten eintragen</summary>
-        <p className="hint">Eine Adresssuche ist noch nicht eingebaut. Koordinaten lassen sich z. B. in einer Karten-App per langem Tippen kopieren.</p>
+        <p className="hint">Koordinaten lassen sich z. B. in einer Karten-App per langem Tippen kopieren.</p>
         <label className="field">
           <span>Name</span>
           <input className="input" value={custom.label} onChange={(e) => setCustom({ ...custom, label: e.target.value })} placeholder="z. B. Wohnung" />
