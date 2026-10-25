@@ -13,7 +13,7 @@ Insgesamt laufen 131 automatische Tests und ein Browser-Durchlauf der Demo. Was 
 
 ## 0. Kurz entscheiden
 
-- [ ] **Wo die App wohnt:** auf deiner Website (Paket hochladen, Server bei Cloudflare, [WEBSITE.md](WEBSITE.md)) oder komplett im Cloudflare-Worker unter einer Subdomain ([BETRIEB.md](BETRIEB.md), Schritt 2a). Beides ist vorbereitet.
+- [x] **Wo die App wohnt:** vorerst im Cloudflare-Worker unter `https://stellenbuechlein.philipp-thuering.workers.dev` (entschieden am 25. Oktober). Eine Subdomain deiner Domain ([BETRIEB.md](BETRIEB.md), Schritt 2a) oder deine Website ([WEBSITE.md](WEBSITE.md)) lassen sich später ergänzen.
 - [ ] **„Morgens um 12“:** Eingestellt ist 12 Uhr mittags (deutsche Zeit) plus der Knopf „Jetzt einsammeln“. War Mitternacht gemeint, sind es zwei Zeilen in `.github/workflows/einsammeln.yml`.
 - [ ] **Benachrichtigung bei neuen Anzeigen:** ist an (ab 85 %). Mit dem Startprofil liegen fast alle Psychologie-Anzeigen darüber, es käme also täglich eine Sammelnachricht. Nach dem Steckbrief passt die Schwelle besser; sonst unter *Ich → Erinnerungen* ausschalten.
 - [ ] **Unternehmen im Stapel:** Firmen sind normale Quellen mit Grobfilter (nur Anzeigen mit Psychologie-Bezug, der Rest über Brücken). Sollen sie seltener erscheinen, lässt sich im Filter die Einrichtungsart „Unternehmen“ abwählen.
@@ -23,9 +23,21 @@ Insgesamt laufen 131 automatische Tests und ein Browser-Durchlauf der Demo. Was 
 - [ ] **Interview-Prompt und Steckbrief-Format.** Die App liest bis dahin einen Entwurf (Version 0, `packages/core/src/steckbrief.ts`). Steht das Format, wird nur dieser Import angepasst.
 - [ ] **Feinabstimmung des Scores** (Zahlen), **Brücken schärfen**, **endgültige Quellenauswahl** nach dem Interview.
 
-## 2. Braucht dich zum Einrichten
+## 2. Einrichtung
 
-Die Punkte stehen mit Anleitung in der Checkliste der App (*Server und Konten*) und in [BETRIEB.md](BETRIEB.md): Cloudflare-Konto und Datenbank, `APP_KEY` und `INGEST_KEY`, GitHub-Repository mit Secrets, DeepSeek-Schlüssel, GitHub-Token für „Jetzt einsammeln“, Push-Schlüssel, Kontaktadresse (`CRAWLER_CONTACT`, `VAPID_SUBJECT`), bei Website-Hosting `ALLOWED_ORIGIN` und `config.json`.
+Erledigt am 25. Oktober 2026:
+
+- [x] **GitHub:** privates Repository `Pthuering/stellenbuechlein` mit den Secrets `API_URL`, `INGEST_KEY`, `VAPID_PUBLIC_KEY` und `VAPID_PRIVATE_KEY`.
+- [x] **Cloudflare:** Datenbank in der EU (Region EEUR) mit allen Tabellen, Worker mit `APP_KEY` und `INGEST_KEY`, öffentlicher Push-Schlüssel und `GITHUB_REPO` in `apps/api/wrangler.toml`.
+- [x] **Lokale Kopie aller Schlüssel** in `.env` im Hauptordner (nicht im Repository). In Cloudflare und GitHub lassen sich Secrets nicht mehr auslesen.
+
+Fehlt noch, mit Anleitung in [BETRIEB.md](BETRIEB.md) und in der Checkliste der App (*Server und Konten*):
+
+- [ ] **DeepSeek-Schlüssel:** GitHub-Secret `DEEPSEEK_API_KEY`, für Brücken-Vorschläge zusätzlich das Worker-Secret `LLM_API_KEY` (Schritte 4 und 5a).
+- [ ] **GitHub-Token** für „Jetzt einsammeln“ und sofortige Probeläufe (Schritt 5).
+- [ ] **Kontaktadresse** (`CRAWLER_CONTACT`, `VAPID_SUBJECT`): bewusst vorerst leer.
+- [ ] **Erster Lauf** unter *Actions → Einsammeln → Run workflow*, sonst startet er von selbst um 12 Uhr. Danach im Repository unter *Settings → Billing* nachsehen, wie viele der 2.000 Minuten ein Lauf braucht.
+- [ ] Optional: **automatisch veröffentlichen** bei jedem Push (Schritt 6).
 
 ## 3. Quellen: Stand der Recherche vom 23. Oktober
 
