@@ -140,7 +140,7 @@ Stand Oktober 2026, bei den Anbietern nachprüfen, falls sich etwas ändert:
 - **Cloudflare Workers (Free):** 100.000 API-Anfragen pro Tag, 10 ms Rechenzeit pro Anfrage. Abrufe der App-Dateien zählen nicht mit. Deshalb rechnet die App den Score selbst und holt Anzeigen seitenweise.
 - **Cloudflare D1 (Free):** 5 GB Speicher, 5 Millionen gelesene und 100.000 geschriebene Zeilen pro Tag. Für eine Person reicht das weit.
 - **GitHub Actions:** öffentlich unbegrenzt, privat 2.000 Minuten im Monat.
-- **DeepSeek:** nach Verbrauch. Die Pipeline begrenzt die KI-Aufrufe pro Lauf (`LLM_MAX_CALLS`, Standard 900). Pro neuer Anzeige fallen meist ein bis zwei Aufrufe an (Kurzfassung, bei Horizont und Weite das Urteil, bei unplausiblen Fristen die Nachprüfung), dazu höchstens `WEITE_MAX_CHECKS` Weite-Prüfungen.
+- **DeepSeek:** nach Verbrauch. Die Pipeline begrenzt die KI-Aufrufe pro Lauf (`LLM_MAX_CALLS`, Standard 900). Pro neuer Anzeige fallen meist ein bis zwei Aufrufe an (Kurzfassung, bei Horizont und Weite das Urteil, bei unplausiblen Fristen die Nachprüfung), dazu höchstens `WEITE_MAX_CHECKS` Weite-Prüfungen. Die App nutzt immer das große Modell `deepseek-v4-pro`, ohne Denkmodus: 0,66 $ pro Million Eingabe-Tokens und 1,98 $ pro Million Ausgabe-Tokens außerhalb der Spitzenzeit (werktags 01–04 und 06–10 Uhr UTC kostet es das Doppelte). Ein Aufruf mit einer Anzeige kostet damit etwa 0,3 Cent, ein Lauf höchstens rund 2,70 $; der tägliche Lauf um 12 Uhr deutscher Zeit liegt außerhalb der Spitzenzeit.
 - **Brave Search API (optional):** Kontingent und Preis beim Anbieter prüfen. Die Erkundung stellt pro Lauf höchstens `EXPLORE_MAX_QUERIES` Suchanfragen.
 
 ## Stellschrauben der Pipeline
@@ -158,7 +158,7 @@ Als Umgebungsvariablen im Workflow `einsammeln.yml` oder lokal:
 | `GONE_AFTER_DAYS` | 3 | Nicht mehr gelistet seit … Tagen = abgelaufen (nur wenn die Quelle fehlerfrei lief) |
 | `PURGE_AFTER_DAYS` | 14 | Abgelaufene, nicht gemerkte Anzeigen danach löschen |
 | `SOURCE_CONCURRENCY` | 6 | Quellen gleichzeitig |
-| `LLM_BASE_URL`, `LLM_MODEL` | DeepSeek, `deepseek-chat` | jeder OpenAI-kompatible Dienst geht |
+| `LLM_BASE_URL`, `LLM_MODEL` | DeepSeek, `deepseek-v4-pro` | jeder OpenAI-kompatible Dienst geht; bei DeepSeek immer das große Modell (Flash, `deepseek-chat` und `deepseek-reasoner` werden durch `deepseek-v4-pro` ersetzt) |
 | `LLM_MAX_CALLS` | 900 | KI-Aufrufe pro Lauf |
 | `LLM_SUMMARIES` | 1 | `0` = keine KI-Kurzfassungen |
 | `BROWSER` | 1 | `0` = ohne Browser-Agent |

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RunLog } from '../src/log';
 import { Llm } from '../src/llm';
+import { configFromEnv } from '../src/config';
 
 const llmCfg = { baseUrl: 'https://ki.test', apiKey: 'test', model: 'test', maxCalls: 50, summaries: true };
 
@@ -59,6 +60,18 @@ describe('KI-Antworten mit kleinen Abweichungen', () => {
     expect(await llm.extractPosting('a', 'b')).toBeNull();
     expect(f.calls()).toBe(1);
     expect(log.text()).toMatch(/KI abgeschaltet/);
+  });
+
+  it('fragt das große Modell ohne Denkmodus', async () => {
+    let body: Record<string, unknown> = {};
+    const impl = (async (_url: string, init?: RequestInit) => {
+      body = JSON.parse(String(init?.body));
+      return Response.json({ choices: [{ message: { content: '{"is_job_posting": true}' }, finish_reason: 'stop' }] });
+    }) as typeof fetch;
+    const cfg = configFromEnv({ LLM_API_KEY: 'test', LLM_MODEL: 'deepseek-chat' }).llm;
+    await new Llm(cfg, new RunLog(false), impl).extractPosting('Text', 'https://x.de');
+    expect(body.model).toBe('deepseek-v4-pro');
+    expect(body.thinking).toEqual({ type: 'disabled' });
   });
 
   it('schreibt höchstens zehn Fehler einzeln ins Protokoll', async () => {

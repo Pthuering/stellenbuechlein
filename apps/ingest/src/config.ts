@@ -1,5 +1,7 @@
 // Einstellungen der Einsammel-Pipeline aus Umgebungsvariablen (siehe docs/BETRIEB.md).
 
+import { bigModel } from '@stellen/core';
+
 export interface IngestConfig {
   userAgent: string;
   uaToken: string;
@@ -82,7 +84,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
     llm: {
       baseUrl: env.LLM_BASE_URL ?? 'https://api.deepseek.com',
       apiKey: env.LLM_API_KEY || env.DEEPSEEK_API_KEY || null,
-      model: env.LLM_MODEL ?? 'deepseek-chat',
+      model: bigModel(env.LLM_MODEL),
       maxCalls: num(env.LLM_MAX_CALLS, 900),
       summaries: (env.LLM_SUMMARIES ?? '1') !== '0',
     },

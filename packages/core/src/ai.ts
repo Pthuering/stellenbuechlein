@@ -10,6 +10,26 @@ export interface AiMessage {
   content: string;
 }
 
+/** Die App nutzt immer das große Modell, nie Flash. */
+export const DEFAULT_LLM_MODEL = 'deepseek-v4-pro';
+
+/**
+ * Ersetzt Flash-Modelle und die alten Namen deepseek-chat und deepseek-reasoner (zeigen seit Juli 2026
+ * auf Flash) durch das große Modell. Modelle anderer Anbieter bleiben, wie sie sind.
+ */
+export function bigModel(model: string | null | undefined): string {
+  const m = (model ?? '').trim();
+  return !m || /flash|^deepseek-(chat|reasoner)$/i.test(m) ? DEFAULT_LLM_MODEL : m;
+}
+
+/**
+ * Bei DeepSeek ist der Denkmodus standardmäßig an. Für kurze, strukturierte Aufgaben wird er abgeschaltet;
+ * andere OpenAI-kompatible Dienste bekommen den Parameter nicht (sie lehnen unbekannte Felder ab).
+ */
+export function withoutThinking(baseUrl: string): { thinking?: { type: 'disabled' } } {
+  return /deepseek\.com/i.test(baseUrl) ? { thinking: { type: 'disabled' } } : {};
+}
+
 /** Suchbegriffe: Liste oder Text mit Kommas, zu kurze und zu lange fallen weg. */
 const terms = (max: number) =>
   z

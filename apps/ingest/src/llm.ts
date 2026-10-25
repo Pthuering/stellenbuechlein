@@ -3,7 +3,7 @@
 // Browser-Agent braucht eine Entscheidung, Kurzfassung für die Karte.
 
 import { z } from 'zod';
-import { INSTITUTION_KINDS } from '@stellen/core';
+import { INSTITUTION_KINDS, withoutThinking } from '@stellen/core';
 import type { IngestConfig } from './config';
 import type { RunLog } from './log';
 
@@ -55,6 +55,7 @@ export class Llm {
         headers: { authorization: `Bearer ${this.cfg.apiKey}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           model: this.cfg.model,
+          ...withoutThinking(this.cfg.baseUrl),
           messages,
           temperature: 0,
           max_tokens: maxTokens,

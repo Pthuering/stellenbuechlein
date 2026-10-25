@@ -40,7 +40,8 @@ GITHUB_WORKFLOW = "einsammeln.yml"
 GITHUB_CHECK_WORKFLOW = "quelle-pruefen.yml"
 # Optional: KI im Worker für Brücken-Vorschläge im Horizont (OpenAI-kompatibel, Standard DeepSeek)
 LLM_BASE_URL = "https://api.deepseek.com"
-LLM_MODEL = "deepseek-chat"
+# Immer das große Modell: Flash und die alten Namen deepseek-chat/deepseek-reasoner werden ersetzt (packages/core/src/ai.ts).
+LLM_MODEL = "deepseek-v4-pro"
 
 # Geheimnisse (nicht hier eintragen!):
 #   npx wrangler secret put APP_KEY      – Schlüssel für die App

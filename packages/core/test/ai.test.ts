@@ -1,6 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { parseBridgeSuggestions, toSuggestedBridges } from '../src/ai';
+import { bigModel, parseBridgeSuggestions, toSuggestedBridges, withoutThinking } from '../src/ai';
 import { starterProfile } from '../src/profile';
+
+describe('Modellwahl', () => {
+  it('nutzt immer das große Modell, nie Flash', () => {
+    for (const m of [undefined, '', 'deepseek-chat', 'deepseek-reasoner', 'deepseek-flash', 'deepseek-v4-flash', 'DeepSeek-V4.1-Flash-1017']) {
+      expect(bigModel(m)).toBe('deepseek-v4-pro');
+    }
+    expect(bigModel('deepseek-v4-pro')).toBe('deepseek-v4-pro');
+    expect(bigModel('gpt-5')).toBe('gpt-5');
+  });
+
+  it('schaltet den Denkmodus nur bei DeepSeek ab', () => {
+    expect(withoutThinking('https://api.deepseek.com')).toEqual({ thinking: { type: 'disabled' } });
+    expect(withoutThinking('https://api.openai.com/v1')).toEqual({});
+  });
+});
 
 describe('Brücken-Vorschläge der KI', () => {
   it('behält brauchbare Brücken und lässt einzelne unbrauchbare weg', () => {

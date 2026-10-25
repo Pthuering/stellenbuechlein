@@ -36,6 +36,7 @@ import {
   type Db,
 } from '@stellen/db';
 import {
+  bigModel,
   bridgeSuggestionMessages,
   canonicalUrl,
   INSTITUTION_KINDS,
@@ -44,6 +45,7 @@ import {
   siteKeyOf,
   starterProfile,
   toSuggestedBridges,
+  withoutThinking,
   type Institution,
   type InstitutionKind,
   type Source,
@@ -476,13 +478,15 @@ export function createApp(deps: AppDeps): Hono {
     if (!env.LLM_API_KEY) return c.json({ error: 'Für Vorschläge braucht der Worker einen KI-Schlüssel (LLM_API_KEY).' }, 501);
     const body = (await c.req.json().catch(() => null)) as { profile?: unknown } | null;
     const profile = parseProfile(body?.profile) ?? parseProfile(await getSetting<unknown>(deps.db(c), 'profile', null)) ?? starterProfile();
+    const baseUrl = (env.LLM_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
     // Zwei Versuche: DeepSeek liefert im JSON-Modus gelegentlich eine leere Antwort.
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const res = await fetch(`${(env.LLM_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '')}/chat/completions`, {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { authorization: `Bearer ${env.LLM_API_KEY}`, 'content-type': 'application/json' },
         body: JSON.stringify({
-          model: env.LLM_MODEL ?? 'deepseek-chat',
+          model: bigModel(env.LLM_MODEL),
+          ...withoutThinking(baseUrl),
           messages: bridgeSuggestionMessages(profile),
           temperature: 0.7,
           max_tokens: 3000,
