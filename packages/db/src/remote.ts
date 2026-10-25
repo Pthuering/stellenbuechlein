@@ -1,6 +1,7 @@
 // Fernzugriff auf die D1-Datenbank über den eigenen Worker (POST /api/ingest/sql).
 // So braucht die Einsammel-Pipeline (z. B. in GitHub Actions) nur API-Adresse und INGEST_KEY,
-// keinen Cloudflare-API-Token.
+// keinen Cloudflare-API-Token. Leerer Schlüssel: ohne Kopfzeile, weil ein Proxy sie anhängt
+// (Netzwerk-Secret einer Claude-Cloud-Umgebung; die Sitzung sieht den Schlüssel dann nie).
 
 import type { Db, Row, Stmt } from './db';
 
@@ -14,7 +15,7 @@ export class RemoteDb implements Db {
   private async call<T>(body: unknown, attempt = 0): Promise<T> {
     const res = await this.fetchImpl(`${this.baseUrl.replace(/\/$/, '')}/api/ingest/sql`, {
       method: 'POST',
-      headers: { authorization: `Bearer ${this.key}`, 'content-type': 'application/json' },
+      headers: { ...(this.key ? { authorization: `Bearer ${this.key}` } : {}), 'content-type': 'application/json' },
       body: JSON.stringify(body),
     });
     if (res.status >= 500 && attempt < 3) {

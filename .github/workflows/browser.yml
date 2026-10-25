@@ -2,7 +2,8 @@
 # oder die beim Einsammeln unvollständig waren. Der tägliche Lauf schafft davon nur 30 (Zeitgrenze von
 # 120 Minuten, Actions-Minuten). Nach einem großen Lauf hier über „Run workflow“ starten.
 # Läuft nie gleichzeitig mit dem Einsammeln (gemeinsame Warteschlange).
-# Benötigte Secrets wie beim Einsammeln: API_URL, INGEST_KEY, optional DEEPSEEK_API_KEY.
+# Ohne KI: Die Seiten werden dargestellt und gelesen, ihre KI-Arbeit landet in der Warteschlange für Claude.
+# Benötigte Secrets: API_URL, INGEST_KEY.
 
 name: Browser-Warteschlange
 
@@ -25,7 +26,6 @@ jobs:
     env:
       API_URL: ${{ secrets.API_URL }}
       INGEST_KEY: ${{ secrets.INGEST_KEY }}
-      LLM_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
       BROWSER_MAX_ITEMS: ${{ inputs.seiten }}
       # Nach 105 Minuten (RUN_BUDGET_MIN) beginnt er keine Seite mehr; der Rest bleibt in der Warteschlange
       BROWSER_BUDGET_MS: '6300000'

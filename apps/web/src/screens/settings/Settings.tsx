@@ -108,6 +108,7 @@ const t = texts({
     dailyDemo: 'Täglich gegen 12 Uhr, in der Demo nicht',
     dailyTrigger: 'Täglich gegen 12 Uhr, mit mindestens drei Anzeigen von neuen Websites. Oder jetzt sofort.',
     dailyNoTrigger: 'Täglich gegen 12 Uhr. Für „Jetzt“ braucht der Worker ein GitHub-Token.',
+    aiQueue: (n: number) => (n === 1 ? '1 Anzeige wartet auf die Aufbereitung durch Claude.' : `${n} Anzeigen warten auf die Aufbereitung durch Claude.`),
     now: 'Jetzt',
     sync: 'Abgleich mit dem Server',
     syncDemo: 'Demo: alles bleibt in diesem Browser',
@@ -207,6 +208,7 @@ const t = texts({
     dailyDemo: 'Daily around noon; not in the demo',
     dailyTrigger: 'Daily around noon, with at least three postings from new websites. Or right now.',
     dailyNoTrigger: 'Daily around noon. For “Now”, the Worker needs a GitHub token.',
+    aiQueue: (n) => (n === 1 ? '1 posting is waiting for Claude to process it.' : `${n} postings are waiting for Claude to process them.`),
     now: 'Now',
     sync: 'Sync with the server',
     syncDemo: 'Demo: everything stays in this browser',
@@ -306,6 +308,7 @@ const t = texts({
     dailyDemo: 'Svaki dan oko podneva, u demu ne',
     dailyTrigger: 'Svaki dan oko podneva, sa najmanje tri oglasa sa novih sajtova. Ili odmah.',
     dailyNoTrigger: 'Svaki dan oko podneva. Za „Sada“ je Workeru potreban GitHub token.',
+    aiQueue: (n) => `Na obradu kod Claude-a čeka ${n} ${srForm(n, 'oglas', 'oglasa', 'oglasa')}.`,
     now: 'Sada',
     sync: 'Sinhronizacija sa serverom',
     syncDemo: 'Demo: sve ostaje u ovom pregledaču',
@@ -638,7 +641,15 @@ function SettingsHome() {
           <div className="setting setting--static">
             <span className="setting__label">
               {t.collecting}
-              <small>{s.demo ? t.dailyDemo : s.ingestTrigger ? t.dailyTrigger : t.dailyNoTrigger}</small>
+              <small>
+                {s.demo ? t.dailyDemo : s.ingestTrigger ? t.dailyTrigger : t.dailyNoTrigger}
+                {!s.demo && s.kiWarteschlange > 0 && (
+                  <>
+                    <br />
+                    {t.aiQueue(s.kiWarteschlange)}
+                  </>
+                )}
+              </small>
             </span>
             {!s.demo && s.ingestTrigger && (
               <button type="button" className="btn btn--small" disabled={triggering} onClick={() => void trigger()}>

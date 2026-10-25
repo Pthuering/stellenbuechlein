@@ -79,6 +79,9 @@ import {
   type JobIndexEntry,
   type JobWrite,
   type Stmt,
+  enqueueAiTaskStmt,
+  NOT_A_POSTING,
+  type AiTaskKind,
 } from '@stellen/db';
 import type { IngestConfig } from './config';
 import { RunLog, errText } from './log';
@@ -124,6 +127,8 @@ type BrowserItem = Awaited<ReturnType<typeof nextBrowserItems>>[number];
 /** Ergebnis der Einordnung einer Anzeige ohne Psychologie-Bezug. */
 type OutsideDecision =
   | { lane: Exclude<Lane, 'kern'>; horizon: JobHorizon }
+  /** Weite ohne KI im Lauf: Claude urteilt später, gespeichert wird erst bei „passt“ oder „eher“ */
+  | { pendingWeite: true }
   | { skip: 'grobfilter' | 'ki-nein'; note: string | null }
   | { defer: string };
 
@@ -133,7 +138,7 @@ interface JobMeta {
   isNew: boolean;
 }
 
-const GENERIC_TITLE = /^(?:stellenangebote?|stellenausschreibung(?:en)?|stellenanzeige|jobs?|job ?details?|karriere|ausschreibung|startseite|home|details?|anzeige|offene stellen|stellenmarkt|vacancies|job offer|position)$/i;
+export const GENERIC_TITLE = /^(?:stellenangebote?|stellenausschreibung(?:en)?|stellenanzeige|jobs?|job ?details?|karriere|ausschreibung|startseite|home|details?|anzeige|offene stellen|stellenmarkt|vacancies|job offer|position)$/i;
 const GENERIC_WORDS = new Set(['wissenschaftliche', 'wissenschaftlicher', 'wissenschaftlichen', 'mitarbeiter', 'mitarbeiterin', 'mitarbeitende', 'stelle', 'position', 'research', 'associate', 'in', 'r', 'm', 'w', 'd', 'f', 'x', 'und', 'oder', 'der', 'die', 'das', 'fuer', 'im', 'am', 'zur', 'zum', 'e', 'tv', 'l']);
 
 function significantWords(title: string): number {
@@ -142,7 +147,7 @@ function significantWords(title: string): number {
     .filter((w) => w.length > 2 && !GENERIC_WORDS.has(w) && !/^\d+$/.test(w)).length;
 }
 
-function cleanTitle(t: string | null | undefined): string {
+export function cleanTitle(t: string | null | undefined): string {
   if (!t) return '';
   let s = t.replace(/\s+/g, ' ').trim();
   s = s.replace(/\s+[|–—]\s+[^|–—]{3,80}$/, ''); // " | Universität X"
@@ -175,6 +180,8 @@ export class Pipeline {
   private gateHash = '';
   private gateSkips = new Map<string, string>();
   private primaryOk = new Map<string, string[]>();
+  /** KI-Arbeit je Anzeige, bis die Anzeige gespeichert oder verworfen ist (queueAi, flushAi) */
+  private pendingAi = new Map<string, { art: AiTaskKind; payload: unknown }[]>();
   /** Echte Startzeit für das Zeitbudget (now kann in Tests ein festes Datum sein). */
   private readonly startedMs = Date.now();
   private healthWarnings = new Map<string, string>();
@@ -258,7 +265,7 @@ export class Pipeline {
     this.gateSkips = skips;
     this.gateTerms = gateTerms?.length ? gateTerms : DEFAULT_GATE_TERMS;
     // Ändern sich Grobfilter, Brücken oder Weite, wird Aussortiertes beim nächsten Fund neu geprüft.
-    this.gateHash = hash64(`${this.gateTerms.join('|')}#${horizonGateHash(this.profile)}#${this.llm.available ? 'ki' : 'regeln'}`);
+    this.gateHash = gateHashFor(this.gateTerms, this.profile, this.llm.available);
     const bridges = this.horizon.bruecken.filter((b) => b.aktiv).length;
     this.log.info(`${insts.length} Einrichtungen, ${sources.length} aktive Quellen, ${index.length} bekannte Anzeigen, ${this.registry.size} Websites im Register.`);
     this.log.info(`Horizont: ${bridges} aktive Brücken, Weite ${this.horizon.weite ? (this.llm.available ? 'an' : 'an, aber ohne KI-Schlüssel nicht möglich') : 'aus'}.`);
@@ -470,13 +477,14 @@ export class Pipeline {
       if (!job) return null;
       if (job.contentHash !== existing.contentHash || (existing.completeness === 'teilweise' && job.completeness === 'ok')) {
         stmts.push(this.replaceContentStmt(existing.id, job));
+        this.flushAi(job.id, stmts, existing.id);
         existing.contentHash = job.contentHash;
         existing.completeness = job.completeness;
         this.bump('aktualisiert');
-      }
+      } else this.dropAi(job.id);
       return null;
     }
-    if (this.gateSkips.get(canon) === this.gateHash) {
+    if (this.gateSkips.get(canon) === this.gateHash || this.gateSkips.get(canon) === NOT_A_POSTING) {
       this.bump('grobfilterBekannt');
       return null;
     }
@@ -493,6 +501,7 @@ export class Pipeline {
     }
     const norm = searchTextOf({ title: data.title, descriptionMd: data.descriptionMd });
     const gate = checkGate(norm, this.gateTerms);
+    const jobId = jobIdForUrl(data.url || c.url);
     let meta: JobMeta = { lane: 'kern', horizon: null, isNew: true };
     if (source.gate === 'psych' && !gate.pass) {
       if (!data.complete && this.pool) {
@@ -501,9 +510,13 @@ export class Pipeline {
         this.bump('browserVorgemerkt');
         return null;
       }
-      const d = await this.decideOutside(norm, data);
+      const d = await this.decideOutside(norm, data, jobId);
       if ('defer' in d) {
         this.bump('weiteVerschoben');
+        return null;
+      }
+      if ('pendingWeite' in d) {
+        await this.queueWeite(source, c, data, gate.matched, stmts);
         return null;
       }
       if ('skip' in d) {
@@ -514,15 +527,17 @@ export class Pipeline {
       }
       meta = { lane: d.lane, horizon: d.horizon, isNew: true };
     } else {
-      meta = { lane: 'kern', horizon: await this.horizonForCore(norm, data), isNew: true };
+      meta = { lane: 'kern', horizon: await this.horizonForCore(norm, data, jobId), isNew: true };
     }
     const job = await this.buildJob(source, c, data, gate.matched, meta);
     if (!job) {
+      this.dropAi(jobId);
       this.bump('keineAnzeige');
       return null;
     }
     const dup = this.findDuplicate(job, source.id);
     if (dup) {
+      this.dropAi(job.id);
       this.bump('dubletten');
       stmts.push(markSeenStmt(dup.id, this.now), touchJobSourceStmt(dup.id, source.id, c.url, this.now));
       this.index.set(canon, dup);
@@ -535,6 +550,7 @@ export class Pipeline {
     }
     if (source.kind === 'portal' && job.institutionId) this.portalHealth(job, source);
     stmts.push(upsertJobStmt(job), touchJobSourceStmt(job.id, source.id, c.url, this.now));
+    this.flushAi(job.id, stmts);
     this.indexJob(job, [c.url]);
     this.sourcesByJob.set(job.id, new Set([source.id]));
     this.bump('neu');
@@ -553,17 +569,54 @@ export class Pipeline {
     return job;
   }
 
+  // ---------------------------------------------------------------- KI-Warteschlange (Claude)
+
+  /** Ohne KI im Lauf: merkt sich KI-Arbeit für eine Anzeige; gespeichert wird sie zusammen mit der Anzeige. */
+  private queueAi(jobId: string, art: AiTaskKind, payload: unknown = null): void {
+    const list = this.pendingAi.get(jobId) ?? [];
+    if (!list.some((t) => t.art === art)) list.push({ art, payload });
+    this.pendingAi.set(jobId, list);
+  }
+
+  private flushAi(jobId: string, stmts: Stmt[], targetId = jobId): void {
+    for (const t of this.pendingAi.get(jobId) ?? []) {
+      stmts.push(enqueueAiTaskStmt(t.art, targetId, t.payload, this.now));
+      this.bump('kiAufgaben');
+    }
+    this.pendingAi.delete(jobId);
+  }
+
+  private dropAi(jobId: string): void {
+    this.pendingAi.delete(jobId);
+  }
+
+  /**
+   * Weite ohne KI im Lauf: Die fertige Anzeige wartet in der Aufgabe, bis Claude urteilt. Bei „passt“ oder
+   * „eher“ wird sie gespeichert, dann folgen auch ihre übrigen Aufgaben (auswerten, frist).
+   */
+  private async queueWeite(source: Source, c: Candidate, data: PostingData, psychTerms: string[], stmts: Stmt[]): Promise<void> {
+    const job = await this.buildJob(source, c, data, psychTerms, { lane: 'weite', horizon: { bridges: [], label: null, reason: null, verdict: null }, isNew: true });
+    if (!job) return;
+    const folge = this.pendingAi.get(job.id) ?? [];
+    this.dropAi(job.id);
+    stmts.push(enqueueAiTaskStmt('weite', job.id, { job, sourceId: source.id, url: c.url, folge }, this.now));
+    this.bump('weiteWartet');
+  }
+
   /**
    * Hat der breite Grobfilter eine Anzeige durchgelassen, die keines deiner Kernthemen trifft, aber über eine
    * Brücke passt (z. B. „UX Researcher“ ohne Psychologie im Text), zeigt die App sie als Horizont-Karte.
    * Die KI liefert dafür den Satz „Warum das passen könnte“ – oder „nein“, dann wird sie nicht eingestreut.
    */
-  private async horizonForCore(norm: string, data: PostingData): Promise<JobHorizon | null> {
+  private async horizonForCore(norm: string, data: PostingData, jobId: string): Promise<JobHorizon | null> {
     if (isThematic({ kind: classifyKind(data.title, data.descriptionMd) }, norm, this.profile)) return null;
     const hits = matchBridges(norm, this.horizon);
     if (hits.length === 0) return null;
     const bridges = hits.map((h) => h.bridge.id);
-    if (!this.llm.available) return { bridges, label: hits[0].bridge.name };
+    if (!this.llm.available) {
+      this.queueAi(jobId, 'horizont', { bruecke: hits[0].bridge.name, warum: hits[0].bridge.warum ?? null });
+      return { bridges, label: hits[0].bridge.name };
+    }
     const v = await this.llm.horizonVerdict(this.summaryForAi, { title: data.title, org: data.hiringOrg ?? null, text: stripMarkdown(data.descriptionMd) }, { name: hits[0].bridge.name, warum: hits[0].bridge.warum });
     if (v) this.bump('horizontKiKern');
     return { bridges, label: v?.label ?? hits[0].bridge.name, reason: v?.reason_de ?? null, verdict: v?.verdict ?? null };
@@ -573,19 +626,22 @@ export class Pipeline {
    * Anzeige ohne Psychologie-Bezug aus einer breiten Quelle: Horizont (Brücke passt), Weite (KI hält die
    * Fähigkeiten für übertragbar) oder aussortieren. Völlig Fremdes sortiert die KI aus („nein“).
    */
-  private async decideOutside(norm: string, data: PostingData): Promise<OutsideDecision> {
+  private async decideOutside(norm: string, data: PostingData, jobId: string): Promise<OutsideDecision> {
     const posting = { title: data.title, org: data.hiringOrg ?? null, text: stripMarkdown(data.descriptionMd) };
     const hits = matchBridges(norm, this.horizon);
     if (hits.length > 0) {
       const bridges = hits.map((h) => h.bridge.id);
-      if (!this.llm.available) return { lane: 'horizont', horizon: { bridges, label: hits[0].bridge.name } };
+      if (!this.llm.available) {
+        this.queueAi(jobId, 'horizont', { bruecke: hits[0].bridge.name, warum: hits[0].bridge.warum ?? null, aussen: true });
+        return { lane: 'horizont', horizon: { bridges, label: hits[0].bridge.name } };
+      }
       const v = await this.llm.horizonVerdict(this.summaryForAi, posting, { name: hits[0].bridge.name, warum: hits[0].bridge.warum });
       if (v?.verdict === 'nein') return { skip: 'ki-nein', note: v.reason_de };
       return { lane: 'horizont', horizon: { bridges, label: v?.label ?? hits[0].bridge.name, reason: v?.reason_de ?? null, verdict: v?.verdict ?? null } };
     }
     const w = weiteCandidate(norm, this.profile);
     if (!w) return { skip: 'grobfilter', note: null };
-    if (!this.llm.available) return { skip: 'grobfilter', note: null };
+    if (!this.llm.available) return { pendingWeite: true };
     if (this.weiteChecks >= this.cfg.horizon.maxWeiteChecks) return { defer: 'Weite-Kontingent für diesen Lauf aufgebraucht' };
     this.weiteChecks++;
     const v = await this.llm.horizonVerdict(this.summaryForAi, posting, null);
@@ -669,7 +725,10 @@ export class Pipeline {
     let summary: string | null = null;
     let summaryAi = false;
 
+    const url = data.url || c.url;
+    const jobId = jobIdForUrl(url);
     const titleMissing = !title || title.length < 6 || GENERIC_TITLE.test(title);
+    if (!this.llm.available && (titleMissing || this.cfg.llm.summaries)) this.queueAi(jobId, 'auswerten', titleMissing ? { titelFehlt: true } : null);
     if (this.llm.available && (titleMissing || this.cfg.llm.summaries)) {
       const r = await this.llm.extractPosting(plain, data.url);
       if (r) {
@@ -689,17 +748,16 @@ export class Pipeline {
     }
     if (!title || GENERIC_TITLE.test(title)) title = title || c.title || 'Stellenausschreibung';
     summary = summary ?? heuristicSummary(data.descriptionMd);
-    const dl = await this.checkDeadline(plain, fields, data, postedAt, meta.isNew);
+    const dl = await this.checkDeadline(plain, fields, data, postedAt, meta.isNew, jobId);
 
     const institutionId = source.institutionId ?? this.instMatcher.match(data.hiringOrg, data.hiringOrgUrl ?? data.url);
     const inst = institutionId ? this.institutions.get(institutionId) : undefined;
     const placeCity = this.cityMatcher.match(data.locationText);
     const cityId = placeCity ?? inst?.cityId ?? null;
-    const url = data.url || c.url;
     const foundVia: FoundVia = source.id === this.exploreSource.id ? 'erkundung' : source.kind === 'portal' ? 'portal' : 'quelle';
     const newSite = !this.registry.known(url, institutionId, data.hiringOrg ?? c.hints?.org ?? null);
     const job: JobWrite = {
-      id: jobIdForUrl(url),
+      id: jobId,
       institutionId,
       url,
       canonicalUrl: canonicalUrl(url),
@@ -755,7 +813,7 @@ export class Pipeline {
    * Frist absichern: Regeln, Plausibilität, bei Zweifeln die KI mit wörtlichem Zitat.
    * Ergebnis: nie eine erfundene Frist, unklare Fälle sichtbar als „unsicher“.
    */
-  private async checkDeadline(plain: string, fields: ReturnType<typeof extractFields>, data: PostingData, postedAt: string | null, isNew: boolean): Promise<DeadlineAssessment> {
+  private async checkDeadline(plain: string, fields: ReturnType<typeof extractFields>, data: PostingData, postedAt: string | null, isNew: boolean, jobId: string): Promise<DeadlineAssessment> {
     let dl = assessDeadline({
       iso: fields.deadline,
       raw: fields.deadlineText,
@@ -767,7 +825,9 @@ export class Pipeline {
       isNew,
     });
     const hint = !fields.deadline && !fields.deadlineUnclear && /bewerbungsfrist|bewerbungsschluss|einsendeschluss|deadline|closing date|bis zum|bis sp[äa]testens/i.test(plain);
-    if (!this.llm.available || !(dl.review || (hint && isNew))) {
+    const needsAi = dl.review || (hint && isNew);
+    if (!this.llm.available || !needsAi) {
+      if (needsAi) this.queueAi(jobId, 'frist', { gefunden: fields.deadline ?? fields.deadlineUnclear ?? null });
       if (dl.check === 'unsicher') this.bump('fristUnsicher');
       return dl;
     }
@@ -871,7 +931,7 @@ export class Pipeline {
       // Nur Unbekanntes: weder als Anzeige noch als Website im Register
       const fresh = cands.filter((c) => {
         const canon = canonicalUrl(c.url);
-        if (tried.has(canon) || this.index.has(canon) || this.gateSkips.get(canon) === this.gateHash) return false;
+        if (tried.has(canon) || this.index.has(canon) || this.gateSkips.get(canon) === this.gateHash || this.gateSkips.get(canon) === NOT_A_POSTING) return false;
         tried.add(canon);
         const inst = this.instMatcher.match(c.hints?.org ?? null, c.url);
         return !this.registry.known(c.url, inst, c.hints?.org ?? null);
@@ -972,8 +1032,11 @@ export class Pipeline {
         const gate = checkGate(norm, this.gateTerms);
         let meta: JobMeta | null = { lane: 'kern', horizon: null, isNew: !existing };
         if (!existing && source.gate === 'psych' && !gate.pass) {
-          const d = await this.decideOutside(norm, res.data);
-          if ('skip' in d) {
+          const d = await this.decideOutside(norm, res.data, jobIdForUrl(item.url));
+          if ('pendingWeite' in d) {
+            await this.queueWeite(source, { url: item.url, via: 'browser' }, res.data, gate.matched, stmts);
+            meta = null;
+          } else if ('skip' in d) {
             stmts.push(gateSkipStmt({ url: canon, sourceId: source.id, institutionId: source.institutionId, title: truncate(res.data.title, 200), textHash: this.gateHash, reason: d.skip, note: d.note }, this.now));
             this.bump(d.skip === 'ki-nein' ? 'kiNein' : 'grobfilter');
             meta = null;
@@ -985,12 +1048,15 @@ export class Pipeline {
         }
         if (meta) {
           const job = await this.buildJob(source, { url: item.url, via: 'browser' }, res.data, gate.matched, meta);
+          if (!job) this.dropAi(jobIdForUrl(item.url));
           if (job) {
             if (existing) {
               stmts.push(this.replaceContentStmt(existing.id, job));
+              this.flushAi(job.id, stmts, existing.id);
               this.bump('browserVervollstaendigt');
             } else {
               stmts.push(upsertJobStmt(job), touchJobSourceStmt(job.id, source.id, item.url, this.now));
+              this.flushAi(job.id, stmts);
               this.indexJob(job);
               this.bump('browserNeu');
               if (job.newSite) {
@@ -1010,6 +1076,11 @@ export class Pipeline {
     }
     await this.db.batch(stmts);
   }
+}
+
+/** Kennung für Grobfilter, Brücken und Weite: Ändert sie sich, wird Aussortiertes beim nächsten Fund neu geprüft. */
+export function gateHashFor(gateTerms: string[], profile: Suchprofil, ki: boolean): string {
+  return hash64(`${gateTerms.join('|')}#${horizonGateHash(profile)}#${ki ? 'ki' : 'regeln'}`);
 }
 
 export async function runPipeline(db: Db, cfg: IngestConfig, opts: PipelineOptions = {}, log?: RunLog): Promise<RunStats> {

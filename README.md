@@ -36,7 +36,7 @@ data/seed     Startliste: 160 Städte, 531 Einrichtungen mit 620 Stellenseiten (
 data/dummy    erfundene Anzeigen für die Demo
 ```
 
-Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Die Website liefert Cloudflare aus; GitHub hält nur den Code und die Sammel-Läufe. Geld kosten nur die KI, je nach Anzahl neuer Anzeigen Cent-Beträge pro Lauf (DeepSeek-API, austauschbar). Ohne KI läuft alles regelbasiert, nur die Weite und die KI-Urteile fallen weg.
+Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Die Website liefert Cloudflare aus; GitHub hält nur den Code und die Sammel-Läufe. Die Anzeigen bereitet täglich Claude auf (Cloud-Aufgabe mit Haiku über ein Claude-Abo, siehe docs/BETRIEB.md, Schritt 4b); das Einsammeln selbst arbeitet ohne KI. Geld kostet nur die KI in der App (KI-Assistent, Brücken-Vorschläge, Probelauf; DeepSeek-API, austauschbar).
 
 ## Schnell ausprobieren
 

@@ -215,6 +215,7 @@ export class DemoBackend implements Backend {
       serverTime: new Date().toISOString(),
       vapidPublicKey: null,
       ingestTrigger: false,
+      kiWarteschlange: 0,
       aiSuggest: true,
     };
   }

@@ -4,6 +4,7 @@ import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import {
   addPushSubscription,
+  countOpenAiTasks,
   createSourceCheck,
   deletedSince,
   getSetting,
@@ -224,7 +225,7 @@ export function createApp(deps: AppDeps): Hono {
   // Alles, was die App beim Start braucht (außer den Anzeigen selbst).
   app.get('/api/bootstrap', async (c) => {
     const db = deps.db(c);
-    const [institutions, cities, marks, favorites, settings, runs, sources] = await Promise.all([
+    const [institutions, cities, marks, favorites, settings, runs, sources, kiOffen] = await Promise.all([
       listInstitutions(db),
       listCities(db),
       listMarks(db),
@@ -232,6 +233,7 @@ export function createApp(deps: AppDeps): Hono {
       getSettings(db),
       listRuns(db, 3),
       listSources(db),
+      countOpenAiTasks(db),
     ]);
     const enabled = sources.filter((s) => s.enabled);
     return c.json({
@@ -251,6 +253,7 @@ export function createApp(deps: AppDeps): Hono {
       vapidPublicKey: deps.env(c).VAPID_PUBLIC_KEY ?? null,
       ingestTrigger: !!(deps.env(c).GITHUB_TOKEN && deps.env(c).GITHUB_REPO),
       aiSuggest: !!deps.env(c).LLM_API_KEY,
+      kiWarteschlange: Object.values(kiOffen).reduce((a, b) => a + b, 0),
     });
   });
 

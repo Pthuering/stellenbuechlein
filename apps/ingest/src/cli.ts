@@ -13,7 +13,7 @@
 // Datenbank: lokal eine SQLite-Datei (--db, Standard ./stellen.sqlite im Repo),
 // in Produktion der Worker (Umgebungsvariablen API_URL und INGEST_KEY).
 
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RemoteDb, type Db } from '@stellen/db';
@@ -32,7 +32,8 @@ import { applySeed } from './seed';
 import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
 import { processPendingChecks, runSourceCheck } from './sourceCheck';
-import { listCities, listInstitutions, listSources, openBrowserItemCount } from '@stellen/db';
+import { backfillAiTasks, countOpenAiTasks, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
+import { exportAiTasks, importAiResults } from './aiTasks';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
 
@@ -50,8 +51,10 @@ function option(name: string): string | undefined {
 
 function openDb(): Db {
   if (process.env.API_URL && process.env.INGEST_KEY && !option('db')) {
-    console.log(`Datenbank: Worker ${process.env.API_URL}`);
-    return new RemoteDb(process.env.API_URL, process.env.INGEST_KEY);
+    // INGEST_KEY=proxy: Der Schlüssel kommt vom Proxy der Claude-Cloud-Umgebung (Netzwerk-Secret)
+    const viaProxy = process.env.INGEST_KEY === 'proxy';
+    console.log(`Datenbank: Worker ${process.env.API_URL}${viaProxy ? ' (Schlüssel über Proxy)' : ''}`);
+    return new RemoteDb(process.env.API_URL, viaProxy ? '' : process.env.INGEST_KEY);
   }
   const path = resolve(option('db') ?? resolve(here, '../../../stellen.sqlite'));
   console.log(`Datenbank: ${path}`);
@@ -141,6 +144,41 @@ async function main(): Promise<void> {
       await probeSources(cfg, { n: Number(option('n') ?? 60), kind: option('kind'), only: option('only')?.split(','), json: option('json') });
       break;
     }
+    // KI-Warteschlange für Claude (Skill .claude/skills/ki-aufgaben): Stand, Paket ausgeben, Ergebnisse einspielen
+    case 'ki-status': {
+      const db = openDb();
+      const n = await countOpenAiTasks(db);
+      const sum = Object.values(n).reduce((a, b) => a + b, 0);
+      console.log(`KI-Aufgaben offen: ${sum} (auswerten ${n.auswerten}, frist ${n.frist}, horizont ${n.horizont}, weite ${n.weite})`);
+      break;
+    }
+    case 'ki-nachholen': {
+      const db = openDb();
+      const r = await backfillAiTasks(db);
+      console.log(`Neu in der Warteschlange: auswerten ${r.auswerten}, frist ${r.frist}`);
+      break;
+    }
+    case 'ki-export': {
+      const db = openDb();
+      const out = resolve(option('out') ?? '.ki/paket.json');
+      const arten = option('art')?.split(',') as AiTaskKind[] | undefined;
+      const pkg = await exportAiTasks(db, { max: Number(option('max') ?? 40), arten });
+      mkdirSync(dirname(out), { recursive: true });
+      writeFileSync(out, JSON.stringify(pkg, null, 1));
+      const by = pkg.aufgaben.reduce<Record<string, number>>((m, t) => ({ ...m, [t.art]: (m[t.art] ?? 0) + 1 }), {});
+      console.log(`${pkg.aufgaben.length} Aufgaben nach ${out} (${Object.entries(by).map(([k, v]) => `${k} ${v}`).join(', ') || 'keine'})`);
+      break;
+    }
+    case 'ki-import': {
+      const db = openDb();
+      const files = args.slice(1).filter((a) => !a.startsWith('--'));
+      if (!files.length) throw new Error('Bitte eine oder mehrere Ergebnis-Dateien angeben.');
+      const results = files.flatMap((f) => JSON.parse(readFileSync(resolve(f), 'utf8')) as { id: number; ergebnis: unknown }[]);
+      const r = await importAiResults(db, results);
+      console.log(`Eingespielt: ${r.erledigt}, entfernt (keine Anzeige oder KI: nein): ${r.entfernt}, Weite gespeichert: ${r.weiteGespeichert}, noch offen: ${r.offen}`);
+      for (const e of r.fehler) console.log(`  Fehler: ${e}`);
+      break;
+    }
     case 'reminders': {
       const db = openDb();
       const n = await sendReminders(db, cfg, new RunLog());
@@ -209,7 +247,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders');
+      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-nachholen | ki-export [--max 40] [--art auswerten,frist] [--out .ki/paket.json] | ki-import <ergebnis.json …>');
       process.exitCode = cmd ? 1 : 0;
   }
 }

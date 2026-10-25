@@ -989,3 +989,84 @@ export async function browserQueueStats(db: Db): Promise<Record<string, number>>
   const rows = await db.all<{ status: string; n: number }>('SELECT status, COUNT(*) AS n FROM browser_queue GROUP BY status');
   return Object.fromEntries(rows.map((r) => [r.status, r.n]));
 }
+
+// ------------------------------------------------------------------ KI-Warteschlange (Claude)
+
+export type AiTaskKind = 'auswerten' | 'frist' | 'horizont' | 'weite';
+
+export interface AiTask {
+  id: number;
+  art: AiTaskKind;
+  jobId: string;
+  payload: unknown;
+  versuche: number;
+}
+
+/** Gate-Skip, der unabhängig vom Profil gilt: Claude hat die Seite als „keine Stellenanzeige“ erkannt. */
+export const NOT_A_POSTING = 'keine-anzeige';
+
+/** Legt eine Aufgabe an; gibt es sie schon (auch erledigt), wird sie wieder geöffnet und der Inhalt erneuert. */
+export function enqueueAiTaskStmt(art: AiTaskKind, jobId: string, payload: unknown, now = nowIso()): Stmt {
+  return {
+    sql: `INSERT INTO ki_aufgaben (art, job_id, payload, status, created_at) VALUES (?, ?, ?, 'offen', ?)
+          ON CONFLICT(art, job_id) DO UPDATE SET payload = excluded.payload, status = 'offen', versuche = 0, ergebnis = NULL, done_at = NULL`,
+    params: [art, jobId, payload == null ? null : JSON.stringify(payload), now],
+  };
+}
+
+export async function listOpenAiTasks(db: Db, limit: number, arten?: AiTaskKind[]): Promise<AiTask[]> {
+  const filter = arten?.length ? ` AND art IN (${arten.map(() => '?').join(', ')})` : '';
+  const rows = await db.all<{ id: number; art: AiTaskKind; job_id: string; payload: string | null; versuche: number }>(
+    `SELECT id, art, job_id, payload, versuche FROM ki_aufgaben WHERE status = 'offen'${filter} ORDER BY id LIMIT ?`,
+    [...(arten ?? []), limit],
+  );
+  return rows.map((r) => ({ id: r.id, art: r.art, jobId: r.job_id, payload: parseJson(r.payload, null), versuche: r.versuche }));
+}
+
+export async function countOpenAiTasks(db: Db): Promise<Record<AiTaskKind, number>> {
+  const rows = await db.all<{ art: AiTaskKind; n: number }>("SELECT art, COUNT(*) AS n FROM ki_aufgaben WHERE status = 'offen' GROUP BY art");
+  const out: Record<AiTaskKind, number> = { auswerten: 0, frist: 0, horizont: 0, weite: 0 };
+  for (const r of rows) out[r.art] = r.n;
+  return out;
+}
+
+export function aiTaskDoneStmt(id: number, ergebnis: unknown, now = nowIso()): Stmt {
+  return { sql: "UPDATE ki_aufgaben SET status = 'erledigt', ergebnis = ?, done_at = ?, payload = NULL WHERE id = ?", params: [JSON.stringify(ergebnis), now, id] };
+}
+
+/** Fehlgeschlagener Versuch; nach drei Versuchen bleibt die Aufgabe als „fehler“ liegen. */
+export function aiTaskFailedStmt(id: number, fehler: string, now = nowIso()): Stmt {
+  return {
+    sql: "UPDATE ki_aufgaben SET versuche = versuche + 1, ergebnis = ?, status = CASE WHEN versuche + 1 >= 3 THEN 'fehler' ELSE 'offen' END, done_at = ? WHERE id = ?",
+    params: [JSON.stringify({ fehler }), now, id],
+  };
+}
+
+/**
+ * Legt Aufgaben für Anzeigen an, die ohne KI erfasst wurden: auswerten für alle offenen ohne KI-Kurzfassung,
+ * frist für unsichere Fristen. Vorhandene Aufgaben (auch erledigte) bleiben unberührt.
+ */
+export async function backfillAiTasks(db: Db, now = nowIso()): Promise<{ auswerten: number; frist: number }> {
+  const a = await db.run(
+    "INSERT INTO ki_aufgaben (art, job_id, status, created_at) SELECT 'auswerten', id, 'offen', ? FROM jobs WHERE status = 'aktiv' AND summary_ai = 0 ON CONFLICT(art, job_id) DO NOTHING",
+    [now],
+  );
+  const f = await db.run(
+    "INSERT INTO ki_aufgaben (art, job_id, status, created_at) SELECT 'frist', id, 'offen', ? FROM jobs WHERE status = 'aktiv' AND deadline_check = 'unsicher' ON CONFLICT(art, job_id) DO NOTHING",
+    [now],
+  );
+  return { auswerten: a.changes, frist: f.changes };
+}
+
+/** Entfernt eine Anzeige samt Quellen-Verweisen; die App räumt sie über den Grabstein auf. Markierte bleiben. */
+export async function removeJobIfUnmarked(db: Db, id: string, now = nowIso()): Promise<boolean> {
+  const marked = await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM marks WHERE job_id = ? AND (decision = 'gemerkt' OR star = 1 OR applied_at IS NOT NULL)", [id]);
+  if ((marked?.n ?? 0) > 0) return false;
+  await db.batch([
+    { sql: 'DELETE FROM jobs WHERE id = ?', params: [id] },
+    { sql: 'DELETE FROM job_sources WHERE job_id = ?', params: [id] },
+    { sql: "DELETE FROM marks WHERE job_id = ? AND decision = 'abgelehnt'", params: [id] },
+    { sql: 'INSERT OR REPLACE INTO deleted_jobs (id, deleted_at) VALUES (?, ?)', params: [id, now] },
+  ]);
+  return true;
+}

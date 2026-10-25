@@ -20,7 +20,8 @@
     "build:demo": "npm run build:demo -w @stellen/web",
     "seed:local": "npm run cli -w @stellen/ingest -- seed",
     "ingest:local": "npm run cli -w @stellen/ingest -- ingest",
-    "deploy": "npm run build -w @stellen/web && npm run deploy -w @stellen/api"
+    "deploy": "npm run build -w @stellen/web && npm run deploy -w @stellen/api",
+    "ki": "tsx --env-file-if-exists=.env apps/ingest/src/cli.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

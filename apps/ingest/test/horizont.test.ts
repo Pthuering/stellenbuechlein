@@ -2,7 +2,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { SqliteDb, migrateSqlite } from '@stellen/db/sqlite';
-import { listDiscoveries, listGateSkips, syncJobs, upsertCityStmt, upsertInstitutionStmt, upsertSourceStmt } from '@stellen/db';
+import { listDiscoveries, listGateSkips, syncJobs, upsertCityStmt, upsertInstitutionStmt, upsertSourceStmt, countOpenAiTasks, listOpenAiTasks } from '@stellen/db';
 import type { Source } from '@stellen/core';
 import { configFromEnv, type IngestConfig } from '../src/config';
 import { RunLog } from '../src/log';
@@ -57,6 +57,9 @@ afterAll(async () => {
   await srv.close();
 });
 
+// Weite-Kandidaten (Fähigkeit und Bezug zu Menschen im Text), über die ohne KI im Lauf Claude urteilt
+const KI_WEITE_TITEL = ['Koordinator:in (m/w/d) Studienberatung', 'Sachbearbeitung (m/w/d) Steuern und Abgaben'];
+
 describe('Horizont und Fristen (ohne KI)', () => {
   it('nimmt Brücken-Anzeigen auf, sortiert Fremdes aus und sichert Fristen ab', async () => {
     const db = await freshDb([source()]);
@@ -72,10 +75,17 @@ describe('Horizont und Fristen (ohne KI)', () => {
     expect(byTitle(/Mobilität/)?.horizon?.bridges).toContain('h-gesell');
     expect(stats.neuHorizont).toBe(2);
 
-    // Ohne KI keine Weite: Steuern, Hausmeister und Studienberatung bleiben draußen (stehen unter „Aussortiert“)
+    // Ohne KI im Lauf: Weite-Kandidaten warten auf Claudes Urteil und sind noch nicht gespeichert,
+    // was nicht einmal Weite-Kandidat ist, bleibt draußen (steht unter „Aussortiert“)
     expect(byTitle(/Steuern|Hausmeister|Studienberatung/)).toBeUndefined();
     const skips = await listGateSkips(db);
-    expect(skips.map((s) => s.reason)).toEqual(['grobfilter', 'grobfilter', 'grobfilter']);
+    expect(skips.map((s) => s.reason)).toEqual(['grobfilter']);
+    const weite = await listOpenAiTasks(db, 10, ['weite']);
+    expect(weite.map((t) => (t.payload as { job: { title: string } }).job.title).sort()).toEqual(KI_WEITE_TITEL);
+    const offen = await countOpenAiTasks(db);
+    expect(offen.auswerten).toBe(jobs.length);
+    expect(offen.horizont).toBe(2);
+    expect(offen.frist).toBe(stats.fristUnsicher);
 
     const ohneJahr = byTitle(/Klinische Psychologie/);
     expect(ohneJahr?.lane).toBe('kern');

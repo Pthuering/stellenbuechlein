@@ -19,6 +19,61 @@ const toNum = (v: unknown) => (typeof v === 'string' && v.trim() !== '' ? Number
 const optNum = z.preprocess(toNum, z.number().nullable()).catch(null);
 const optInt = z.preprocess(toNum, z.number().int().nullable()).catch(null);
 
+// ---------------------------------------------------------------- Anweisungen und Antwortformate
+// Dieselben für die KI im Lauf und für Claude (KI-Warteschlange, aiTasks.ts), damit beide gleich urteilen.
+
+export const EXTRACT_SCHEMA = z.object({
+  is_job_posting: z.boolean(),
+  title: optText,
+  institution: optText,
+  department: optText,
+  location: optText,
+  deadline: optText,
+  pay_grade: optText,
+  workload_pct: optNum,
+  fixed_term: optText,
+  start: optText,
+  summary_de: optText,
+});
+
+export const EXTRACT_PROMPT =
+  'Du liest Stellenausschreibungen deutscher Hochschulen und Forschungsinstitute. Antworte ausschließlich mit JSON. ' +
+  'Erfinde nichts: Was nicht im Text steht, ist null. Datumsangaben als YYYY-MM-DD. ' +
+  'summary_de: 2 kurze Sätze auf Deutsch, was die Stelle inhaltlich ist (Thema, Aufgaben), ohne Floskeln.';
+
+export const EXTRACT_FIELDS =
+  'is_job_posting, title (Stellenbezeichnung wie in der Anzeige), institution, department, location (Ort), ' +
+  'deadline (Bewerbungsfrist), pay_grade (z. B. "E 13 TV-L"), workload_pct (Zahl), fixed_term (z. B. "befristet, 3 Jahre"), start, summary_de.';
+
+export const DEADLINE_SCHEMA = z.object({
+  deadline: optText,
+  quote: optText,
+  still_open: z.boolean().nullable().catch(null),
+});
+
+export function deadlinePrompt(today: string): string {
+  return (
+    `Du prüfst die Bewerbungsfrist einer Stellenausschreibung. Heute ist der ${today}. Antworte nur mit JSON {"deadline": "YYYY-MM-DD"|null, "quote": "…"|null, "still_open": bool|null}. ` +
+    'deadline ist das Datum, bis zu dem Bewerbungen eingehen müssen. Wurde die Frist verlängert, gilt die neue. Steht im Text kein Jahr, ergänze das Jahr, das zur Anzeige passt. ' +
+    'Ein Vertragsende, Eintrittsdatum, Beginn oder Veröffentlichungsdatum ist keine Frist. quote ist die Textstelle mit der Frist, wörtlich kopiert (höchstens 160 Zeichen). ' +
+    'Steht keine Frist im Text, sind deadline und quote null. still_open: ist die Bewerbung laut Text heute noch möglich?'
+  );
+}
+
+export const HORIZON_SCHEMA = z.object({
+  verdict: z.enum(['passt', 'eher', 'nein']),
+  reason_de: z.string().catch(''),
+  label: optText,
+});
+
+export const HORIZON_PROMPT =
+  'Du hilfst einer Person mit Psychologie-Hintergrund, Stellen außerhalb ihres engeren Suchbereichs zu entdecken, auf die sie sich trotzdem realistisch bewerben könnte. ' +
+  'Sei offen: Auch Stellen außerhalb der Forschung und außerhalb der Psychologie zählen, wenn ihr Wissen über Menschen, Verhalten, Lernen oder Gesundheit oder ihre Methoden dort gebraucht werden. ' +
+  'Nicht passend sind Stellen, für die eine ganz andere Ausbildung nötig ist (zum Beispiel Hotelfach, Handwerk, Pflegefachkraft, Steuerrecht, Elektrotechnik) oder in denen nichts von ihrem Wissen gebraucht wird. ' +
+  'verdict: "passt" (gute Chancen, inhaltlich naheliegend), "eher" (möglich, mit Lücken), "nein" (fremd). ' +
+  'reason_de: ein konkreter Satz auf Deutsch, warum die Stelle passen könnte (bei "nein": warum nicht), mit Bezug auf die Anzeige und das Profil, ohne Floskeln. ' +
+  'label: 2 bis 4 Wörter für die Verbindung, z. B. "IT-Sicherheit × Verhalten". Antworte nur mit JSON.';
+
 /** So viele unbrauchbare Antworten stehen einzeln im Protokoll, danach wird nur gezählt. */
 const MAX_LOGGED_FAILURES = 10;
 
@@ -92,34 +147,9 @@ export class Llm {
 
   /** Strukturierte Felder + Kurzfassung aus dem Anzeigentext. */
   extractPosting(text: string, url: string) {
-    const schema = z.object({
-      is_job_posting: z.boolean(),
-      title: optText,
-      institution: optText,
-      department: optText,
-      location: optText,
-      deadline: optText,
-      pay_grade: optText,
-      workload_pct: optNum,
-      fixed_term: optText,
-      start: optText,
-      summary_de: optText,
-    });
-    return this.json(schema, [
-      {
-        role: 'system',
-        content:
-          'Du liest Stellenausschreibungen deutscher Hochschulen und Forschungsinstitute. Antworte ausschließlich mit JSON. ' +
-          'Erfinde nichts: Was nicht im Text steht, ist null. Datumsangaben als YYYY-MM-DD. ' +
-          'summary_de: 2 kurze Sätze auf Deutsch, was die Stelle inhaltlich ist (Thema, Aufgaben), ohne Floskeln.',
-      },
-      {
-        role: 'user',
-        content:
-          `URL: ${url}\n\nFelder: is_job_posting, title (Stellenbezeichnung wie in der Anzeige), institution, department, location (Ort), ` +
-          `deadline (Bewerbungsfrist), pay_grade (z. B. "E 13 TV-L"), workload_pct (Zahl), fixed_term (z. B. "befristet, 3 Jahre"), start, summary_de.\n\n` +
-          `Text:\n${text.slice(0, 14_000)}`,
-      },
+    return this.json(EXTRACT_SCHEMA, [
+      { role: 'system', content: EXTRACT_PROMPT },
+      { role: 'user', content: `URL: ${url}\n\nFelder: ${EXTRACT_FIELDS}\n\nText:\n${text.slice(0, 14_000)}` },
     ]);
   }
 
@@ -174,22 +204,10 @@ export class Llm {
    * Das Zitat wird danach gegen den Text geprüft (verifyDeadlineQuote), damit nichts erfunden ist.
    */
   checkDeadline(text: string, today: string, found: string | null) {
-    const schema = z.object({
-      deadline: optText,
-      quote: optText,
-      still_open: z.boolean().nullable().catch(null),
-    });
     return this.json(
-      schema,
+      DEADLINE_SCHEMA,
       [
-        {
-          role: 'system',
-          content:
-            `Du prüfst die Bewerbungsfrist einer Stellenausschreibung. Heute ist der ${today}. Antworte nur mit JSON {"deadline": "YYYY-MM-DD"|null, "quote": "…"|null, "still_open": bool|null}. ` +
-            'deadline ist das Datum, bis zu dem Bewerbungen eingehen müssen. Wurde die Frist verlängert, gilt die neue. Steht im Text kein Jahr, ergänze das Jahr, das zur Anzeige passt. ' +
-            'Ein Vertragsende, Eintrittsdatum, Beginn oder Veröffentlichungsdatum ist keine Frist. quote ist die Textstelle mit der Frist, wörtlich kopiert (höchstens 160 Zeichen). ' +
-            'Steht keine Frist im Text, sind deadline und quote null. still_open: ist die Bewerbung laut Text heute noch möglich?',
-        },
+        { role: 'system', content: deadlinePrompt(today) },
         { role: 'user', content: `Bisher erkannt: ${found ?? 'keine Frist'}\n\nText der Anzeige:\n${text.slice(0, 12_000)}` },
       ],
       300,
@@ -201,24 +219,10 @@ export class Llm {
    * außerhalb ihres Kernbereichs liegt? Offen urteilen, aber völlig Fremdes ausschließen.
    */
   horizonVerdict(profile: string, posting: { title: string; org: string | null; text: string }, bridge: { name: string; warum?: string | null } | null) {
-    const schema = z.object({
-      verdict: z.enum(['passt', 'eher', 'nein']),
-      reason_de: z.string().catch(''),
-      label: optText,
-    });
     return this.json(
-      schema,
+      HORIZON_SCHEMA,
       [
-        {
-          role: 'system',
-          content:
-            'Du hilfst einer Person mit Psychologie-Hintergrund, Stellen außerhalb ihres engeren Suchbereichs zu entdecken, auf die sie sich trotzdem realistisch bewerben könnte. ' +
-            'Sei offen: Auch Stellen außerhalb der Forschung und außerhalb der Psychologie zählen, wenn ihr Wissen über Menschen, Verhalten, Lernen oder Gesundheit oder ihre Methoden dort gebraucht werden. ' +
-            'Nicht passend sind Stellen, für die eine ganz andere Ausbildung nötig ist (zum Beispiel Hotelfach, Handwerk, Pflegefachkraft, Steuerrecht, Elektrotechnik) oder in denen nichts von ihrem Wissen gebraucht wird. ' +
-            'verdict: "passt" (gute Chancen, inhaltlich naheliegend), "eher" (möglich, mit Lücken), "nein" (fremd). ' +
-            'reason_de: ein konkreter Satz auf Deutsch, warum die Stelle passen könnte (bei "nein": warum nicht), mit Bezug auf die Anzeige und das Profil, ohne Floskeln. ' +
-            'label: 2 bis 4 Wörter für die Verbindung, z. B. "IT-Sicherheit × Verhalten". Antworte nur mit JSON.',
-        },
+        { role: 'system', content: HORIZON_PROMPT },
         {
           role: 'user',
           content:

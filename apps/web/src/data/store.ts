@@ -127,6 +127,8 @@ export interface State {
   vapidPublicKey: string | null;
   ingestTrigger: boolean;
   aiSuggest: boolean;
+  /** Offene KI-Aufgaben (warten auf Claude) */
+  kiWarteschlange: number;
   pending: number;
   toasts: Toast[];
   undo: { jobId: string; prev: Mark | null }[];
@@ -155,6 +157,7 @@ interface CachedBoot {
   vapidPublicKey: string | null;
   ingestTrigger: boolean;
   aiSuggest?: boolean;
+  kiWarteschlange?: number;
 }
 
 export class Store {
@@ -183,6 +186,7 @@ export class Store {
       vapidPublicKey: null,
       ingestTrigger: false,
       aiSuggest: false,
+      kiWarteschlange: 0,
       pending: this.queue.length,
       toasts: [],
       undo: [],
@@ -268,6 +272,7 @@ export class Store {
         vapidPublicKey: b.vapidPublicKey,
         ingestTrigger: b.ingestTrigger,
         aiSuggest: !!b.aiSuggest,
+        kiWarteschlange: b.kiWarteschlange ?? 0,
       },
       true,
     );
@@ -290,6 +295,7 @@ export class Store {
         vapidPublicKey: boot.vapidPublicKey,
         ingestTrigger: boot.ingestTrigger,
         aiSuggest: !!boot.aiSuggest,
+        kiWarteschlange: boot.kiWarteschlange ?? 0,
       };
       this.applyBoot(cached);
       const jobs = new Map(this.state.jobs);

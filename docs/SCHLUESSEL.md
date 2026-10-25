@@ -14,7 +14,8 @@ Gesetzte Secrets lassen sich bei Cloudflare und GitHub nicht mehr auslesen, nur 
 | `INGEST_KEY` | Worker und GitHub, gleicher Wert | gesetzt | Zugang der Pipeline zur Datenbank |
 | `API_URL` | GitHub | gesetzt | Adresse des Workers für die Pipeline |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | GitHub, der öffentliche zusätzlich in `wrangler.toml` | gesetzt | Push-Benachrichtigungen |
-| `DEEPSEEK_API_KEY` | GitHub | gesetzt | KI beim Einsammeln |
+| `DEEPSEEK_API_KEY` | GitHub | gesetzt | KI beim Probelauf neuer Quellen |
+| `CLAUDE_TASK_URL`, `CLAUDE_TASK_TOKEN` | GitHub | offen | Startet die Claude-Cloud-Aufgabe nach dem Einsammeln (docs/BETRIEB.md, Schritt 4b) |
 | `LLM_API_KEY` | Worker | gesetzt | KI für Brücken-Vorschläge in der App |
 | `GITHUB_TOKEN` | Worker | gesetzt | Knopf „Jetzt einsammeln“, sofortige Probeläufe |
 | `BRAVE_API_KEY` | GitHub | optional | Websuche für die Erkundung |
@@ -78,6 +79,17 @@ Mit dem Token darf der Worker zwei Abläufe in deinem Repository starten: das Ei
 9. Prüfen: App neu laden, *Ich → Einsammeln*. Dort steht jetzt der Knopf **Jetzt**.
 
 Ist der Token abgelaufen: Schritte 1 bis 8 wiederholen. Der neue Token ersetzt den alten.
+
+## Claude-Cloud-Aufgabe
+
+Adresse und Token stehen nach dem Anlegen des API-Auslösers unter claude.ai/code/routines (das Token nur einmal):
+
+```powershell
+gh secret set CLAUDE_TASK_URL -R Pthuering/stellenbuechlein
+gh secret set CLAUDE_TASK_TOKEN -R Pthuering/stellenbuechlein
+```
+
+Der `INGEST_KEY` kommt in der Claude-Umgebung als **Netzwerk-Secret** hinzu (Typ Bearer, Host die Adresse des Workers), nicht als Umgebungsvariable. Als Umgebungsvariable steht dort nur `INGEST_KEY=proxy`.
 
 ## Optional: Websuche
 

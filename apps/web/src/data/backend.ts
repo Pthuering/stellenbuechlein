@@ -23,6 +23,8 @@ export interface BootstrapData {
   ingestTrigger: boolean;
   /** KI im Worker eingerichtet (Brücken-Vorschläge) */
   aiSuggest?: boolean;
+  /** Anzeigen, die auf die Aufbereitung durch Claude warten (offene KI-Aufgaben) */
+  kiWarteschlange?: number;
 }
 
 export interface SyncPage {
