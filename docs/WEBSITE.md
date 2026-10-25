@@ -61,18 +61,18 @@ Wenn die App auf deiner Website liegt und der Server bei Cloudflare, sind es zwe
 3. In `config.json` auf der Website `"daten": "live"` und `"apiUrl"` mit der Adresse des Workers eintragen.
 4. App öffnen, App-Schlüssel eingeben. Bequemer: einmal `https://deine-website.de/stellen/#key=DEIN_APP_KEY` öffnen; der Schlüssel wird übernommen und sofort aus der Adresse entfernt.
 
-**Alternative:** Statt der eigenen Website liefert der Worker die App gleich mit aus, auf Wunsch unter einer Subdomain deiner Domain (Schritt 2a in [BETRIEB.md](BETRIEB.md)). Dann entfallen `ALLOWED_ORIGIN` und `apiUrl`; dafür muss die Domain bei Cloudflare verwaltet werden.
+**Alternative:** Statt der eigenen Website liefert der Worker die App gleich mit aus (`….workers.dev`, [BETRIEB.md](BETRIEB.md)). Dann entfallen `ALLOWED_ORIGIN` und `apiUrl`.
 
 ## 6. Platzhalter-Checkliste
 
-In der App führt oben der Knopf **Checkliste** (oder *Ich → Platzhalter-Checkliste*) zu allem, was noch Dummy, Beispiel oder Standardwert ist: Dummy-Anzeigen, Startprofil, Zuhause, Name, Konten und Schlüssel, Quellen. Was die App selbst erkennt (etwa https oder eine echte Server-Verbindung), hakt sie ab; den Rest hakst du ab. Die Punkte stehen im Code in `apps/web/src/lib/checklist.ts`.
+In der App führt oben der Knopf **Checkliste** (oder *Ich → Platzhalter-Checkliste*) zu allem, was noch Dummy, Beispiel oder Standardwert ist: Dummy-Anzeigen, Startprofil, Zuhause, Konten und Schlüssel, Quellen. Was die App selbst erkennt (etwa https oder eine echte Server-Verbindung), hakt sie ab; den Rest hakst du ab. Die Punkte stehen im Code in `apps/web/src/lib/checklist.ts`.
 
 ## Sicherheit und Suchmaschinen
 
 - Die App ist für Suchmaschinen gesperrt: `meta robots`, Kopfzeile `X-Robots-Tag` und `robots.txt`. Liegt die App in einem Unterordner, wirkt `robots.txt` dort nicht (Suchmaschinen lesen sie nur im Hauptverzeichnis); Kopfzeile und meta-Tag reichen aber.
 - `.htaccess` setzt eine Content-Security-Policy: Skripte und Schriften nur von der eigenen Adresse, Abrufe auch an andere https-Adressen (für den Worker), Bilder auch von fremden https-Adressen (Fotos aus Anzeigen und Wikimedia).
 - Unterstützt der Anbieter `.htaccess` oder `mod_headers` nicht, läuft die App trotzdem, nur ohne diese Kopfzeilen.
-- Die App setzt keine Cookies. Ob die Website für den Ordner einen Link auf Impressum und Datenschutzerklärung braucht, hängt davon ab, wie die Seite sonst genutzt wird; das steht als Punkt in der Checkliste.
+- Die App setzt keine Cookies.
 
 ## Ausprobieren ohne Webspace
 

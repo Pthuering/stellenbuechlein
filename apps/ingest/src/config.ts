@@ -21,6 +21,8 @@ export interface IngestConfig {
   sourceConcurrency: number;
   /** Nach so vielen Millisekunden ab Laufbeginn werden keine neuen Quellen mehr begonnen (Workflow-Grenze 120 Minuten). */
   sourceBudgetMs: number;
+  /** Nach so vielen Millisekunden ab Laufbeginn beginnt der Browser-Agent keine Seite mehr (Uhrzeit, nicht nur Browserzeit). */
+  runBudgetMs: number;
   /** So viele abgerufene Seiten hält der Zwischenspeicher eines Laufs höchstens. */
   httpCacheMax: number;
   llm: {
@@ -86,6 +88,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
     purgeAfterDays: num(env.PURGE_AFTER_DAYS, 14),
     sourceConcurrency: num(env.SOURCE_CONCURRENCY, 6),
     sourceBudgetMs: num(env.SOURCE_BUDGET_MIN, 90) * 60_000,
+    runBudgetMs: num(env.RUN_BUDGET_MIN, 105) * 60_000,
     httpCacheMax: num(env.HTTP_CACHE_MAX, 200),
     llm: {
       baseUrl: env.LLM_BASE_URL ?? 'https://api.deepseek.com',

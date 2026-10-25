@@ -77,7 +77,7 @@ npm run cli -w @stellen/ingest -- agent https://www.example-uni.de/stellen/123
 
 ## Einrichten für den echten Betrieb
 
-Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Datenbank, Schlüssel, eigene Domain, GitHub-Secrets, App aufs Handy. Liegt die App auf deiner eigenen Website, kommt der Abschnitt „Mit dem Server verbinden“ aus [docs/WEBSITE.md](docs/WEBSITE.md) dazu.
+Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Datenbank, Schlüssel, GitHub-Secrets, App aufs Handy. Liegt die App auf deiner eigenen Website, kommt der Abschnitt „Mit dem Server verbinden“ aus [docs/WEBSITE.md](docs/WEBSITE.md) dazu.
 
 ## Prüfen
 

@@ -3,7 +3,7 @@
 # Knopf in der App („Jetzt einsammeln“) oder hier über „Run workflow“.
 # Läuft kostenlos in GitHub Actions (öffentliches Repo: unbegrenzt, privates: 2.000 Minuten/Monat).
 # Benötigte Secrets: API_URL, INGEST_KEY; optional DEEPSEEK_API_KEY, BRAVE_API_KEY, VAPID_PUBLIC_KEY,
-# VAPID_PRIVATE_KEY, VAPID_SUBJECT, CRAWLER_CONTACT
+# VAPID_PRIVATE_KEY
 
 name: Einsammeln
 
@@ -49,8 +49,6 @@ jobs:
       BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
       VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
       VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-      VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
-      CRAWLER_CONTACT: ${{ secrets.CRAWLER_CONTACT }}
       # Reserve über die 2 GB hinaus, die Node sonst nutzt (die Maschine hat 7 GB)
       NODE_OPTIONS: --max-old-space-size=4096
     steps:

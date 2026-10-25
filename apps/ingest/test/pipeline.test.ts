@@ -256,3 +256,19 @@ describe('Grenzen eines Laufs', () => {
     expect(log.text()).toMatch(/Zeitbudget erreicht: 2 Quellen kommen im nächsten Lauf zuerst dran/);
   });
 });
+
+describe('Nur Browser-Warteschlange', () => {
+  it('liest keine Quellen, erkundet nicht und räumt nichts ab', async () => {
+    const db = new SqliteDb(':memory:');
+    migrateSqlite(db);
+    await db.batch([
+      upsertCityStmt({ id: 'halle-saale', name: 'Halle (Saale)', state: 'ST', lat: 51.48, lon: 11.97 }),
+      upsertInstitutionStmt({ id: 'test-uni', name: 'Testuniversität', kind: 'universitaet', cityId: 'halle-saale', website: srv.url, active: true, origin: 'seed' }),
+      upsertSourceStmt(source()),
+    ]);
+    const stats = await new Pipeline(db, cfg, { sources: false, browser: false, reminders: false }, new RunLog(false)).run();
+    expect(stats.kandidaten).toBeUndefined();
+    expect(stats.abgelaufen).toBeUndefined();
+    expect((await listSources(db)).find((s) => s.id === 'test-z1')?.lastRunAt ?? null).toBeNull();
+  });
+});

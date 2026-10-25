@@ -1,0 +1,43 @@
+# Arbeitet die Warteschlange des Browser-Agenten ab: Seiten, deren Anzeigen erst per JavaScript erscheinen
+# oder die beim Einsammeln unvollständig waren. Der tägliche Lauf schafft davon nur 30 (Zeitgrenze von
+# 120 Minuten, Actions-Minuten). Nach einem großen Lauf hier über „Run workflow“ starten.
+# Läuft nie gleichzeitig mit dem Einsammeln (gemeinsame Warteschlange).
+# Benötigte Secrets wie beim Einsammeln: API_URL, INGEST_KEY, optional DEEPSEEK_API_KEY.
+
+name: Browser-Warteschlange
+
+on:
+  workflow_dispatch:
+    inputs:
+      seiten:
+        description: Höchstens so viele Seiten (bei etwa 3 Seiten pro Minute reichen 100 Minuten für rund 300)
+        required: false
+        default: '300'
+
+concurrency:
+  group: einsammeln
+  cancel-in-progress: false
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      API_URL: ${{ secrets.API_URL }}
+      INGEST_KEY: ${{ secrets.INGEST_KEY }}
+      LLM_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+      BROWSER_MAX_ITEMS: ${{ inputs.seiten }}
+      # Nach 105 Minuten (RUN_BUDGET_MIN) beginnt er keine Seite mehr; der Rest bleibt in der Warteschlange
+      BROWSER_BUDGET_MS: '6300000'
+      NODE_OPTIONS: --max-old-space-size=4096
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Browser installieren
+        run: npx playwright@1.56.0 install --with-deps chromium
+      - name: Warteschlange abarbeiten
+        run: npm run cli -w @stellen/ingest -- ingest --nur-browser

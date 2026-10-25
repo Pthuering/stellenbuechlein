@@ -11,7 +11,7 @@ export type CheckGroup = 'inhalte' | 'persoenlich' | 'website' | 'server' | 'que
 export const CHECK_GROUPS: { id: CheckGroup; title: string; sub: string }[] = [
   { id: 'inhalte', title: 'Dummy-Daten in der App', sub: 'verschwinden, sobald die App mit dem Server verbunden ist' },
   { id: 'persoenlich', title: 'Persönliches', sub: 'Startwerte, die zu dir passen sollen' },
-  { id: 'website', title: 'Website', sub: 'Adresse, Verbindung, Rechtliches' },
+  { id: 'website', title: 'Website', sub: 'Sichere Verbindung' },
   { id: 'server', title: 'Server und Konten', sub: 'für echte Anzeigen, Anleitung in docs/BETRIEB.md' },
   { id: 'quellen', title: 'Quellen', sub: 'Feinschliff nach den ersten echten Läufen' },
 ];
@@ -112,26 +112,7 @@ export const CHECK_ITEMS: CheckItem[] = [
     route: '/ich/zuhause',
     auto: (c) => !(c.home.lat === DEFAULT_HOME.lat && c.home.lon === DEFAULT_HOME.lon),
   },
-  {
-    id: 'kontakt',
-    group: 'persoenlich',
-    title: 'Kontaktadresse für Seitenbetreiber und Push',
-    what: 'Ohne eigene Angabe steht im User-Agent der Pipeline nur „privates Jobsuche-Werkzeug“ und als Absender der Benachrichtigungen mailto:stellenbuechlein@example.org.',
-    where: 'GitHub-Secrets CRAWLER_CONTACT und VAPID_SUBJECT (docs/BETRIEB.md, Schritt 4).',
-    auto: () => null,
-  },
   // ---------------------------------------------------------------- Website
-  {
-    id: 'adresse',
-    group: 'website',
-    title: 'Adresse der App',
-    what: 'Die App läuft noch lokal, als Datei oder unter einer workers.dev-Adresse.',
-    where: 'Inhalt von apps/web/dist-site auf die eigene Website laden (docs/WEBSITE.md) oder eigene Domain im Worker eintragen (docs/BETRIEB.md, Schritt 2a).',
-    auto: (c) => {
-      const h = c.location.hostname;
-      return !!h && !/^(localhost|127\.|0\.0\.0\.0|\[::1\])/.test(h) && !h.endsWith('.workers.dev') && c.location.protocol !== 'file:';
-    },
-  },
   {
     id: 'https',
     group: 'website',
@@ -139,14 +120,6 @@ export const CHECK_ITEMS: CheckItem[] = [
     what: 'Ohne https lässt sich die App nicht aufs Handy installieren, und es gibt keine Benachrichtigungen.',
     where: 'Beim Webhoster ein kostenloses Zertifikat (Let’s Encrypt) einschalten. Die .htaccess im Paket leitet dann automatisch auf https um.',
     auto: (c) => c.location.protocol === 'https:',
-  },
-  {
-    id: 'rechtliches',
-    group: 'website',
-    title: 'Impressum und Datenschutz klären',
-    what: 'Mit Dummy-Daten ist die App für alle sichtbar, die die Adresse kennen; mit echten Daten nur mit Schlüssel. Sie setzt keine Cookies, lädt im echten Betrieb aber Fotos von Wikimedia und den Websites der Anzeigen.',
-    where: 'Prüfen, ob die Website (oder dieser Ordner) einen Link auf Impressum und Datenschutzerklärung braucht. Suchmaschinen sind ausgesperrt.',
-    auto: () => null,
   },
   // ---------------------------------------------------------------- Server und Konten
   {

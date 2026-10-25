@@ -109,6 +109,8 @@ export interface PipelineOptions {
   explore?: boolean;
   /** Wartende Probeläufe für neue Quellen abarbeiten */
   checks?: boolean;
+  /** Quellen lesen, erkunden und aufräumen (Standard: an). Aus = nur die Browser-Warteschlange. */
+  sources?: boolean;
   maxSources?: number;
   fetchImpl?: typeof fetch;
   /** fester Zeitpunkt (für Tests) */
@@ -300,18 +302,21 @@ export class Pipeline {
         if (n) this.bump('probelaeufe', n);
       }
       const sources = await this.load();
-      if (this.opts.images !== false) await this.resolveImages();
-      if (this.opts.discovery !== false) await this.findMissingJobPages(sources);
-      await this.processSources(sources);
-      if (this.opts.explore ?? (this.cfg.explore.enabled && !this.opts.only?.length)) await this.explore();
+      const full = this.opts.sources !== false;
+      if (full && this.opts.images !== false) await this.resolveImages();
+      if (full && this.opts.discovery !== false) await this.findMissingJobPages(sources);
+      if (full) await this.processSources(sources);
+      if (full && (this.opts.explore ?? (this.cfg.explore.enabled && !this.opts.only?.length))) await this.explore();
       if (this.pool) await this.processBrowserQueue(sources);
       await this.flushHealthWarnings();
-      const t = Date.parse(this.now);
-      this.bump(
-        'abgelaufen',
-        await expireJobs(this.db, this.today, new Date(t - this.cfg.goneAfterDays * 86_400_000).toISOString(), this.now, new Date(t - 45 * 86_400_000).toISOString()),
-      );
-      this.bump('geloescht', await purgeExpired(this.db, new Date(t - this.cfg.purgeAfterDays * 86_400_000).toISOString(), this.now));
+      if (full) {
+        const t = Date.parse(this.now);
+        this.bump(
+          'abgelaufen',
+          await expireJobs(this.db, this.today, new Date(t - this.cfg.goneAfterDays * 86_400_000).toISOString(), this.now, new Date(t - 45 * 86_400_000).toISOString()),
+        );
+        this.bump('geloescht', await purgeExpired(this.db, new Date(t - this.cfg.purgeAfterDays * 86_400_000).toISOString(), this.now));
+      }
       if (this.opts.reminders !== false) {
         this.bump('erinnerungen', await sendReminders(this.db, this.cfg, this.log, this.today));
         this.bump('benachrichtigtNeu', await sendHighScoreAlert(this.db, this.cfg, this.log, this.newScored));
@@ -916,7 +921,7 @@ export class Pipeline {
     this.log.info(`Browser-Agent: ${items.length} Seite(n) in der Warteschlange.`);
     const byId = new Map(sources.map((s) => [s.id, s]));
     for (const item of items) {
-      if (!this.pool.budgetLeft) {
+      if (!this.pool.budgetLeft || Date.now() - this.startedMs > this.cfg.runBudgetMs) {
         this.log.info('Browser-Zeitbudget für diesen Lauf aufgebraucht – Rest beim nächsten Lauf.');
         break;
       }

@@ -69,12 +69,16 @@ async function main(): Promise<void> {
     case 'ingest': {
       const db = openDb();
       const only = option('only')?.split(',');
+      // --nur-browser: nur die Warteschlange des Browser-Agenten (Workflow „Browser-Warteschlange“)
+      const onlyBrowser = flag('nur-browser');
       const stats = await runPipeline(db, cfg, {
         only,
+        sources: onlyBrowser ? false : undefined,
+        checks: onlyBrowser ? false : undefined,
         browser: flag('no-browser') ? false : undefined,
         images: !flag('no-images'),
         discovery: !flag('no-discovery'),
-        reminders: !flag('no-reminders'),
+        reminders: !flag('no-reminders') && !onlyBrowser,
         explore: flag('no-explore') ? false : undefined,
         maxSources: option('max') ? Number(option('max')) : undefined,
       });
@@ -193,7 +197,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders');
+      console.log('Befehle: seed | ingest [--only id,id] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders');
       process.exitCode = cmd ? 1 : 0;
   }
 }

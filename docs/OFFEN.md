@@ -13,7 +13,7 @@ Insgesamt laufen 131 automatische Tests und ein Browser-Durchlauf der Demo. Was 
 
 ## 0. Kurz entscheiden
 
-- [x] **Wo die App wohnt:** vorerst im Cloudflare-Worker unter `https://stellenbuechlein.philipp-thuering.workers.dev` (entschieden am 25. Oktober). Eine Subdomain deiner Domain ([BETRIEB.md](BETRIEB.md), Schritt 2a) oder deine Website ([WEBSITE.md](WEBSITE.md)) lassen sich später ergänzen.
+- [x] **Wo die App wohnt:** im Cloudflare-Worker unter `https://stellenbuechlein.philipp-thuering.workers.dev` (entschieden am 25. Oktober).
 - [ ] **„Morgens um 12“:** Eingestellt ist 12 Uhr mittags (deutsche Zeit) plus der Knopf „Jetzt einsammeln“. War Mitternacht gemeint, sind es zwei Zeilen in `.github/workflows/einsammeln.yml`.
 - [ ] **Benachrichtigung bei neuen Anzeigen:** ist an (ab 85 %). Mit dem Startprofil liegen fast alle Psychologie-Anzeigen darüber, es käme also täglich eine Sammelnachricht. Nach dem Steckbrief passt die Schwelle besser; sonst unter *Ich → Erinnerungen* ausschalten.
 - [ ] **Unternehmen im Stapel:** Firmen sind normale Quellen mit Grobfilter (nur Anzeigen mit Psychologie-Bezug, der Rest über Brücken). Sollen sie seltener erscheinen, lässt sich im Filter die Einrichtungsart „Unternehmen“ abwählen.
@@ -36,9 +36,11 @@ Erledigt am 25. Oktober 2026:
 
 Fehlt noch, mit Anleitung in [BETRIEB.md](BETRIEB.md) und in der Checkliste der App (*Server und Konten*). Die Befehle zum Setzen stehen gesammelt in [SCHLUESSEL.md](SCHLUESSEL.md).
 
-- [ ] **Kontaktadresse** (`CRAWLER_CONTACT`, `VAPID_SUBJECT`): bewusst vorerst leer.
-- [ ] **Erster Lauf auswerten** (gestartet am 25. Oktober, noch mit dem kleinen Modell): Laufzeit gegen die 120-Minuten-Grenze des Workflows und die 2.000 Actions-Minuten im Monat, Quellen mit Fehlern, KI-Fehler im Protokoll (die Kosten zählt erst der nächste Lauf). Bricht ein Lauf an der Zeitgrenze ab, fehlen Protokoll und Kosten dieses Laufs; die bis dahin gefundenen Anzeigen bleiben.
-- [ ] **KI-Assistent mit echten Anzeigen ausprobieren**, sobald der erste Lauf Daten gebracht hat.
+- [x] **Erster Lauf** (25. Oktober): nach 98 Minuten am vollen Speicher gescheitert, bis dahin 466 Quellen gelesen und 3.018 offene Anzeigen gespeichert. Ursachen behoben (Zwischenspeicher, PDFs), dazu Zeitbudgets für Quellen und Browser.
+- [x] **KI-Assistent mit echten Anzeigen** getestet: drei Fragen, 40 Sekunden bis knapp 4 Minuten, 1 bis 7 Cent, Fakten stichprobenhaft geprüft.
+- [ ] **Zweiten Lauf auswerten:** Laufzeit gegen die 2.000 Actions-Minuten im Monat, Quellen mit Fehlern, KI-Kosten.
+- [ ] **Rückstau des Browser-Agenten** (670 Seiten nach dem ersten Lauf): *Actions → Browser-Warteschlange → Run workflow*, etwa zwei- bis dreimal.
+- [ ] **Datenqualität:** In einer Stichprobe war etwa ein Drittel der Einträge keine Stellenanzeige (Pressemitteilungen, Blogartikel, Kurse, Veranstaltungen), dazu fachfremde Klinik-Stellen (Pflege, Reinigung). Vorschlag: KI-Urteil „keine Stellenanzeige“ ernst nehmen, Nachrichten- und Blog-Adressen ausschließen, Klinik-Quellen mit Grobfilter, einmal aufräumen.
 - [ ] Optional: **automatisch veröffentlichen** bei jedem Push (Schritt 6).
 
 ## 3. Quellen: Stand der Recherche vom 23. Oktober
@@ -79,4 +81,4 @@ Neun parallele Recherchen haben Hochschulen und Kliniken in allen Regionen, auß
 - An die KI gehen beim Einsammeln Anzeigentexte und Stichworte aus dem Suchprofil. Im KI-Assistenten zusätzlich deine Fragen, das ganze Suchprofil, Markierungen und Notizen der Anzeigen, die sie liest, und die Stadt deines Zuhauses (keine Straße). Persönliche Angaben gehören deshalb nicht in Fragen und Notizen.
 - Die Karte ist stilisiert: Einrichtungen ohne eigene Koordinaten liegen am Stadtmittelpunkt.
 - „Neue Website“ heißt: Weder die Website noch der Arbeitgeber standen beim Fund im Register. Bei Jobbörsen und Bewerbermanagement-Systemen mit Firmennamen im Pfad (Lever, Greenhouse, SmartRecruiters, JOIN) zählt der Arbeitgeber.
-- Soll die App später auch anderen zugänglich sein, wäre vorher zu klären, wie Anzeigentexte, Ausnahmen von der robots.txt sowie Impressum und Datenschutzerklärung zu handhaben sind.
+- Soll die App später auch anderen zugänglich sein, wäre vorher zu klären, wie Anzeigentexte und Ausnahmen von der robots.txt zu handhaben sind.

@@ -14,11 +14,10 @@ Gesetzte Secrets lassen sich bei Cloudflare und GitHub nicht mehr auslesen, nur 
 | `INGEST_KEY` | Worker und GitHub, gleicher Wert | gesetzt | Zugang der Pipeline zur Datenbank |
 | `API_URL` | GitHub | gesetzt | Adresse des Workers für die Pipeline |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | GitHub, der öffentliche zusätzlich in `wrangler.toml` | gesetzt | Push-Benachrichtigungen |
-| `DEEPSEEK_API_KEY` | GitHub | offen | KI beim Einsammeln |
-| `LLM_API_KEY` | Worker | offen | KI für Brücken-Vorschläge in der App |
-| `GITHUB_TOKEN` | Worker | offen | Knopf „Jetzt einsammeln“, sofortige Probeläufe |
+| `DEEPSEEK_API_KEY` | GitHub | gesetzt | KI beim Einsammeln |
+| `LLM_API_KEY` | Worker | gesetzt | KI für Brücken-Vorschläge in der App |
+| `GITHUB_TOKEN` | Worker | gesetzt | Knopf „Jetzt einsammeln“, sofortige Probeläufe |
 | `BRAVE_API_KEY` | GitHub | optional | Websuche für die Erkundung |
-| `CRAWLER_CONTACT`, `VAPID_SUBJECT` | GitHub | vorerst leer | Kontaktadresse |
 | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `AUTO_DEPLOY` | GitHub | optional | automatisch veröffentlichen |
 
 Änderungen an Worker-Secrets wirken sofort, ohne neues Veröffentlichen. GitHub-Secrets gelten ab dem nächsten Lauf.
@@ -80,20 +79,11 @@ Mit dem Token darf der Worker zwei Abläufe in deinem Repository starten: das Ei
 
 Ist der Token abgelaufen: Schritte 1 bis 8 wiederholen. Der neue Token ersetzt den alten.
 
-## Optional: Websuche und Kontaktadresse
+## Optional: Websuche
 
 ```powershell
 gh secret set BRAVE_API_KEY -R Pthuering/stellenbuechlein
 ```
-
-Die Kontaktadresse ist nicht geheim, deshalb geht sie direkt im Befehl mit. Die Adresse im ersten Befehl sehen alle Websites, die die Pipeline abruft, die im zweiten die Push-Dienste von Google und Apple:
-
-```powershell
-gh secret set CRAWLER_CONTACT -R Pthuering/stellenbuechlein --body "deine@adresse.de"
-gh secret set VAPID_SUBJECT -R Pthuering/stellenbuechlein --body "mailto:deine@adresse.de"
-```
-
-Danach in der App den Punkt „Kontaktadresse“ der Checkliste von Hand abhaken.
 
 ## Optional: automatisch veröffentlichen
 
