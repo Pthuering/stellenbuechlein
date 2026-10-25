@@ -10,6 +10,7 @@ import {
   DEFAULT_REMINDER_DAYS,
   parseHighScoreAlert,
   parseProfile,
+  parseUmfrage,
   starterProfile,
   type City,
   type Decision,
@@ -24,6 +25,7 @@ import {
   type RunInfo,
   type SortKey,
   type Suchprofil,
+  type UmfrageStand,
 } from '@stellen/core';
 import { AuthError, OfflineError, type Backend, type SourceSummary } from './backend';
 import { idbGet, idbSet, lsGet, lsSet } from './local';
@@ -43,6 +45,8 @@ export interface Settings {
   ui: { mapMode: 'gemerkt' | 'alle'; cardImages: boolean };
   /** Platzhalter-Checkliste: von Hand abgehakte Punkte, Leiste oben ausgeblendet */
   checklist: { done: string[]; hideBanner: boolean };
+  /** Umfrage für das Suchprofil: Antworten und Seite zum Weitermachen */
+  umfrage: UmfrageStand | null;
 }
 
 export function defaultSettings(): Settings {
@@ -56,6 +60,7 @@ export function defaultSettings(): Settings {
     sort: { all: 'empfohlen', saved: 'frist' },
     ui: { mapMode: 'gemerkt', cardImages: true },
     checklist: { done: [], hideBanner: false },
+    umfrage: null,
   };
 }
 
@@ -74,6 +79,7 @@ function settingsFrom(raw: Record<string, unknown>, base = defaultSettings()): S
     const c = raw.checklist as Partial<Settings['checklist']>;
     s.checklist = { done: Array.isArray(c.done) ? c.done.filter((x): x is string => typeof x === 'string') : [], hideBanner: c.hideBanner === true };
   }
+  if (raw.umfrage !== undefined) s.umfrage = parseUmfrage(raw.umfrage);
   return s;
 }
 

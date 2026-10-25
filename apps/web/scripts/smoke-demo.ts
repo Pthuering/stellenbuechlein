@@ -1,5 +1,5 @@
 // Rauchtest für die gebaute Demo (dist-demo/index.html) im echten Browser:
-// Wischen, Rückgängig, Detail, Filter, Steckbrief-Import, Karte, Platzhalter-Checkliste – und keine Laufzeitfehler.
+// Wischen, Rückgängig, Detail, Filter, Umfrage, Steckbrief-Import, Karte, Platzhalter-Checkliste – und keine Laufzeitfehler.
 // Mit installiertem Chrome statt Playwright-Chromium: CHROMIUM_PATH="…/chrome.exe".
 //   npm run build:demo && npx tsx apps/web/scripts/smoke-demo.ts
 
@@ -87,6 +87,19 @@ try {
   await page.waitForTimeout(200);
   assert.equal(await page.locator('.list .row').count(), Math.min(40, start), 'Alle-Liste ist nicht vollständig');
   assert.ok((await page.locator('text=weggelegt').count()) >= 1, 'Weggelegte fehlt in „Alle“');
+
+  // Umfrage: ein paar Antworten, bis zum Ergebnis blättern, Profil übernehmen
+  await page.goto(`${url}#/ich/umfrage`);
+  await page.click('text=Los geht’s');
+  await page.fill('input[placeholder="Vorname"]', 'Test');
+  for (let i = 0; i < 3; i++) await page.click('.survey-nav__next');
+  await page.click('.survey-chips >> text=Klinische Psychologie & Psychotherapie');
+  for (let i = 0; i < 3; i++) await page.click('.survey-nav__next');
+  await page.getByRole('checkbox', { name: /^Promotion/ }).click();
+  while (await page.locator('.survey-nav__next').count()) await page.click('.survey-nav__next');
+  await page.click('text=Profil übernehmen');
+  await page.waitForTimeout(300);
+  assert.equal((await page.locator('.index-card__title').first().textContent())?.trim(), 'Profil von Test', 'Profil aus der Umfrage wurde nicht übernommen');
 
   // Steckbrief-Beispiel übernehmen
   await page.goto(`${url}#/ich/steckbrief`);

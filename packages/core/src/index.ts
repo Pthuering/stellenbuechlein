@@ -11,6 +11,7 @@ export * from './gate';
 export * from './profile';
 export * from './scoring';
 export * from './steckbrief';
+export * from './umfrage';
 export * from './dedup';
 export * from './geo';
 export * from './filters';

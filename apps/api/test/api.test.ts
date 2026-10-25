@@ -197,6 +197,14 @@ describe('Probelauf, Funde und Horizont', () => {
     expect(b.settings.checklist).toEqual(value);
   });
 
+  it('speichert den Zwischenstand der Umfrage', async () => {
+    const value = { version: 1, seite: 4, antworten: { name: 'Anna' }, begonnen: '2026-10-25T20:00:00Z', geaendert: '2026-10-25T20:05:00Z', uebernommen: null };
+    const r = await app.request('/api/settings/umfrage', { method: 'PUT', headers: auth, body: JSON.stringify({ value }) });
+    expect(r.status).toBe(200);
+    const b = (await (await app.request('/api/bootstrap', { headers: auth })).json()) as { settings: Record<string, unknown> };
+    expect(b.settings.umfrage).toEqual(value);
+  });
+
   it('Brücken-Vorschläge der KI (ohne schon vorhandene)', async () => {
     const off = await app.request('/api/horizont/vorschlaege', { method: 'POST', headers: auth, body: '{}' });
     expect(off.status).toBe(501);

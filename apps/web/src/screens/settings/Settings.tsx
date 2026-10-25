@@ -1,4 +1,4 @@
-// "Ich": Suchprofil, Lieblingsorte, Zuhause, Erinnerungen, Quellen, Aussehen.
+// "Ich": Suchprofil (mit Umfrage), Lieblingsorte, Zuhause, Erinnerungen, Quellen, Aussehen.
 
 import { useRef, useState, type ReactNode } from 'react';
 import { CATEGORY_LABELS, CATEGORY_ORDER, DOSIS_LABELS, formatDateDe, horizontOf } from '@stellen/core';
@@ -21,6 +21,7 @@ import { AboutPage } from './AboutPage';
 import { HorizontPage } from './HorizontPage';
 import { ChecklistPage, useChecklist } from './ChecklistPage';
 import { AssistantPage } from './AssistantPage';
+import { UmfragePage } from './UmfragePage';
 
 export function SubPage({ title, sub, children, labelId }: { title: string; sub?: ReactNode; children: ReactNode; labelId?: string }) {
   const id = labelId ?? `sub-${title.replace(/\W+/g, '-').toLowerCase()}`;
@@ -59,65 +60,87 @@ const ORIGIN_TEXT = {
 function ProfileCard() {
   const s = useAppState();
   const p = s.settings.profile;
+  const u = s.settings.umfrage;
+  const empty = p.categories.every((c) => c.items.length === 0) && p.avoid.length === 0;
   const active = p.categories.filter((c) => c.items.length && c.weight > 0);
   const sum = active.reduce((a, c) => a + c.weight, 0) || 1;
+  const surveyRunning = !!u && !u.uebernommen && u.seite > 0;
+  const surveyFirst = empty || p.origin === 'start' || surveyRunning;
+  const surveyLabel = surveyRunning ? 'Umfrage fortsetzen' : u?.uebernommen ? 'Umfrage ansehen' : 'Umfrage für Profil starten';
+  const surveyButton = (
+    <button type="button" className={`btn ${surveyFirst ? 'btn--primary' : ''} btn--small`} onClick={() => navigate('/ich/umfrage')}>
+      {surveyLabel}
+    </button>
+  );
   return (
     <div className="index-card">
       <span className="tape tape--tl" aria-hidden="true" />
       <p className="index-card__kicker">Suchprofil</p>
       <h2 className="index-card__title">{p.name}</h2>
-      <p className="hint" style={{ marginTop: 0 }}>
-        {ORIGIN_TEXT[p.origin]}, geändert am {formatDateDe(p.updatedAt.slice(0, 10))}
-      </p>
-      <ul className="index-card__cats">
-        {CATEGORY_ORDER.map((id) => {
-          const c = p.categories.find((x) => x.id === id)!;
-          const share = c.items.length && c.weight > 0 ? Math.round((c.weight / sum) * 100) : 0;
-          const top = [...c.items].sort((a, b) => b.hearts - a.hearts).slice(0, 3);
-          return (
-            <li key={id}>
-              <span className="index-card__cat">
-                {CATEGORY_LABELS[id]} <small>{share} %</small>
-              </span>
+      {empty ? (
+        <p style={{ margin: '4px 0 0' }}>
+          {surveyRunning
+            ? `Noch leer. Die Umfrage ist angefangen (Seite ${u!.seite}), dein Zwischenstand ist gespeichert.`
+            : 'Noch leer. Die Umfrage fragt Schritt für Schritt alles ab, was das Profil braucht, mit Vorschlägen zum Antippen. Etwa 15 Minuten.'}
+        </p>
+      ) : (
+        <>
+          <p className="hint" style={{ marginTop: 0 }}>
+            {ORIGIN_TEXT[p.origin]}, geändert am {formatDateDe(p.updatedAt.slice(0, 10))}
+          </p>
+          <ul className="index-card__cats">
+            {CATEGORY_ORDER.map((id) => {
+              const c = p.categories.find((x) => x.id === id)!;
+              const share = c.items.length && c.weight > 0 ? Math.round((c.weight / sum) * 100) : 0;
+              const top = [...c.items].sort((a, b) => b.hearts - a.hearts).slice(0, 3);
+              return (
+                <li key={id}>
+                  <span className="index-card__cat">
+                    {CATEGORY_LABELS[id]} <small>{share} %</small>
+                  </span>
+                  <span className="index-card__items">
+                    {top.length === 0 ? (
+                      <em>leer, zählt nicht</em>
+                    ) : (
+                      top.map((it) => (
+                        <span key={it.id} className="index-card__item">
+                          {it.label} <Hearts value={it.hearts} />
+                        </span>
+                      ))
+                    )}
+                    {c.items.length > 3 && <small> und {c.items.length - 3} weitere</small>}
+                  </span>
+                </li>
+              );
+            })}
+            {p.avoid.length > 0 && (
+              <li>
+                <span className="index-card__cat">Lieber nicht</span>
+                <span className="index-card__items">{p.avoid.map((a) => a.label).join(', ')}</span>
+              </li>
+            )}
+            <li>
+              <span className="index-card__cat">Horizont</span>
               <span className="index-card__items">
-                {top.length === 0 ? (
-                  <em>leer, zählt nicht</em>
-                ) : (
-                  top.map((it) => (
-                    <span key={it.id} className="index-card__item">
-                      {it.label} <Hearts value={it.hearts} />
-                    </span>
-                  ))
-                )}
-                {c.items.length > 3 && <small> und {c.items.length - 3} weitere</small>}
+                {(() => {
+                  const h = horizontOf(p);
+                  const on = h.bruecken.filter((b) => b.aktiv);
+                  return on.length ? `${on.length} Brücken (${on.slice(0, 3).map((b) => b.name).join(', ')}${on.length > 3 ? ' …' : ''})` : 'keine Brücken';
+                })()}
               </span>
             </li>
-          );
-        })}
-        {p.avoid.length > 0 && (
-          <li>
-            <span className="index-card__cat">Lieber nicht</span>
-            <span className="index-card__items">{p.avoid.map((a) => a.label).join(', ')}</span>
-          </li>
-        )}
-        <li>
-          <span className="index-card__cat">Horizont</span>
-          <span className="index-card__items">
-            {(() => {
-              const h = horizontOf(p);
-              const on = h.bruecken.filter((b) => b.aktiv);
-              return on.length ? `${on.length} Brücken (${on.slice(0, 3).map((b) => b.name).join(', ')}${on.length > 3 ? ' …' : ''})` : 'keine Brücken';
-            })()}
-          </span>
-        </li>
-      </ul>
+          </ul>
+        </>
+      )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
-        <button type="button" className="btn btn--primary btn--small" onClick={() => navigate('/ich/profil')}>
+        {surveyFirst && surveyButton}
+        <button type="button" className={`btn ${surveyFirst ? '' : 'btn--primary'} btn--small`} onClick={() => navigate('/ich/profil')}>
           Profil anpassen
         </button>
         <button type="button" className="btn btn--small" onClick={() => navigate('/ich/horizont')}>
           Horizont
         </button>
+        {!surveyFirst && surveyButton}
         <button type="button" className="btn btn--small" onClick={() => navigate('/ich/steckbrief')}>
           Steckbrief importieren
         </button>
@@ -364,6 +387,8 @@ export function SettingsScreen({ sub }: { sub: string | null }) {
       return <ProfileEditor />;
     case 'steckbrief':
       return <SteckbriefImport />;
+    case 'umfrage':
+      return <UmfragePage />;
     case 'orte':
       return <PlacesPage />;
     case 'zuhause':

@@ -88,11 +88,11 @@ export const CHECK_ITEMS: CheckItem[] = [
   {
     id: 'steckbrief',
     group: 'persoenlich',
-    title: 'Suchprofil: noch das Startprofil',
-    what: 'Der Score rechnet mit einem breit gehaltenen Startprofil (Psychologie allgemein, Promotion vor Postdoc, ab E 13). Fast alles landet deshalb über 75 %.',
-    where: 'Nach dem Interview: Ich → Steckbrief importieren (Format: docs/STECKBRIEF-ENTWURF.md), oder das Profil von Hand anpassen.',
-    route: '/ich/steckbrief',
-    auto: (c) => c.profile.origin !== 'start',
+    title: 'Suchprofil ausfüllen',
+    what: 'Solange das Profil leer ist oder noch das breite Startprofil gilt (Psychologie allgemein, Promotion vor Postdoc, ab E 13), sortiert der Score kaum: alles landet bei 0 % oder fast alles über 75 %.',
+    where: 'Ich → Umfrage für Profil starten. Oder einen Steckbrief importieren (Format: docs/STECKBRIEF-ENTWURF.md) bzw. das Profil von Hand anpassen.',
+    route: '/ich/umfrage',
+    auto: (c) => c.profile.origin !== 'start' && c.profile.categories.some((cat) => cat.items.length > 0),
   },
   {
     id: 'horizont',

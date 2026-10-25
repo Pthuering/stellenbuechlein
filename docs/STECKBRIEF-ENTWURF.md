@@ -89,4 +89,12 @@ Für Feld-Begriffe gilt: keine Floskeln, die in fast jeder Anzeige stehen („We
 }
 ```
 
+## Umfrage in der App
+
+Seit dem 25. Oktober 2026 fragt die App selbst: *Ich → Umfrage für Profil starten*. 21 kurze Seiten in acht Teilen (Über dich, Inhalte, Die Stelle, Rahmen, Können, Orte, Horizont, Zum Schluss), mit Vorschlägen zum Antippen, Herzchen und Fortschrittsanzeige. Fragen und Vorschläge mit ihren Suchbegriffen stehen in `packages/core/src/umfrage.ts`; daraus entsteht ein Steckbrief in diesem Format, den derselbe Import einliest.
+
+- Die Antworten liegen als Einstellung `umfrage` auf dem Server (Zwischenstand mit Seite, weitermachen geht auf jedem Gerät). Katalog-Einträge speichern nur ihre id, die Begriffe kommen beim Umwandeln aus dem Katalog; bessere Begriffe dort wirken also auch auf ältere Antworten.
+- Was (noch) nicht in den Score eingeht, bleibt für den Feinschliff gespeichert: Stand, Studium und Abschlussarbeit, Start, Einrichtungsarten, Mobilität, Traumstelle, Sonstiges. Auf der Ergebnisseite gibt „Antworten kopieren“ alles als Text aus.
+- Brücken: Zur Wahl stehen die zehn Start-Brücken; gewählte werden zu Brücken aus dem Steckbrief. Wählt man keine, bleiben alle zehn.
+
 In der App: *Ich → Steckbrief importieren*, einfügen oder als Datei wählen, prüfen, Lieblingsorte abhaken, übernehmen. Das bisherige Profil lässt sich direkt danach wiederherstellen. Die Brücken stehen danach unter *Ich → Horizont* und lassen sich dort bearbeiten, pausieren und um KI-Vorschläge ergänzen.

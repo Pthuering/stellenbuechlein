@@ -20,7 +20,8 @@ Insgesamt laufen 131 automatische Tests und ein Browser-Durchlauf der Demo. Was 
 
 ## 1. Bewusst später, als eigene Schritte
 
-- [ ] **Interview-Prompt und Steckbrief-Format.** Die App liest bis dahin einen Entwurf (Version 0, `packages/core/src/steckbrief.ts`). Steht das Format, wird nur dieser Import angepasst.
+- [x] **Steckbrief erheben:** Die App fragt jetzt selbst, unter *Ich → Umfrage für Profil starten* (25. Oktober, siehe [STECKBRIEF-ENTWURF.md](STECKBRIEF-ENTWURF.md)). Die Beispiel-Einträge des Startprofils sind im echten Betrieb gelöscht; bis die Umfrage übernommen ist, ist das Profil leer und alle Anzeigen stehen bei 0 %.
+- [ ] **Umfrage auswerten:** Antworten (Einstellung `umfrage`) lesen, Begriffe und Brücken an echten Anzeigen nachschärfen.
 - [ ] **Feinabstimmung des Scores** (Zahlen), **Brücken schärfen**, **endgültige Quellenauswahl** nach dem Interview.
 
 ## 2. Einrichtung

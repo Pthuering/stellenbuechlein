@@ -13,6 +13,7 @@ import {
   type Institution,
   type StateCode,
   type SteckbriefImport as Imported,
+  type Suchprofil,
 } from '@stellen/core';
 import { useAppState, useStore } from '../../data/hooks';
 import { navigate } from '../../lib/router';
@@ -40,6 +41,79 @@ function findInstitution(name: string, insts: Iterable<Institution>): Institutio
     if (!partial && n.length >= 6 && (a.includes(n) || n.includes(a))) partial = i;
   }
   return partial;
+}
+
+/** Vorschau eines Suchprofils vor dem Übernehmen (Steckbrief-Import und Umfrage). */
+export function ProfilePreview({ profile: p, warnings }: { profile: Suchprofil; warnings: string[] }) {
+  return (
+    <>
+      <h2 className="section-title">So sähe dein Suchprofil aus</h2>
+      <p className="hint" style={{ marginTop: 0 }}>
+        {p.name}. Alles lässt sich danach unter „Suchprofil“ anpassen.
+      </p>
+      {CATEGORY_ORDER.map((id) => {
+        const c = p.categories.find((x) => x.id === id)!;
+        return (
+          <div key={id} className="import-preview__cat">
+            <b>
+              {CATEGORY_LABELS[id]} <small>Gewicht {c.weight}</small>
+            </b>
+            {c.items.length === 0 ? (
+              <span className="hint">leer, zählt nicht</span>
+            ) : (
+              <ul>
+                {c.items.map((it) => (
+                  <li key={it.id}>
+                    {it.label} <Hearts value={it.hearts} />
+                    {it.terms?.length ? <small> ({it.terms.slice(0, 4).join(', ')}{it.terms.length > 4 ? ' …' : ''})</small> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+      {p.avoid.length > 0 && (
+        <div className="import-preview__cat">
+          <b>Lieber nicht</b>
+          <ul>
+            {p.avoid.map((it) => (
+              <li key={it.id}>
+                {it.label} <Hearts value={it.hearts} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {p.horizont && (
+        <div className="import-preview__cat">
+          <b>
+            Horizont <small>{p.horizont.weite ? 'mit Weite' : 'ohne Weite'}</small>
+          </b>
+          {p.horizont.bruecken.length === 0 ? (
+            <span className="hint">keine Brücken</span>
+          ) : (
+            <ul>
+              {p.horizont.bruecken.slice(0, 8).map((b) => (
+                <li key={b.id}>
+                  {b.name} <small>({b.feld.slice(0, 4).join(', ')}{b.feld.length > 4 ? ' …' : ''})</small>
+                </li>
+              ))}
+              {p.horizont.bruecken.length > 8 && <li>und {p.horizont.bruecken.length - 8} weitere</li>}
+            </ul>
+          )}
+          {p.horizont.interessen.length > 0 && <span className="hint">Interessen: {p.horizont.interessen.join(', ')}</span>}
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <ul className="notice notice--warn" style={{ paddingLeft: 30 }}>
+          {warnings.map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
 }
 
 export function SteckbriefImport() {
@@ -167,71 +241,7 @@ export function SteckbriefImport() {
 
       {p && suggestions && (
         <div className="import-preview" aria-live="polite">
-          <h2 className="section-title">So sähe dein Suchprofil aus</h2>
-          <p className="hint" style={{ marginTop: 0 }}>
-            {p.name}. Alles lässt sich danach unter „Suchprofil“ anpassen.
-          </p>
-          {CATEGORY_ORDER.map((id) => {
-            const c = p.categories.find((x) => x.id === id)!;
-            return (
-              <div key={id} className="import-preview__cat">
-                <b>
-                  {CATEGORY_LABELS[id]} <small>Gewicht {c.weight}</small>
-                </b>
-                {c.items.length === 0 ? (
-                  <span className="hint">leer, zählt nicht</span>
-                ) : (
-                  <ul>
-                    {c.items.map((it) => (
-                      <li key={it.id}>
-                        {it.label} <Hearts value={it.hearts} />
-                        {it.terms?.length ? <small> ({it.terms.slice(0, 4).join(', ')}{it.terms.length > 4 ? ' …' : ''})</small> : null}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-          {p.avoid.length > 0 && (
-            <div className="import-preview__cat">
-              <b>Lieber nicht</b>
-              <ul>
-                {p.avoid.map((it) => (
-                  <li key={it.id}>
-                    {it.label} <Hearts value={it.hearts} />
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {p.horizont && (
-            <div className="import-preview__cat">
-              <b>
-                Horizont <small>{p.horizont.weite ? 'mit Weite' : 'ohne Weite'}</small>
-              </b>
-              {p.horizont.bruecken.length === 0 ? (
-                <span className="hint">keine Brücken</span>
-              ) : (
-                <ul>
-                  {p.horizont.bruecken.slice(0, 8).map((b) => (
-                    <li key={b.id}>
-                      {b.name} <small>({b.feld.slice(0, 4).join(', ')}{b.feld.length > 4 ? ' …' : ''})</small>
-                    </li>
-                  ))}
-                  {p.horizont.bruecken.length > 8 && <li>und {p.horizont.bruecken.length - 8} weitere</li>}
-                </ul>
-              )}
-              {p.horizont.interessen.length > 0 && <span className="hint">Interessen: {p.horizont.interessen.join(', ')}</span>}
-            </div>
-          )}
-          {result!.warnings.length > 0 && (
-            <ul className="notice notice--warn" style={{ paddingLeft: 30 }}>
-              {result!.warnings.map((w) => (
-                <li key={w}>{w}</li>
-              ))}
-            </ul>
-          )}
+          <ProfilePreview profile={p} warnings={result!.warnings} />
 
           {(suggestions.all.length > 0 || suggestions.missing.length > 0) && (
             <>
