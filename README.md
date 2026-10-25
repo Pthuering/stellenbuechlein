@@ -1,7 +1,5 @@
 # Stellenbüchlein
 
-
-
 Private App für die Suche nach Stellen mit Psychologie-Bezug in Deutschland: Universitäten, Hochschulen, Kliniken, außeruniversitäre Institute (Max-Planck, Leibniz, Helmholtz, Fraunhofer, Ressortforschung) und Unternehmen, die hin und wieder Psycholog:innen suchen (Diagnostik, Marktforschung, UX und Human Factors, Digital Health, Beratung). Die Anzeigen werden täglich gegen 12 Uhr (oder per Knopf) eingesammelt, nach einem einstellbaren Suchprofil sortiert und im Notizbuch-Look angezeigt. Dazu kommen Stellen außerhalb des Kernbereichs, die über eine „Brücke“ zu dir passen könnten, und in jedem Lauf mindestens drei Anzeigen von Websites, die noch nicht im Quellen-Register stehen.
 
 „Stellenbüchlein“ ist ein Arbeitstitel.
