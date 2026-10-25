@@ -20,9 +20,6 @@ database_id = "30e4d077-8757-4837-aa95-1171805c704a"
 migrations_dir = "../../packages/db/migrations"
 
 [vars]
-# Nur wenn die App auf deiner eigenen Website liegt (Website-Paket, docs/WEBSITE.md) und dieser Worker
-# nur den Server spielt: Adresse(n) der Website, mehrere mit Komma. Läuft die App im Worker selbst: leer lassen.
-# ALLOWED_ORIGIN = "https://deine-website.de, https://www.deine-website.de"
 # Öffentlicher VAPID-Schlüssel für Push-Erinnerungen (npx web-push generate-vapid-keys)
 VAPID_PUBLIC_KEY = "BAize3hKDPROdNO5AZZIrWQ-jBB159_L4nUTtvAfiOI4uo6obwIf0vBaSxe0xxxdLiSIULk2lMN9rP5AHgWHcRc"
 # Optional für "Jetzt einsammeln" und den Probelauf neuer Quellen: Repository im Format besitzer/name

@@ -1,7 +1,7 @@
 // "Ich": Suchprofil (mit Umfrage), Lieblingsorte, Zuhause, Erinnerungen, Quellen, Aussehen.
 
 import { useRef, useState, type ReactNode } from 'react';
-import { CATEGORY_LABELS, CATEGORY_ORDER, DOSIS_LABELS, formatDateDe, horizontOf } from '@stellen/core';
+import { CATEGORY_LABELS, CATEGORY_ORDER, DOSIS_LABELS, formatDateDe, freigabeZustand, freigeben, horizontOf } from '@stellen/core';
 import { useAppState, useStore } from '../../data/hooks';
 import { lsDel } from '../../data/local';
 import { addTestPhotos, clearTestPhotos, useTestPhotos } from '../../data/testPhotos';
@@ -149,6 +149,71 @@ function ProfileCard() {
   );
 }
 
+/**
+ * Freigabe des Suchprofils: Ein neues Profil erst anschauen und anpassen, dann freigeben – damit startet der
+ * große Durchlauf ohne Grenzen. Nach späteren Änderungen wird ein neuer großer Durchlauf angeboten.
+ */
+function FreigabeBox() {
+  const s = useAppState();
+  const store = useStore();
+  const [busy, setBusy] = useState(false);
+  const p = s.settings.profile;
+  const f = s.settings.freigabe;
+  const zustand = freigabeZustand(p, f);
+  if (s.demo || zustand === 'leer') return null;
+  const start = async () => {
+    setBusy(true);
+    try {
+      await store.api.triggerIngest(true);
+      store.updateSettings('freigabe', freigeben(p, f));
+      store.toast('Großer Durchlauf gestartet. Er liest alle Quellen ohne Grenzen neu und kann einige Stunden dauern; neue Anzeigen erscheinen nach und nach.', undefined, 9000);
+    } catch (e) {
+      store.toast(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (zustand === 'aktuell') {
+    const g = f.grosserLauf;
+    return (
+      <p className="hint" style={{ margin: '-2px 4px 12px' }}>
+        {f.freigegebenAm ? `Profil freigegeben am ${formatDateDe(f.freigegebenAm.slice(0, 10))}. ` : ''}
+        {g ? `Großer Durchlauf ${relativeTime(g.angefordertAm)} angestoßen. ` : ''}
+        {s.ingestTrigger && (
+          <button type="button" className="linkish" disabled={busy} onClick={() => void start()}>
+            {busy ? 'startet …' : 'Großen Durchlauf erneut starten'}
+          </button>
+        )}
+      </p>
+    );
+  }
+  return (
+    <div className="notice notice--info" style={{ margin: '0 2px 14px' }}>
+      <b>{zustand === 'pruefen' ? 'Profil prüfen und freigeben' : 'Profil geändert'}</b>
+      <p style={{ margin: '4px 0 0' }}>
+        {zustand === 'pruefen'
+          ? 'Schau dir dein Profil an und pass an, was nicht stimmt. Mit der Freigabe startet der große Durchlauf: Er liest alle Quellen ohne Grenzen neu und ordnet alles nach diesem Profil ein. Das kann einige Stunden dauern.'
+          : 'Seit der letzten Freigabe hat sich dein Profil geändert. Ein neuer großer Durchlauf liest alles nach dem neuen Profil ein.'}
+      </p>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+        <button type="button" className="btn btn--primary btn--small" disabled={busy || !s.ingestTrigger} onClick={() => void start()}>
+          {busy ? 'startet …' : zustand === 'pruefen' ? 'Freigeben und großen Durchlauf starten' : 'Großen Durchlauf starten'}
+        </button>
+        {zustand === 'pruefen' ? (
+          <button type="button" className="btn btn--small" onClick={() => navigate('/ich/profil')}>
+            Profil anpassen
+          </button>
+        ) : (
+          <button type="button" className="btn btn--small btn--quiet" onClick={() => store.updateSettings('freigabe', { ...f, spaeterFuer: p.updatedAt })}>
+            Später
+          </button>
+        )}
+      </div>
+      {!s.ingestTrigger && <p className="hint" style={{ marginBottom: 0 }}>Für den Start braucht der Worker ein GitHub-Token (docs/SCHLUESSEL.md).</p>}
+    </div>
+  );
+}
+
 /** Nur in der Demo: eigene Fotos auf die Beispielanzeigen legen. */
 function TestPhotos() {
   const store = useStore();
@@ -233,6 +298,7 @@ function SettingsHome() {
         />
       </div>
       <ProfileCard />
+      <FreigabeBox />
 
       <div className="group">
         <h2 className="section-title">Suche</h2>

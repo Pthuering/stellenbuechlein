@@ -33,19 +33,10 @@ apps/ingest   Einsammel-Pipeline (Node, läuft in GitHub Actions) – Kaskade au
 packages/core Gemeinsame Logik: Score, Felder (Entgelt, Umfang, Befristung, Frist), Dubletten, Filter
 packages/db   Datenbankschema und -zugriff (D1, SQLite lokal, Fernzugriff für die Pipeline)
 data/seed     Startliste: 160 Städte, 531 Einrichtungen mit 620 Stellenseiten (Recherche 23.10.2026), Portale
-data/dummy    erfundene Anzeigen für Demo und Website-Paket
+data/dummy    erfundene Anzeigen für die Demo
 ```
 
-Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Die Website liefert Cloudflare aus, auf Wunsch unter eigener Domain; GitHub hält nur den Code und die Sammel-Läufe. Geld kosten nur die KI, je nach Anzahl neuer Anzeigen Cent-Beträge pro Lauf (DeepSeek-API, austauschbar), und gegebenenfalls die Domain. Ohne KI läuft alles regelbasiert, nur die Weite und die KI-Urteile fallen weg.
-
-## Auf die eigene Website laden
-
-```bash
-npm install
-npm run build:site            # Paket in apps/web/dist-site/, Inhalt per FTP hochladen
-```
-
-Das Paket läuft auf jedem Webspace, auch in einem Unterordner (etwa `deine-website.de/stellen/`), und lässt sich aufs Handy installieren. Anfangs zeigt es **Dummy-Daten**: erfundene Anzeigen bei echten Einrichtungen, deren Fristen jeden Tag mitrücken, darunter Horizont- und Weite-Anzeigen und vier von neuen Websites. Echte Anzeigen gibt es, sobald der Server läuft; umgestellt wird mit einer Zeile in `config.json`. Anleitung: [docs/WEBSITE.md](docs/WEBSITE.md).
+Kosten: Alles läuft in kostenlosen Kontingenten (Cloudflare Workers und D1, GitHub Actions). Die Website liefert Cloudflare aus; GitHub hält nur den Code und die Sammel-Läufe. Geld kosten nur die KI, je nach Anzahl neuer Anzeigen Cent-Beträge pro Lauf (DeepSeek-API, austauschbar). Ohne KI läuft alles regelbasiert, nur die Weite und die KI-Urteile fallen weg.
 
 ## Schnell ausprobieren
 
@@ -77,7 +68,7 @@ npm run cli -w @stellen/ingest -- agent https://www.example-uni.de/stellen/123
 
 ## Einrichten für den echten Betrieb
 
-Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Datenbank, Schlüssel, GitHub-Secrets, App aufs Handy. Liegt die App auf deiner eigenen Website, kommt der Abschnitt „Mit dem Server verbinden“ aus [docs/WEBSITE.md](docs/WEBSITE.md) dazu.
+Schritt für Schritt in [docs/BETRIEB.md](docs/BETRIEB.md): Cloudflare-Konto, Datenbank, Schlüssel, GitHub-Secrets, App aufs Handy.
 
 ## Prüfen
 

@@ -12,10 +12,7 @@ Die App läuft komplett in kostenlosen Kontingenten:
 
 Die Website, die du im Browser öffnest, liefert Cloudflare aus. GitHub hostet keine Seite: Dort liegen nur der Code und die Abläufe zum Einsammeln und Prüfen.
 
-**Zwei Wege zur Adresse der App:**
-
-- **App im Worker** (diese Anleitung): Cloudflare liefert App und Server unter einer Adresse aus (`….workers.dev`).
-- **App auf deiner eigenen Website** ([WEBSITE.md](WEBSITE.md)): Du lädst das Paket aus `npm run build:site` auf deinen Webspace; es zeigt zuerst Dummy-Daten. Der Worker aus dieser Anleitung dient dann nur als Server. Zusätzlich trägst du in `wrangler.toml` `ALLOWED_ORIGIN` ein und auf der Website in `config.json` die Adresse des Workers.
+Cloudflare liefert App und Server unter einer Adresse aus (`….workers.dev`).
 
 Du brauchst: ein GitHub-Konto, ein Cloudflare-Konto, Node.js 22 auf dem Rechner (nur für die Einrichtung) und optional einen DeepSeek-API-Schlüssel.
 

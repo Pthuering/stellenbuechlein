@@ -247,7 +247,7 @@ export interface Job {
   foundVia?: FoundVia | null;
   /** Arbeitgeber, wie er in der Anzeige steht (für Einrichtungen außerhalb des Registers). */
   employer?: string | null;
-  /** Erfundene Anzeige aus den Dummy-Daten (Demo und Website-Paket vor dem Einrichten). */
+  /** Erfundene Anzeige aus den Dummy-Daten (Demo). */
   dummy?: boolean;
 }
 

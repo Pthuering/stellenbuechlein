@@ -71,6 +71,8 @@ export interface ApiEnv {
   GITHUB_WORKFLOW?: string;
   /** Workflow für Probeläufe neuer Quellen (Standard: quelle-pruefen.yml) */
   GITHUB_CHECK_WORKFLOW?: string;
+  /** Workflow für den großen Durchlauf nach einer Profil-Freigabe (Standard: grosser-lauf.yml) */
+  GITHUB_GROSS_WORKFLOW?: string;
   /** Optional: KI im Worker (für Brücken-Vorschläge im Horizont), OpenAI-kompatibel */
   LLM_API_KEY?: string;
   LLM_BASE_URL?: string;
@@ -105,7 +107,7 @@ const markSchema = z.object({
   updatedAt: z.string().optional(),
 });
 
-const SETTINGS_KEYS = new Set(['profile', 'filter', 'home', 'reminders', 'gateTerms', 'sort', 'ui', 'notifyHighScore', 'checklist', 'umfrage']);
+const SETTINGS_KEYS = new Set(['profile', 'filter', 'home', 'reminders', 'gateTerms', 'sort', 'ui', 'notifyHighScore', 'checklist', 'umfrage', 'freigabe']);
 
 const assistantStepSchema = z.object({
   messages: z
@@ -187,7 +189,7 @@ export function createApp(deps: AppDeps): Hono {
 
   app.use('/api/*', async (c, next) => {
     const env = deps.env(c);
-    // Liegt die App auf einer anderen Website (Website-Paket), erlaubt ALLOWED_ORIGIN deren Adresse(n),
+    // Läuft die App unter einer anderen Adresse als der Worker, erlaubt ALLOWED_ORIGIN deren Adresse(n),
     // mehrere mit Komma getrennt, z. B. "https://meine-seite.de, https://www.meine-seite.de".
     if (env.ALLOWED_ORIGIN) {
       const allowed = env.ALLOWED_ORIGIN.split(',').map((o) => o.trim().replace(/\/+$/, '')).filter(Boolean);
@@ -688,13 +690,14 @@ export function createApp(deps: AppDeps): Hono {
 
   // ---------------------------------------------------------------- Einsammeln
 
-  /** "Jetzt einsammeln": startet den GitHub-Actions-Workflow (falls Token hinterlegt). */
+  /** "Jetzt einsammeln" (oder mit { gross: true } den großen Durchlauf ohne Grenzen): startet den GitHub-Workflow. */
   app.post('/api/ingest/trigger', async (c) => {
     const env = deps.env(c);
     if (!env.GITHUB_TOKEN || !env.GITHUB_REPO) {
       return c.json({ error: 'Nicht eingerichtet: GITHUB_TOKEN und GITHUB_REPO fehlen im Worker.' }, 501);
     }
-    const d = await dispatchWorkflow(env, env.GITHUB_WORKFLOW ?? 'einsammeln.yml');
+    const body = (await c.req.json().catch(() => null)) as { gross?: boolean } | null;
+    const d = await dispatchWorkflow(env, body?.gross ? (env.GITHUB_GROSS_WORKFLOW ?? 'grosser-lauf.yml') : (env.GITHUB_WORKFLOW ?? 'einsammeln.yml'));
     if (!d.ok) return c.json({ error: `GitHub hat den Start abgelehnt (${d.status}).` }, 502);
     return c.json({ ok: true });
   });

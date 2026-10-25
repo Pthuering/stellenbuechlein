@@ -124,8 +124,8 @@ export class HttpBackend implements Backend {
     await this.call('/api/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) });
   }
 
-  async triggerIngest(): Promise<void> {
-    await this.call('/api/ingest/trigger', { method: 'POST' });
+  async triggerIngest(gross = false): Promise<void> {
+    await this.call('/api/ingest/trigger', { method: 'POST', body: JSON.stringify({ gross }) });
   }
 
   assistantStep(messages: AssistantMessage[], final: boolean, signal?: AbortSignal): Promise<AssistantStepResult> {

@@ -14,4 +14,3 @@ apps/ingest/.cache/
 apps/ingest/out/
 playwright-report/
 apps/web/dist-demo/
-apps/web/dist-site/

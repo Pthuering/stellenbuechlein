@@ -19,3 +19,4 @@ export * from './reminders';
 export * from './summary';
 export * from './aiCost';
 export * from './assistant';
+export * from './freigabe';

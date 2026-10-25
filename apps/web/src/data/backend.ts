@@ -171,7 +171,8 @@ export interface Backend {
   skips(): Promise<GateSkip[]>;
   pushSubscribe(sub: PushSubscriptionJSON): Promise<void>;
   pushUnsubscribe(endpoint: string): Promise<void>;
-  triggerIngest(): Promise<void>;
+  /** Einsammeln starten; gross = großer Durchlauf ohne Grenzen (nach einer Profil-Freigabe). */
+  triggerIngest(gross?: boolean): Promise<void>;
   /** Ein Schritt im KI-Gespräch; Modell, Denkmodus und Werkzeuge legt der Worker fest. */
   assistantStep(messages: AssistantMessage[], final: boolean, signal?: AbortSignal): Promise<AssistantStepResult>;
   /** Verbrauch der KI und Guthaben bei DeepSeek. */

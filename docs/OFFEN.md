@@ -2,7 +2,6 @@
 
 Stand: 23. Oktober 2026. Gebaut und getestet sind App, API, Datenbank und Einsammel-Pipeline mit Horizont, Weite, Fristen-Prüfung, Erkundung und Probelauf. Seit diesem Stand dazu:
 
-- **Website-Paket** für den eigenen Webspace ([WEBSITE.md](WEBSITE.md)), läuft auch in einem Unterordner und zeigt anfangs **Dummy-Daten**,
 - die **Platzhalter-Checkliste** in der App,
 - **Benachrichtigung bei neuen, sehr gut passenden Anzeigen** und **Horizont auf der Karte**,
 - eine **Adresssuche** fürs Zuhause,

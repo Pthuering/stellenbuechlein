@@ -4,10 +4,12 @@
 
 import {
   DEFAULT_FILTER,
+  DEFAULT_FREIGABE,
   DEFAULT_HOME,
   DEFAULT_GATE_TERMS,
   DEFAULT_HIGH_SCORE_ALERT,
   DEFAULT_REMINDER_DAYS,
+  parseFreigabe,
   parseHighScoreAlert,
   parseProfile,
   parseUmfrage,
@@ -21,6 +23,7 @@ import {
   type Institution,
   type Job,
   type JobFilter,
+  type ProfilFreigabe,
   type Mark,
   type RunInfo,
   type SortKey,
@@ -47,6 +50,8 @@ export interface Settings {
   checklist: { done: string[]; hideBanner: boolean };
   /** Umfrage für das Suchprofil: Antworten und Seite zum Weitermachen */
   umfrage: UmfrageStand | null;
+  /** Freigabe des Suchprofils und großer Durchlauf (core/freigabe.ts) */
+  freigabe: ProfilFreigabe;
 }
 
 export function defaultSettings(): Settings {
@@ -61,6 +66,7 @@ export function defaultSettings(): Settings {
     ui: { mapMode: 'gemerkt', cardImages: true },
     checklist: { done: [], hideBanner: false },
     umfrage: null,
+    freigabe: DEFAULT_FREIGABE,
   };
 }
 
@@ -80,6 +86,7 @@ function settingsFrom(raw: Record<string, unknown>, base = defaultSettings()): S
     s.checklist = { done: Array.isArray(c.done) ? c.done.filter((x): x is string => typeof x === 'string') : [], hideBanner: c.hideBanner === true };
   }
   if (raw.umfrage !== undefined) s.umfrage = parseUmfrage(raw.umfrage);
+  if (raw.freigabe !== undefined) s.freigabe = parseFreigabe(raw.freigabe);
   return s;
 }
 

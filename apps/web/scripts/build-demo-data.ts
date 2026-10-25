@@ -1,4 +1,4 @@
-// Baut die Daten für Demo und Website-Paket: erfundene Dummy-Anzeigen (data/dummy/anzeigen.json)
+// Baut die Daten für die Demo: erfundene Dummy-Anzeigen (data/dummy/anzeigen.json)
 // + Startdaten (Städte, Einrichtungen, Quellen aus data/seed).
 // Ring (Kern/Horizont), Brücken und „neue Website“ werden mit derselben Logik bestimmt wie in der Pipeline.
 // Fristen und Fundtage stehen relativ zum Tag (rel), die App rechnet sie beim Laden auf heute um,

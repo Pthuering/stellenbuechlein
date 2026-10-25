@@ -54,7 +54,7 @@ export const CHECK_ITEMS: CheckItem[] = [
     group: 'inhalte',
     title: 'Erfundene Anzeigen',
     what: 'Alle Anzeigen in Stapel, Liste und Karte sind erfunden und tragen das Etikett „Dummy“. Ihre Fristen rücken jeden Tag mit, damit immer etwas zu sehen ist.',
-    where: 'In config.json neben index.html "daten": "live" und "apiUrl" (Adresse des Servers) eintragen, sobald der Server läuft. Kein neuer Build nötig (docs/WEBSITE.md).',
+    where: 'Fallen weg, sobald die App mit dem Server läuft (docs/BETRIEB.md).',
     auto: live,
   },
   {
@@ -136,14 +136,6 @@ export const CHECK_ITEMS: CheckItem[] = [
     title: 'App-Schlüssel und Pipeline-Schlüssel',
     what: 'APP_KEY (für die App) und INGEST_KEY (für die Pipeline) sind noch nicht gesetzt.',
     where: 'npx wrangler secret put APP_KEY und INGEST_KEY, je ein eigener Zufallswert (docs/BETRIEB.md, Schritt 2).',
-    auto: live,
-  },
-  {
-    id: 'freigabe',
-    group: 'server',
-    title: 'Freigabe für deine Website (ALLOWED_ORIGIN)',
-    what: 'Liegt die App auf deiner Website und der Server bei Cloudflare, muss der Worker Anfragen von deiner Adresse erlauben.',
-    where: 'In apps/api/wrangler.toml unter [vars] ALLOWED_ORIGIN = "https://deine-website.de" eintragen und neu veröffentlichen (docs/WEBSITE.md). Läuft die App im Worker selbst, entfällt das.',
     auto: live,
   },
   {

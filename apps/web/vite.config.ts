@@ -4,9 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { fileURLToPath } from 'node:url';
 
-// Drei Ausgaben:
+// Zwei Ausgaben:
 //   npm run build        → PWA (dist/), mit Service Worker und Push; der Cloudflare-Worker liefert sie aus
-//   npm run build:site   → dieselbe PWA als Paket für die eigene Website (dist-site/), anfangs mit Dummy-Daten
 //   npm run build:demo   → eine einzelne HTML-Datei mit Dummy-Daten (dist-demo/), ohne Server
 // Alle Pfade sind relativ (base "./"), damit die App auch in einem Unterordner einer Website läuft.
 /** Die Demo ist eine einzelne Datei ohne /icons – Verweise darauf entfernen. */
