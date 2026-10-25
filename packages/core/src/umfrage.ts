@@ -162,6 +162,44 @@ export const LIEBER_NICHT: KatalogEintrag[] = [
   { id: 'n-militaer', label: 'Bundeswehr & Militär', begriffe: ['bundeswehr', 'militär', 'military', 'streitkräfte', '"defence"', '"defense"', 'rüstung'] },
 ];
 
+/**
+ * Arbeitsweise (Kategorie Rahmen): zählt nur, wenn die Anzeige es erwähnt; fehlt es, gibt es keinen Bonus.
+ * Familienfreundlichkeit steht in fast jeder Anzeige im öffentlichen Dienst und unterscheidet darum kaum.
+ */
+export const ARBEITSWEISE: KatalogEintrag[] = [
+  {
+    id: 'w-home',
+    label: 'Homeoffice',
+    hinweis: 'mobiles Arbeiten, Telearbeit, remote',
+    begriffe: ['homeoffice', 'home office', 'mobile arbeit', 'mobiles arbeit', 'mobilen arbeit', 'mobilem arbeit', 'mobiler arbeit', 'mobilarbeit', 'telearbeit', 'ortsunabhängig', 'remote work', 'remote arbeit', 'remote möglich', 'remote option', 'teilweise remote', 'hybrides arbeiten', 'hybride arbeit', 'hybrid work', 'work from home', 'working from home'],
+  },
+  {
+    id: 'w-zeit',
+    label: 'Flexible Arbeitszeiten',
+    hinweis: 'Gleitzeit, Vertrauensarbeitszeit',
+    begriffe: ['flexible arbeitszeit', 'flexiblen arbeitszeit', 'flexibler arbeitszeit', 'arbeitszeitflexib', 'gleitzeit', 'gleitende arbeitszeit', 'vertrauensarbeitszeit', 'flexible working', 'flexible hours', 'flexible work hours'],
+  },
+  {
+    id: 'w-familie',
+    label: 'Familienfreundlich',
+    hinweis: 'steht in fast jeder Anzeige im öffentlichen Dienst und unterscheidet deshalb kaum',
+    begriffe: ['familienfreundlich', 'familiengerecht', 'vereinbarkeit von familie', 'vereinbarkeit von beruf und familie', 'berufundfamilie', 'kinderbetreuung', 'eltern kind zimmer', 'family friendly', 'work life balance'],
+  },
+];
+
+/** Viel Reisetätigkeit (wird zu „Lieber nicht“). */
+export const REISEN: KatalogEintrag = {
+  id: 'n-reisen',
+  label: 'Viel Reisetätigkeit',
+  begriffe: ['reisebereitschaft', 'reisetätigkeit', 'dienstreisetätigkeit', 'bereitschaft zu dienstreisen', 'bereitschaft zu reisen', 'bereitschaft zur reisetätigkeit', 'häufige dienstreisen', 'regelmäßige dienstreisen', 'außendienst', 'willingness to travel', 'travel required', 'frequent travel', 'extensive travel'],
+};
+
+export const REISEN_OPTIONEN: { id: 0 | 1 | 3; label: string; hinweis: string }[] = [
+  { id: 0, label: 'Kein Problem', hinweis: 'gern auch mal unterwegs' },
+  { id: 1, label: 'Ab und zu ist okay', hinweis: 'Stellen mit viel Reisen rutschen etwas nach unten' },
+  { id: 3, label: 'Möglichst wenig', hinweis: 'Stellen mit viel Reisen rutschen deutlich nach unten' },
+];
+
 /** Interessen außerhalb der Psychologie (Horizont, Grundlage für KI-Vorschläge). */
 export const INTERESSEN: string[] = [
   'Künstliche Intelligenz', 'Technik & Informatik', 'Medizin', 'Biologie', 'Klima & Nachhaltigkeit', 'Politik & Gesellschaft',
@@ -242,7 +280,7 @@ export const DOSIS_OPTIONEN: { id: HorizontDosis; label: string; hinweis: string
   { id: 'aus', label: 'Gar nicht', hinweis: 'nur Stellen mit Psychologie-Bezug' },
 ];
 
-const KATALOG = new Map<string, KatalogEintrag>([...FACHGEBIETE, ...THEMEN, ...METHODEN, ...LIEBER_NICHT].map((v) => [v.id, v]));
+const KATALOG = new Map<string, KatalogEintrag>([...FACHGEBIETE, ...THEMEN, ...METHODEN, ...LIEBER_NICHT, ...ARBEITSWEISE, REISEN].map((v) => [v.id, v]));
 
 export function vorschlag(id: string): KatalogEintrag | undefined {
   return KATALOG.get(id);
@@ -283,6 +321,10 @@ export interface UmfrageAntworten {
   /** 0 = befristet ist völlig in Ordnung */
   unbefristet: 0 | 1 | 2 | 3 | null;
   sprache: 'de' | 'en' | 'egal' | null;
+  /** Homeoffice, flexible Arbeitszeiten, Familienfreundlichkeit (aus ARBEITSWEISE) */
+  arbeitsweise: Auswahl[];
+  /** Herzen für „Viel Reisetätigkeit“ unter „Lieber nicht“; 0 = Reisen ist kein Problem */
+  reisen: 0 | 1 | 3 | null;
   methoden: Auswahl[];
   mobil: string | null;
   bundeslaender: StateCode[];
@@ -324,6 +366,8 @@ export function leereAntworten(): UmfrageAntworten {
     umfang: { min: null, herzen: 1 },
     unbefristet: null,
     sprache: null,
+    arbeitsweise: [],
+    reisen: null,
     methoden: [],
     mobil: null,
     bundeslaender: [],
@@ -371,6 +415,8 @@ const AntwortenSchema = z.object({
   umfang: z.object({ min: z.number().int().min(1).max(100).nullable().catch(null), herzen: herz.catch(1) }).catch({ min: null, herzen: 1 }),
   unbefristet: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]).nullable().catch(null),
   sprache: z.enum(['de', 'en', 'egal']).nullable().catch(null),
+  arbeitsweise: liste(auswahl, 10),
+  reisen: z.union([z.literal(0), z.literal(1), z.literal(3)]).nullable().catch(null),
   methoden: liste(auswahl, 60),
   mobil: z.string().max(40).nullable().catch(null),
   bundeslaender: liste(z.enum(STATE_CODES as [StateCode, ...StateCode[]]), 16),
@@ -472,10 +518,14 @@ export function umfrageZuSteckbrief(a: UmfrageAntworten): SteckbriefV0 {
       unbefristet_wichtigkeit: a.unbefristet ?? undefined,
       sprache: a.sprache === 'de' || a.sprache === 'en' ? a.sprache : undefined,
     },
-    lieber_nicht: a.lieberNicht.map((x) => {
-      const v = vorschlag(x.id);
-      return { label: x.label, begriffe: v ? v.begriffe : (x.begriffe ?? [x.label.toLowerCase()]), art: v?.art, wichtigkeit: x.herzen };
-    }),
+    arbeitsweise: eintraege(a.arbeitsweise),
+    lieber_nicht: [
+      ...a.lieberNicht.map((x) => {
+        const v = vorschlag(x.id);
+        return { label: x.label, begriffe: v ? v.begriffe : (x.begriffe ?? [x.label.toLowerCase()]), art: v?.art, wichtigkeit: x.herzen };
+      }),
+      ...(a.reisen ? [{ label: REISEN.label, begriffe: REISEN.begriffe, wichtigkeit: a.reisen }] : []),
+    ],
     orte: {
       bundeslaender: a.bundeslaender,
       staedte: a.orte.filter((o) => o.kind === 'city').map((o) => o.label),
@@ -523,6 +573,8 @@ export function umfrageAlsText(stand: UmfrageStand): string {
   add('Umfang', a.umfang.min ? `ab ${a.umfang.min} % ${herzText(a.umfang.herzen)}` : 'egal');
   add('Unbefristet', a.unbefristet == null ? null : a.unbefristet === 0 ? 'befristet ist in Ordnung' : herzText(a.unbefristet));
   add('Sprache', a.sprache === 'de' ? 'lieber Deutsch' : a.sprache === 'en' ? 'lieber Englisch' : a.sprache === 'egal' ? 'beides' : null);
+  add('Arbeitsweise', auswahlText(a.arbeitsweise));
+  add('Dienstreisen', a.reisen == null ? null : REISEN_OPTIONEN.find((r) => r.id === a.reisen)?.label);
   lines.push('', '## Können');
   add('Methoden', auswahlText(a.methoden));
   lines.push('', '## Orte');

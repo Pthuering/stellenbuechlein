@@ -56,6 +56,8 @@ export const SteckbriefV0Schema = z.object({
       sprache: z.enum(['de', 'en']).optional(),
     })
     .default({}),
+  /** Arbeitsweise (Homeoffice, flexible Arbeitszeiten …): Begriffe, die zum Rahmen zählen */
+  arbeitsweise: z.array(begriffEintrag).default([]),
   lieber_nicht: z
     .array(
       z.object({
@@ -163,6 +165,7 @@ export function importSteckbrief(input: unknown, now = new Date().toISOString())
   if (s.rahmen.sprache) {
     rahmen.push({ id: newItemId('r'), label: s.rahmen.sprache === 'de' ? 'Deutschsprachig' : 'Englischsprachig', hearts: 1, condition: { type: 'language', lang: s.rahmen.sprache } });
   }
+  rahmen.push(...s.arbeitsweise.map((e) => fromBegriffe('r', e)));
   const avoid: ProfileItem[] = s.lieber_nicht.map((e) => ({
     id: newItemId('a'),
     label: e.label,
@@ -244,6 +247,7 @@ export const STECKBRIEF_EXAMPLE: SteckbriefV0 = {
     { label: 'R / Statistik', begriffe: ['"r"', 'statistik', 'mehrebenen'], wichtigkeit: 1 },
   ],
   rahmen: { entgelt_min: 13, entgelt_wichtigkeit: 2, umfang_min: 65, umfang_wichtigkeit: 1, unbefristet_wichtigkeit: 0 },
+  arbeitsweise: [],
   lieber_nicht: [{ label: 'Lehrkraft für besondere Aufgaben', begriffe: ['lehrkraft fuer besondere aufgaben', '"lfba"'], wichtigkeit: 2 }],
   orte: { bundeslaender: ['SN', 'ST', 'TH'], staedte: ['Leipzig', 'Halle (Saale)'], einrichtungen: [] },
   horizont: {

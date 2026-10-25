@@ -5,6 +5,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ABSCHLUSS_VORSCHLAEGE,
+  ARBEITSWEISE,
   BRUECKEN_HINWEISE,
   DOSIS_OPTIONEN,
   EINRICHTUNG_OPTIONEN,
@@ -15,6 +16,7 @@ import {
   LIEBER_NICHT,
   METHODEN_GRUPPEN,
   MOBIL_OPTIONEN,
+  REISEN_OPTIONEN,
   START_OPTIONEN,
   STAND_OPTIONEN,
   STATE_CODES,
@@ -173,6 +175,27 @@ function ChipPicker({
         }}
       />
     </>
+  );
+}
+
+/** Große Zeile zum Antippen; gewählt erscheinen darunter die Herzchen. */
+function ToggleRow({ label, hinweis, herzen, onToggle, onHearts }: { label: string; hinweis?: string; herzen: HeartCount | null; onToggle: () => void; onHearts: (h: HeartCount) => void }) {
+  return (
+    <div className={`survey-kind${herzen ? ' survey-kind--on' : ''}`}>
+      <button type="button" role="checkbox" aria-checked={!!herzen} className="survey-option survey-option--multi" onClick={onToggle}>
+        <span className="survey-option__mark" aria-hidden="true" />
+        <span>
+          {label}
+          {hinweis && <small>{hinweis}</small>}
+        </span>
+      </button>
+      {herzen && (
+        <div className="survey-kind__hearts">
+          <span>Wie wichtig?</span>
+          <Hearts value={herzen} onChange={onHearts} label={`Wichtigkeit von ${label}`} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -418,27 +441,14 @@ const SEITEN: Seite[] = [
         {STELLENART_OPTIONEN.map((o) => {
           const sel = a.stellenarten.find((x) => x.art === o.art);
           return (
-            <div key={o.art} className={`survey-kind${sel ? ' survey-kind--on' : ''}`}>
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={!!sel}
-                className="survey-option survey-option--multi"
-                onClick={() => set({ stellenarten: sel ? a.stellenarten.filter((x) => x.art !== o.art) : [...a.stellenarten, { art: o.art, herzen: 2 }] })}
-              >
-                <span className="survey-option__mark" aria-hidden="true" />
-                <span>
-                  {o.label}
-                  <small>{o.hinweis}</small>
-                </span>
-              </button>
-              {sel && (
-                <div className="survey-kind__hearts">
-                  <span>Wie wichtig?</span>
-                  <Hearts value={sel.herzen} onChange={(h) => set({ stellenarten: a.stellenarten.map((x) => (x.art === o.art ? { ...x, herzen: h } : x)) })} label={`Wichtigkeit von ${o.label}`} />
-                </div>
-              )}
-            </div>
+            <ToggleRow
+              key={o.art}
+              label={o.label}
+              hinweis={o.hinweis}
+              herzen={sel?.herzen ?? null}
+              onToggle={() => set({ stellenarten: sel ? a.stellenarten.filter((x) => x.art !== o.art) : [...a.stellenarten, { art: o.art, herzen: 2 }] })}
+              onHearts={(h) => set({ stellenarten: a.stellenarten.map((x) => (x.art === o.art ? { ...x, herzen: h } : x)) })}
+            />
           );
         })}
       </div>
@@ -526,6 +536,32 @@ const SEITEN: Seite[] = [
         <Choice label="Wie wichtig ist dir eine unbefristete Stelle?" options={UNBEFRISTET} value={a.unbefristet} onChange={(v) => set({ unbefristet: v })} />
         <Question>In welcher Sprache arbeitest du lieber?</Question>
         <Choice label="In welcher Sprache arbeitest du lieber?" options={SPRACHEN} value={a.sprache} onChange={(v) => set({ sprache: v })} />
+      </>
+    ),
+  },
+  {
+    teil: 3,
+    titel: 'Wie möchtest du arbeiten?',
+    sub: 'Anzeigen, die das erwähnen, rücken nach oben. Steht nichts dazu drin, gibt es einfach keinen Bonus.',
+    inhalt: (a, set) => (
+      <>
+        <div className="survey-options">
+          {ARBEITSWEISE.map((k) => {
+            const sel = a.arbeitsweise.find((x) => x.id === k.id);
+            return (
+              <ToggleRow
+                key={k.id}
+                label={k.label}
+                hinweis={k.hinweis}
+                herzen={sel?.herzen ?? null}
+                onToggle={() => set({ arbeitsweise: sel ? a.arbeitsweise.filter((x) => x.id !== k.id) : [...a.arbeitsweise, { id: k.id, label: k.label, herzen: 2 }] })}
+                onHearts={(h) => set({ arbeitsweise: mapHearts(a.arbeitsweise, k.id, h) })}
+              />
+            );
+          })}
+        </div>
+        <Question>Und Dienstreisen?</Question>
+        <Choice label="Und Dienstreisen?" options={REISEN_OPTIONEN} value={a.reisen} onChange={(v) => set({ reisen: v })} />
       </>
     ),
   },

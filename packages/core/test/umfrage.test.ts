@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ARBEITSWEISE,
   compileTerm,
   compileTerms,
   eigeneAuswahl,
@@ -11,6 +12,7 @@ import {
   neueUmfrage,
   parseProfile,
   parseUmfrage,
+  REISEN,
   searchTextOf,
   starterHorizont,
   THEMEN,
@@ -20,7 +22,7 @@ import {
   type UmfrageAntworten,
 } from '../src';
 
-const KATALOG = [...FACHGEBIETE, ...THEMEN, ...METHODEN, ...LIEBER_NICHT];
+const KATALOG = [...FACHGEBIETE, ...THEMEN, ...METHODEN, ...LIEBER_NICHT, ...ARBEITSWEISE, REISEN];
 
 describe('Umfrage: Kataloge', () => {
   it('ids sind eindeutig und alle Begriffe gültig', () => {
@@ -49,6 +51,25 @@ describe('Umfrage: Kataloge', () => {
   });
 });
 
+describe('Umfrage: Arbeitsweise', () => {
+  const hit = (id: string, title: string, text: string) => {
+    const v = KATALOG.find((x) => x.id === id)!;
+    return firstMatch(searchTextOf({ title, descriptionMd: text }), compileTerms(v.begriffe))?.raw ?? null;
+  };
+
+  it('erkennt Homeoffice, aber nicht Fernerkundung oder hybride Lehre', () => {
+    expect(hit('w-home', 'Wiss. Mitarbeit', 'Wir bieten die Möglichkeit zum mobilen Arbeiten.')).not.toBeNull();
+    expect(hit('w-home', 'Wiss. Mitarbeit', 'Home-Office nach Absprache möglich.')).not.toBeNull();
+    expect(hit('w-home', 'Postdoc Remote Sensing', 'Analyse von Satellitendaten; hybride Lehrformate.')).toBeNull();
+  });
+
+  it('erkennt flexible Arbeitszeiten und Reisetätigkeit', () => {
+    expect(hit('w-zeit', 'Projekt', 'Flexible Arbeitszeitmodelle und Gleitzeit.')).not.toBeNull();
+    expect(hit('n-reisen', 'Referent:in', 'Reisebereitschaft innerhalb Deutschlands wird vorausgesetzt.')).not.toBeNull();
+    expect(hit('n-reisen', 'Referent:in', 'Reisekosten für Konferenzen werden übernommen.')).toBeNull();
+  });
+});
+
 function antworten(): UmfrageAntworten {
   const a = neueUmfrage('2026-10-25T20:00:00.000Z').antworten;
   return {
@@ -72,6 +93,8 @@ function antworten(): UmfrageAntworten {
     umfang: { min: 65, herzen: 1 },
     unbefristet: 0,
     sprache: 'egal',
+    arbeitsweise: [{ id: 'w-home', label: 'Homeoffice', herzen: 2 }],
+    reisen: 1,
     methoden: [{ id: 'm-eeg', label: 'EEG', herzen: 2 }],
     bundeslaender: ['SN', 'ST'],
     orte: [{ kind: 'city', ref: 'leipzig', label: 'Leipzig' }],
@@ -108,7 +131,9 @@ describe('Umfrage: Umwandeln', () => {
     expect(cat('thema').items[0].terms).toContain('*psychotherap');
     expect(cat('thema').items[3].terms).toEqual(['interozeption', 'interoception']);
     expect(cat('stelle').items.map((i) => i.hearts)).toEqual([3, 2]);
-    expect(cat('rahmen').items.map((i) => i.label)).toEqual(['Ab E 13', 'Mindestens 65 %']);
+    expect(cat('rahmen').items.map((i) => i.label)).toEqual(['Ab E 13', 'Mindestens 65 %', 'Homeoffice']);
+    expect(cat('rahmen').items[2].terms).toContain('mobiles arbeit');
+    expect(p.avoid.find((x) => x.label === 'Viel Reisetätigkeit')?.hearts).toBe(1);
     expect(cat('thema').weight).toBeGreaterThan(45);
     expect(p.avoid.find((x) => x.label === 'Hilfskraft-Stellen')?.condition).toEqual({ type: 'kind', kinds: ['shk'] });
     expect(p.avoid.find((x) => x.label === 'Tierversuche')?.terms).toContain('tierversuch');
@@ -152,5 +177,7 @@ describe('Umfrage: Speichern', () => {
     expect(t).toContain('Interozeption ♥ (eigene: interozeption, interoception)');
     expect(t).toContain('Sachsen, Sachsen-Anhalt');
     expect(t).toContain('Mensch & KI, Gestaltung & UX');
+    expect(t).toContain('**Arbeitsweise:** Homeoffice ♥♥');
+    expect(t).toContain('**Dienstreisen:** Ab und zu ist okay');
   });
 });
