@@ -12,9 +12,21 @@ export interface ChatMessage {
   content: string;
 }
 
+// Die KI weicht gern im Detail ab (Feld fehlt, Zahl als Text, Wert außerhalb der Liste). Nebenfelder
+// werden dann null, statt die ganze Antwort zu verwerfen; nur die tragenden Felder bleiben streng.
+const optText = z.string().nullable().catch(null);
+const toNum = (v: unknown) => (typeof v === 'string' && v.trim() !== '' ? Number(v.replace(',', '.')) : v);
+const optNum = z.preprocess(toNum, z.number().nullable()).catch(null);
+const optInt = z.preprocess(toNum, z.number().int().nullable()).catch(null);
+
+/** So viele unbrauchbare Antworten stehen einzeln im Protokoll, danach wird nur gezählt. */
+const MAX_LOGGED_FAILURES = 10;
+
 export class Llm {
   calls = 0;
   failures = 0;
+  /** Schlüssel ungültig oder Guthaben leer: dann für den Rest des Laufs nicht mehr fragen. */
+  private disabled = false;
 
   constructor(
     private readonly cfg: IngestConfig['llm'],
@@ -23,11 +35,18 @@ export class Llm {
   ) {}
 
   get available(): boolean {
-    return !!this.cfg.apiKey && this.calls < this.cfg.maxCalls;
+    return !!this.cfg.apiKey && !this.disabled && this.calls < this.cfg.maxCalls;
+  }
+
+  private fail(msg: string): null {
+    this.failures++;
+    if (this.failures <= MAX_LOGGED_FAILURES) this.log.warn(`KI: ${msg}`);
+    else if (this.failures === MAX_LOGGED_FAILURES + 1) this.log.warn('KI: weitere Fehler werden nur noch gezählt.');
+    return null;
   }
 
   /** Fragt JSON ab und prüft es gegen ein Schema. Gibt null zurück, wenn etwas schiefgeht. */
-  async json<T>(schema: z.ZodType<T>, messages: ChatMessage[], maxTokens = 1200): Promise<T | null> {
+  async json<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, messages: ChatMessage[], maxTokens = 1200): Promise<T | null> {
     if (!this.available) return null;
     this.calls++;
     try {
@@ -43,22 +62,25 @@ export class Llm {
         }),
       });
       if (!res.ok) {
-        this.failures++;
-        this.log.warn(`KI-Anfrage fehlgeschlagen (${res.status})`);
-        return null;
+        if (res.status === 401 || res.status === 402 || res.status === 403) {
+          this.disabled = true;
+          this.log.error(`KI abgeschaltet für diesen Lauf (${res.status}): Schlüssel ungültig oder Guthaben aufgebraucht.`);
+          this.failures++;
+          return null;
+        }
+        return this.fail(`Anfrage fehlgeschlagen (${res.status})`);
       }
-      const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-      const content = data.choices?.[0]?.message?.content ?? '';
-      const parsed = schema.safeParse(JSON.parse(content.replace(/^```(?:json)?\s*|```\s*$/g, '')));
+      const data = (await res.json()) as { choices?: { message?: { content?: string }; finish_reason?: string }[] };
+      const choice = data.choices?.[0];
+      if (choice?.finish_reason === 'length') return this.fail(`Antwort nach ${maxTokens} Tokens abgeschnitten`);
+      const parsed = schema.safeParse(JSON.parse((choice?.message?.content ?? '').replace(/^```(?:json)?\s*|```\s*$/g, '')));
       if (!parsed.success) {
-        this.failures++;
-        return null;
+        const issues = parsed.error.issues.slice(0, 3).map((i) => `${i.path.join('.') || 'Antwort'}: ${i.message}`);
+        return this.fail(`Antwort passt nicht zum Format (${issues.join('; ')})`);
       }
       return parsed.data;
     } catch (e) {
-      this.failures++;
-      this.log.warn(`KI-Anfrage fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
-      return null;
+      return this.fail(`Anfrage fehlgeschlagen: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
@@ -68,16 +90,16 @@ export class Llm {
   extractPosting(text: string, url: string) {
     const schema = z.object({
       is_job_posting: z.boolean(),
-      title: z.string().nullable(),
-      institution: z.string().nullable(),
-      department: z.string().nullable(),
-      location: z.string().nullable(),
-      deadline: z.string().nullable(),
-      pay_grade: z.string().nullable(),
-      workload_pct: z.number().nullable(),
-      fixed_term: z.string().nullable(),
-      start: z.string().nullable(),
-      summary_de: z.string().nullable(),
+      title: optText,
+      institution: optText,
+      department: optText,
+      location: optText,
+      deadline: optText,
+      pay_grade: optText,
+      workload_pct: optNum,
+      fixed_term: optText,
+      start: optText,
+      summary_de: optText,
     });
     return this.json(schema, [
       {
@@ -99,7 +121,7 @@ export class Llm {
 
   /** Welche Links einer Listenseite führen zu einzelnen Anzeigen? */
   pickPostingLinks(pageText: string, links: { i: number; text: string; url: string }[]) {
-    const schema = z.object({ posting_links: z.array(z.number().int()), no_jobs_listed: z.boolean() });
+    const schema = z.object({ posting_links: z.array(z.preprocess(toNum, z.number().int())), no_jobs_listed: z.boolean().catch(false) });
     const list = links
       .slice(0, 250)
       .map((l) => `[${l.i}] ${l.text.slice(0, 120)} -> ${l.url}`)
@@ -119,8 +141,8 @@ export class Llm {
   agentStep(goal: string, pageText: string, elements: { i: number; label: string }[], history: string[]) {
     const schema = z.object({
       action: z.enum(['click', 'done', 'give_up']),
-      index: z.number().int().nullable(),
-      reason: z.string(),
+      index: optInt,
+      reason: z.string().catch(''),
     });
     return this.json(
       schema,
@@ -149,9 +171,9 @@ export class Llm {
    */
   checkDeadline(text: string, today: string, found: string | null) {
     const schema = z.object({
-      deadline: z.string().nullable(),
-      quote: z.string().nullable(),
-      still_open: z.boolean().nullable(),
+      deadline: optText,
+      quote: optText,
+      still_open: z.boolean().nullable().catch(null),
     });
     return this.json(
       schema,
@@ -177,8 +199,8 @@ export class Llm {
   horizonVerdict(profile: string, posting: { title: string; org: string | null; text: string }, bridge: { name: string; warum?: string | null } | null) {
     const schema = z.object({
       verdict: z.enum(['passt', 'eher', 'nein']),
-      reason_de: z.string(),
-      label: z.string().nullable(),
+      reason_de: z.string().catch(''),
+      label: optText,
     });
     return this.json(
       schema,
@@ -200,7 +222,7 @@ export class Llm {
             `Anzeige: ${posting.title}${posting.org ? `, ${posting.org}` : ''}\n${posting.text.slice(0, 6000)}`,
         },
       ],
-      250,
+      400,
     );
   }
 
@@ -214,15 +236,17 @@ export class Llm {
   }) {
     const schema = z.object({
       is_job_list: z.boolean(),
-      institution_name: z.string().nullable(),
-      city: z.string().nullable(),
-      institution_type: z.enum(INSTITUTION_KINDS).nullable(),
-      is_department_page: z.boolean(),
-      sample_checks: z.array(z.object({ index: z.number().int(), is_posting: z.boolean(), problems: z.array(z.string()) })),
-      link_pattern: z.string().nullable(),
-      needs_browser: z.boolean(),
+      institution_name: optText,
+      city: optText,
+      institution_type: z.enum(INSTITUTION_KINDS).nullable().catch(null),
+      is_department_page: z.boolean().catch(false),
+      sample_checks: z
+        .array(z.object({ index: z.preprocess(toNum, z.number().int()), is_posting: z.boolean(), problems: z.array(z.string()).catch([]) }))
+        .catch([]),
+      link_pattern: optText,
+      needs_browser: z.boolean().catch(false),
       verdict: z.enum(['gut', 'mit_einschraenkungen', 'ungeeignet']),
-      summary_de: z.string(),
+      summary_de: z.string().catch(''),
     });
     return this.json(
       schema,
@@ -246,13 +270,13 @@ export class Llm {
             `Probe-Anzeigen:\n${input.samples.map((s) => `[${s.i}] ${s.title}\n${s.url}\nErkannt: ${s.fields}\n${s.text.slice(0, 1200)}`).join('\n\n---\n\n')}`,
         },
       ],
-      900,
+      1500,
     );
   }
 
   /** Welche Seite ist die Stellenbörse einer Einrichtung? */
   pickJobsPage(institution: string, links: { i: number; text: string; url: string }[]) {
-    const schema = z.object({ index: z.number().int().nullable(), confidence: z.enum(['hoch', 'mittel', 'niedrig']) });
+    const schema = z.object({ index: optInt, confidence: z.enum(['hoch', 'mittel', 'niedrig']).catch('niedrig') });
     return this.json(
       schema,
       [

@@ -37,9 +37,9 @@ import {
 } from '@stellen/db';
 import {
   bridgeSuggestionMessages,
-  BridgeSuggestionSchema,
   canonicalUrl,
   INSTITUTION_KINDS,
+  parseBridgeSuggestions,
   parseProfile,
   siteKeyOf,
   starterProfile,
@@ -476,29 +476,38 @@ export function createApp(deps: AppDeps): Hono {
     if (!env.LLM_API_KEY) return c.json({ error: 'Für Vorschläge braucht der Worker einen KI-Schlüssel (LLM_API_KEY).' }, 501);
     const body = (await c.req.json().catch(() => null)) as { profile?: unknown } | null;
     const profile = parseProfile(body?.profile) ?? parseProfile(await getSetting<unknown>(deps.db(c), 'profile', null)) ?? starterProfile();
-    const res = await fetch(`${(env.LLM_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '')}/chat/completions`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${env.LLM_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: env.LLM_MODEL ?? 'deepseek-chat',
-        messages: bridgeSuggestionMessages(profile),
-        temperature: 0.7,
-        max_tokens: 1500,
-        response_format: { type: 'json_object' },
-      }),
-    }).catch(() => null);
-    if (!res?.ok) return c.json({ error: 'Die KI hat gerade nicht geantwortet. Bitte später noch einmal versuchen.' }, 502);
-    const data = (await res.json().catch(() => null)) as { choices?: { message?: { content?: string } }[] } | null;
-    const content = data?.choices?.[0]?.message?.content ?? '';
-    let parsed: unknown = null;
-    try {
-      parsed = JSON.parse(content.replace(/^```(?:json)?\s*|```\s*$/g, ''));
-    } catch {
-      parsed = null;
+    // Zwei Versuche: DeepSeek liefert im JSON-Modus gelegentlich eine leere Antwort.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const res = await fetch(`${(env.LLM_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '')}/chat/completions`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${env.LLM_API_KEY}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: env.LLM_MODEL ?? 'deepseek-chat',
+          messages: bridgeSuggestionMessages(profile),
+          temperature: 0.7,
+          max_tokens: 3000,
+          response_format: { type: 'json_object' },
+        }),
+      }).catch(() => null);
+      if (!res?.ok) {
+        console.warn(`Brücken-Vorschläge: KI antwortet mit ${res?.status ?? 'keiner Verbindung'}`);
+        return c.json({ error: 'Die KI hat gerade nicht geantwortet. Bitte später noch einmal versuchen.' }, 502);
+      }
+      const data = (await res.json().catch(() => null)) as { choices?: { message?: { content?: string }; finish_reason?: string }[] } | null;
+      const choice = data?.choices?.[0];
+      const content = (choice?.message?.content ?? '').replace(/^```(?:json)?\s*|```\s*$/g, '').trim();
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        console.warn(`Brücken-Vorschläge, Versuch ${attempt}: kein JSON (${content.length} Zeichen, Ende: ${choice?.finish_reason ?? '?'})`);
+        continue;
+      }
+      const { bruecken, problems } = parseBridgeSuggestions(parsed);
+      if (problems.length) console.warn(`Brücken-Vorschläge, Versuch ${attempt} (Ende: ${choice?.finish_reason ?? '?'}): ${problems.join(' | ')}`);
+      if (bruecken.length) return c.json({ bruecken: toSuggestedBridges(bruecken, profile) });
     }
-    const r = BridgeSuggestionSchema.safeParse(parsed);
-    if (!r.success) return c.json({ error: 'Die Antwort der KI war unbrauchbar. Bitte noch einmal versuchen.' }, 502);
-    return c.json({ bruecken: toSuggestedBridges(r.data, profile) });
+    return c.json({ error: 'Die Antwort der KI war unbrauchbar. Bitte noch einmal versuchen.' }, 502);
   });
 
   app.get('/api/runs', async (c) => c.json({ runs: await listRuns(deps.db(c), 20) }));

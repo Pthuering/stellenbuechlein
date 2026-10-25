@@ -321,6 +321,7 @@ export class Pipeline {
       await this.pool?.close();
       this.stats.http = this.http.requests;
       this.stats.ki = this.llm.calls;
+      if (this.llm.failures) this.stats.kiFehler = this.llm.failures;
       if (this.pool) this.stats.browserSekunden = Math.round(this.pool.usedMs / 1000);
       this.log.info(`Fertig: ${JSON.stringify(this.stats)}`);
       await finishRun(this.db, runId, ok, this.stats, this.log.text()).catch((e) => console.error(e));
