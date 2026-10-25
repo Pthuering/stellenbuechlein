@@ -1,5 +1,10 @@
 // KI-Gespräch in der App: Werkzeuge auf den Daten im Browser, Kontext zu jeder Frage, Vorschläge übernehmen.
 // Anweisungen, Werkzeug-Beschreibungen und die Schleife stehen in packages/core/src/assistant.ts.
+//
+// Sprache: Was die KI liest (Werkzeug-Ergebnisse, Kontext, Rückmeldungen über Entscheidungen), bleibt
+// deutsch. Übersetzt wird, was die Person sieht: Arbeitsschritte (info), Titel und Zeilen der
+// Vorschlagskarten, Meldungen. Ist die Oberfläche nicht deutsch, sagt der Kontext der KI, in welcher
+// Sprache sie antworten soll.
 
 import {
   addDays,
@@ -29,6 +34,7 @@ import {
   truncate,
   type AssistantMessage,
   type AssistantToolCall,
+  type CategoryId,
   type GeoContext,
   type HomeLocation,
   type Horizont,
@@ -45,7 +51,215 @@ import {
 import type { JobView } from '../data/hooks';
 import type { State, Store } from '../data/store';
 import { idbDel, idbGet, idbSet } from '../data/local';
+import { fmtDate, lang, srForm, texts, type Lang } from '../i18n';
+import { profileLabel } from '../i18n/katalog';
+import { categoryLabel, institutionKindLabel, jobKindLabel, laneName } from '../i18n/labels';
 import { employerName, relativeTime } from './format';
+
+type Aktion = Extract<Vorschlag, { art: 'markierung' }>['aktion'];
+
+/**
+ * Deutsch: für die Oberfläche und für alles, was davon an die KI zurückgeht (Titel von Vorschlägen in
+ * den Entscheidungen, Filter im Kontext). Deshalb hier eigens benannt.
+ */
+const DE = {
+  // Arbeitsschritte, wie sie im Gespräch stehen
+  invalidArgs: (tool: string) => `${tool}: ungültige Argumente`,
+  searches: (args: string, n: number) => `sucht Anzeigen${args} → ${n} gefunden`,
+  readsMissing: 'liest eine Anzeige, die es nicht gibt',
+  reads: (title: string) => `liest „${title}“`,
+  counts: (by: string, args: string, n: number) => `zählt Anzeigen nach ${by}${args} → ${n}`,
+  /** Gruppierung in Worten; auf Deutsch steht der Wert des Werkzeugs (stadt, bundesland …). */
+  countBy: {} as Record<string, string>,
+  testsEmpty: 'testet eine Brücke ohne Begriffe',
+  tests: (terms: string, hits: number, outside: number) => `testet Brücke (${terms}) → ${hits} Treffer, ${outside} außerhalb des Kerns`,
+  unknownTool: (tool: string) => `unbekanntes Werkzeug ${tool}`,
+  proposalFlawed: 'Vorschlag mit Fehlern, die KI bessert nach',
+  proposes: (title: string) => `schlägt vor: ${title}`,
+  toolError: (tool: string) => `${tool}: Fehler`,
+  // Suchangaben eines Arbeitsschritts
+  quoted: (s: string) => `„${s}“`,
+  /** Markierung in Worten; auf Deutsch steht der Wert des Werkzeugs (gemerkt, herzensjob …). */
+  marks: {} as Record<string, string>,
+  newWithin: (n: number) => `neu seit ${n} Tagen`,
+  deadlineBy: (date: string) => `Frist bis ${date}`,
+  minScore: (n: number) => `ab ${n} %`,
+  maxKm: (n: number) => `bis ${n} km`,
+  alsoExpired: 'auch abgelaufene',
+  // Vorschläge
+  actions: {
+    merken: 'Merken',
+    herzensjob: 'Als Herzensjob markieren',
+    beworben: 'Als beworben markieren',
+    weglegen: 'Weglegen',
+    zuruecksetzen: 'Markierung zurücksetzen',
+  } as Record<Aktion, string>,
+  posting: 'Anzeige',
+  markTitle: (action: string, title: string) => `${action}: „${title}“`,
+  noteOn: (title: string) => `Notiz zu „${title}“`,
+  changeBridge: (name: string) => `Brücke „${name}“ ändern`,
+  newBridge: (name: string) => `Neue Brücke „${name}“`,
+  changeProfile: (n: number) => `Suchprofil ändern (${n} ${n === 1 ? 'Änderung' : 'Änderungen'})`,
+  changeFilter: 'Filter im Stapel ändern',
+  // Profil-Vorschlag in Worten
+  ratherNot: 'Lieber nicht',
+  renamed: (label: string) => `heißt „${label}“`,
+  terms: (s: string) => `Begriffe: ${s}`,
+  unchanged: 'unverändert',
+  // Meldungen beim Übernehmen
+  undo: 'Rückgängig',
+  done: (action: string) => `${action}: erledigt.`,
+  noteSavedCut: 'Notiz gespeichert, wegen der Länge gekürzt.',
+  noteSaved: 'Notiz gespeichert.',
+  bridgeChanged: (name: string) => `Brücke „${name}“ geändert.`,
+  bridgeAdded: (name: string) => `Brücke „${name}“ übernommen.`,
+  profileChanged: 'Suchprofil geändert.',
+  filterChanged: 'Filter im Stapel geändert.',
+  // Filter in Worten
+  noFilter: 'keine (ganz Deutschland, alles)',
+  fRadius: (km: number) => `Umkreis ${km} km`,
+  fStates: (s: string) => `Bundesländer ${s}`,
+  fKinds: (s: string) => `Stellenarten ${s}`,
+  fInstKinds: (s: string) => `Einrichtungsarten ${s}`,
+  fPay: (level: number) => `ab E ${level}`,
+  fWorkload: (pct: number) => `ab ${pct} %`,
+  fPermanent: 'nur unbefristet',
+  fDaysLeft: (n: number) => `Frist mindestens ${n} Tage`,
+  fLanes: (s: string) => `Ringe ${s}`,
+  fNewSites: 'nur neue Websites',
+  fText: (s: string) => `Suchtext „${s}“`,
+};
+
+const t = texts({
+  de: DE,
+  en: {
+    invalidArgs: (tool) => `${tool}: invalid arguments`,
+    searches: (args, n) => `searches postings${args} → ${n} found`,
+    readsMissing: 'reads a posting that doesn’t exist',
+    reads: (title) => `reads “${title}”`,
+    counts: (by, args, n) => `counts postings by ${by}${args} → ${n}`,
+    countBy: { stadt: 'city', bundesland: 'federal state', stellenart: 'position type', einrichtungsart: 'institution type', einrichtung: 'institution', ring: 'ring', woche: 'week' },
+    testsEmpty: 'tests a bridge without terms',
+    tests: (terms, hits, outside) => `tests bridge (${terms}) → ${hits} ${hits === 1 ? 'hit' : 'hits'}, ${outside} outside the core`,
+    unknownTool: (tool) => `unknown tool ${tool}`,
+    proposalFlawed: 'suggestion has errors, the AI is fixing it',
+    proposes: (title) => `suggests: ${title}`,
+    toolError: (tool) => `${tool}: error`,
+    quoted: (s) => `“${s}”`,
+    marks: { gemerkt: 'saved', herzensjob: 'dream jobs', beworben: 'applied', weggelegt: 'passed', unentschieden: 'undecided' },
+    newWithin: (n) => (n === 1 ? 'new in the last day' : `new in the last ${n} days`),
+    deadlineBy: (date) => `deadline by ${date}`,
+    minScore: (n) => `${n}%+ match`,
+    maxKm: (n) => `within ${n} km`,
+    alsoExpired: 'including expired',
+    actions: {
+      merken: 'Save',
+      herzensjob: 'Mark as dream job',
+      beworben: 'Mark as applied',
+      weglegen: 'Pass',
+      zuruecksetzen: 'Clear marks',
+    },
+    posting: 'Posting',
+    markTitle: (action, title) => `${action}: “${title}”`,
+    noteOn: (title) => `Note on “${title}”`,
+    changeBridge: (name) => `Change bridge “${name}”`,
+    newBridge: (name) => `New bridge “${name}”`,
+    changeProfile: (n) => `Change search profile (${n} ${n === 1 ? 'change' : 'changes'})`,
+    changeFilter: 'Change filters in the stack',
+    ratherNot: 'Rather not',
+    renamed: (label) => `renamed to “${label}”`,
+    terms: (s) => `terms: ${s}`,
+    unchanged: 'unchanged',
+    undo: 'Undo',
+    done: (action) => `${action}: done.`,
+    noteSavedCut: 'Note saved, shortened because of its length.',
+    noteSaved: 'Note saved.',
+    bridgeChanged: (name) => `Bridge “${name}” updated.`,
+    bridgeAdded: (name) => `Bridge “${name}” added.`,
+    profileChanged: 'Search profile updated.',
+    filterChanged: 'Filters in the stack updated.',
+    noFilter: 'none (all of Germany, everything)',
+    fRadius: (km) => `radius ${km} km`,
+    fStates: (s) => `federal states ${s}`,
+    fKinds: (s) => `position types ${s}`,
+    fInstKinds: (s) => `institution types ${s}`,
+    fPay: (level) => `from E ${level}`,
+    fWorkload: (pct) => `at least ${pct}%`,
+    fPermanent: 'permanent only',
+    fDaysLeft: (n) => `deadline at least ${n} ${n === 1 ? 'day' : 'days'} away`,
+    fLanes: (s) => `rings ${s}`,
+    fNewSites: 'new websites only',
+    fText: (s) => `search text “${s}”`,
+  },
+  sr: {
+    invalidArgs: (tool) => `${tool}: nevažeći argumenti`,
+    searches: (args, n) => `pretražuje oglase${args} → pronađeno: ${n}`,
+    readsMissing: 'čita oglas koji ne postoji',
+    reads: (title) => `čita „${title}“`,
+    counts: (by, args, n) => `broji oglase po ${by}${args} → ${n}`,
+    countBy: { stadt: 'gradu', bundesland: 'saveznoj pokrajini', stellenart: 'vrsti pozicije', einrichtungsart: 'vrsti ustanove', einrichtung: 'ustanovi', ring: 'prstenu', woche: 'nedelji' },
+    testsEmpty: 'testira most bez pojmova',
+    tests: (terms, hits, outside) => `testira most (${terms}) → ${hits} ${srForm(hits, 'pogodak', 'pogotka', 'pogodaka')}, ${outside} van jezgra`,
+    unknownTool: (tool) => `nepoznat alat ${tool}`,
+    proposalFlawed: 'predlog ima greške, AI ih ispravlja',
+    proposes: (title) => `predlaže: ${title}`,
+    toolError: (tool) => `${tool}: greška`,
+    quoted: (s) => `„${s}“`,
+    marks: { gemerkt: 'sačuvano', herzensjob: 'poslovi iz snova', beworben: 'prijava poslata', weggelegt: 'preskočeno', unentschieden: 'bez odluke' },
+    newWithin: (n) => `novo u ${srForm(n, 'poslednjem', 'poslednja', 'poslednjih')} ${n} ${srForm(n, 'danu', 'dana', 'dana')}`,
+    deadlineBy: (date) => `rok do ${date}`,
+    minScore: (n) => `poklapanje od ${n}%`,
+    maxKm: (n) => `do ${n} km`,
+    alsoExpired: 'uključujući istekle',
+    actions: {
+      merken: 'Sačuvaj',
+      herzensjob: 'Označi kao posao iz snova',
+      beworben: 'Označi da je prijava poslata',
+      weglegen: 'Preskoči',
+      zuruecksetzen: 'Poništi oznake',
+    },
+    posting: 'Oglas',
+    markTitle: (action, title) => `${action}: „${title}“`,
+    noteOn: (title) => `Beleška uz „${title}“`,
+    changeBridge: (name) => `Izmeni most „${name}“`,
+    newBridge: (name) => `Novi most „${name}“`,
+    changeProfile: (n) => `Izmeni profil pretrage (${n} ${srForm(n, 'izmena', 'izmene', 'izmena')})`,
+    changeFilter: 'Izmeni filtere u špilu',
+    ratherNot: 'Radije ne',
+    renamed: (label) => `novi naziv „${label}“`,
+    terms: (s) => `pojmovi: ${s}`,
+    unchanged: 'bez izmena',
+    undo: 'Opozovi',
+    done: (action) => `${action}: gotovo.`,
+    noteSavedCut: 'Beleška je sačuvana, skraćena zbog dužine.',
+    noteSaved: 'Beleška je sačuvana.',
+    bridgeChanged: (name) => `Most „${name}“ je izmenjen.`,
+    bridgeAdded: (name) => `Most „${name}“ je dodat.`,
+    profileChanged: 'Profil pretrage je izmenjen.',
+    filterChanged: 'Filteri u špilu su izmenjeni.',
+    noFilter: 'bez filtera (cela Nemačka, sve)',
+    fRadius: (km) => `radijus ${km} km`,
+    fStates: (s) => `savezne pokrajine ${s}`,
+    fKinds: (s) => `vrste pozicija ${s}`,
+    fInstKinds: (s) => `vrste ustanova ${s}`,
+    fPay: (level) => `od E ${level}`,
+    fWorkload: (pct) => `najmanje ${pct}%`,
+    fPermanent: 'samo na neodređeno',
+    fDaysLeft: (n) => `rok ističe za najmanje ${n} ${srForm(n, 'dan', 'dana', 'dana')}`,
+    fLanes: (s) => `prstenovi ${s}`,
+    fNewSites: 'samo novi sajtovi',
+    fText: (s) => `tekst pretrage „${s}“`,
+  },
+});
+
+/**
+ * In welcher Sprache die KI antwortet, wenn die Oberfläche nicht deutsch ist. Die Anweisungen bleiben
+ * deutsch (darauf sind sie abgestimmt); gespeicherte Bezeichnungen in Profil und Brücken auch.
+ */
+const ANSWER_LANGUAGE: Record<Exclude<Lang, 'de'>, string> = {
+  en: 'Sprache: Die Person nutzt die App auf Englisch. Antworte auf Englisch statt auf Deutsch, auch wenn Anweisungen und Daten deutsch sind, und übersetze auch Überschriften, die die Arbeitsweise vorgibt. Daten im Format „15 Nov 2026“. Begriffe der App auf Englisch: Anzeige = posting, Stelle = job, Stapel = stack, Gemerkt = Saved, weglegen = pass, Herzensjob = dream job, Frist = deadline, Score = match, Suchprofil = search profile, Brücke = bridge, Feld = field, Anknüpfung = link, Kern/Horizont/Weite = core/Horizon/Beyond. Titel und Zitate aus Anzeigen bleiben im Original. In Vorschlägen für Suchprofil und Brücken bleiben Namen und Bezeichnungen deutsch wie im Profil (so werden sie gespeichert) und Begriffe in der Schreibweise des Profils; Begründungen und Notizen schreibst du auf Englisch.',
+  sr: 'Sprache: Die Person nutzt die App auf Serbisch. Antworte auf Serbisch statt auf Deutsch, in lateinischer Schrift, ekavisch und per du (ti), auch wenn Anweisungen und Daten deutsch sind, und übersetze auch Überschriften, die die Arbeitsweise vorgibt. Sprich die Person geschlechtsneutral an: keine Partizipien, die ein Geschlecht verraten (nicht „sačuvala si“ oder „prijavio si se“), sondern Präsens, Imperativ oder unpersönlich („prijava je poslata“). Daten im Format „15. 11. 2026.“. Begriffe der App auf Serbisch: Anzeige = oglas, Stelle = pozicija, Stapel = špil, Gemerkt = Sačuvano, weglegen = preskoči, Herzensjob = posao iz snova, Frist = rok, Score = poklapanje, Suchprofil = profil pretrage, Brücke = most, Feld = oblast, Anknüpfung = veza, Kern/Horizont/Weite = jezgro/Horizont/Daljina. Titel und Zitate aus Anzeigen bleiben im Original. In Vorschlägen für Suchprofil und Brücken bleiben Namen und Bezeichnungen deutsch wie im Profil (so werden sie gespeichert) und Begriffe in der Schreibweise des Profils; Begründungen und Notizen schreibst du auf Serbisch.',
+};
 
 export type VorschlagStatus = 'offen' | 'uebernommen' | 'abgelehnt';
 
@@ -285,20 +499,25 @@ function weekOf(iso: string): string {
   return addDays(iso, -((d.getUTCDay() + 6) % 7));
 }
 
+/** Suchangaben eines Arbeitsschritts in Worten (für die Anzeige im Gespräch). */
 function describeArgs(a: Record<string, unknown>): string {
+  const mark = str(a.markierung);
+  const neu = num(a.neu_seit_tagen);
+  const minScore = num(a.min_score);
+  const km = num(a.max_entfernung_km);
   const parts = [
-    str(a.text) ? `„${str(a.text)}“` : '',
+    str(a.text) ? t.quoted(str(a.text)) : '',
     ...arr(a.staedte),
     ...arr(a.bundeslaender),
-    ...arr(a.stellenarten).map((k) => JOB_KIND_LABELS[k as JobKind] ?? k),
-    ...arr(a.einrichtungsarten).map((k) => INSTITUTION_KIND_LABELS[k as InstitutionKind] ?? k),
-    ...arr(a.ringe),
-    str(a.markierung) && str(a.markierung) !== 'alle' ? str(a.markierung) : '',
-    num(a.neu_seit_tagen) ? `neu seit ${num(a.neu_seit_tagen)} Tagen` : '',
-    str(a.frist_bis) ? `Frist bis ${formatDateDe(str(a.frist_bis))}` : '',
-    num(a.min_score) ? `ab ${num(a.min_score)} %` : '',
-    num(a.max_entfernung_km) ? `bis ${num(a.max_entfernung_km)} km` : '',
-    a.nur_offen === false ? 'auch abgelaufene' : '',
+    ...arr(a.stellenarten).map((k) => jobKindLabel(k as JobKind) ?? k),
+    ...arr(a.einrichtungsarten).map((k) => institutionKindLabel(k as InstitutionKind) ?? k),
+    ...arr(a.ringe).map((r) => laneName(r as Lane) ?? r),
+    mark && mark !== 'alle' ? (t.marks[mark] ?? mark) : '',
+    neu ? t.newWithin(neu) : '',
+    str(a.frist_bis) ? t.deadlineBy(fmtDate(str(a.frist_bis))) : '',
+    minScore ? t.minScore(minScore) : '',
+    km ? t.maxKm(km) : '',
+    a.nur_offen === false ? t.alsoExpired : '',
   ].filter(Boolean);
   return parts.length ? `: ${parts.join(', ')}` : '';
 }
@@ -352,7 +571,7 @@ export function createToolbox(snapshot: () => Snapshot, entries: readonly ChatEn
     try {
       a = (JSON.parse(call.function.arguments || '{}') as Record<string, unknown>) ?? {};
     } catch {
-      return result(call, { fehler: 'Die Argumente waren kein gültiges JSON.' }, `${name}: ungültige Argumente`);
+      return result(call, { fehler: 'Die Argumente waren kein gültiges JSON.' }, t.invalidArgs(name));
     }
     const snap = snapshot();
     const today = todayBerlin();
@@ -361,12 +580,12 @@ export function createToolbox(snapshot: () => Snapshot, entries: readonly ChatEn
         case 'anzeigen_suchen': {
           const list = select(a, snap, today).sort(sortFor(str(a.sortierung)));
           const limit = Math.min(40, Math.max(1, num(a.limit) ?? 15));
-          return result(call, { gesamt: list.length, anzeigen: list.slice(0, limit).map((v) => row(v, snap, today)) }, `sucht Anzeigen${describeArgs(a)} → ${list.length} gefunden`);
+          return result(call, { gesamt: list.length, anzeigen: list.slice(0, limit).map((v) => row(v, snap, today)) }, t.searches(describeArgs(a), list.length));
         }
         case 'anzeige_lesen': {
           const v = snap.views.get(str(a.id));
-          if (!v) return result(call, { fehler: `Keine Anzeige mit der ID ${str(a.id)}. Die IDs stehen in den Suchergebnissen.` }, 'liest eine Anzeige, die es nicht gibt');
-          return result(call, readJob(v, snap, today), `liest „${truncate(v.job.title, 70)}“`);
+          if (!v) return result(call, { fehler: `Keine Anzeige mit der ID ${str(a.id)}. Die IDs stehen in den Suchergebnissen.` }, t.readsMissing);
+          return result(call, readJob(v, snap, today), t.reads(truncate(v.job.title, 70)));
         }
         case 'anzeigen_zaehlen': {
           const list = select(a, snap, today);
@@ -395,28 +614,28 @@ export function createToolbox(snapshot: () => Snapshot, entries: readonly ChatEn
           const counts = new Map<string, number>();
           for (const v of list) counts.set(key(v), (counts.get(key(v)) ?? 0) + 1);
           const sorted = [...counts].sort((x, y) => (by === 'woche' ? (x[0] < y[0] ? 1 : -1) : y[1] - x[1]));
-          return result(call, { gesamt: list.length, gruppen: sorted.slice(0, 30).map(([gruppe, anzahl]) => ({ gruppe, anzahl })), weitere_gruppen: Math.max(0, sorted.length - 30) }, `zählt Anzeigen nach ${by}${describeArgs(a)} → ${list.length}`);
+          return result(call, { gesamt: list.length, gruppen: sorted.slice(0, 30).map(([gruppe, anzahl]) => ({ gruppe, anzahl })), weitere_gruppen: Math.max(0, sorted.length - 30) }, t.counts(t.countBy[by] ?? by, describeArgs(a), list.length));
         }
         case 'bruecke_testen': {
           const feld = cleanTerms(arr(a.feld));
-          if (!feld.length) return result(call, { fehler: 'feld braucht mindestens einen Begriff.' }, 'testet eine Brücke ohne Begriffe');
-          const t = testBridge(feld, cleanTerms(arr(a.anker)), snap, today);
-          return result(call, t, `testet Brücke (${feld.slice(0, 3).join(', ')}${feld.length > 3 ? ' …' : ''}) → ${t.treffer} Treffer, ${t.ausserhalb_kern} außerhalb des Kerns`);
+          if (!feld.length) return result(call, { fehler: 'feld braucht mindestens einen Begriff.' }, t.testsEmpty);
+          const r = testBridge(feld, cleanTerms(arr(a.anker)), snap, today);
+          return result(call, r, t.tests(`${feld.slice(0, 3).join(', ')}${feld.length > 3 ? ' …' : ''}`, r.treffer, r.ausserhalb_kern));
         }
         default: {
-          if (!PROPOSAL_TOOLS.has(name)) return result(call, { fehler: `Unbekanntes Werkzeug ${name}.` }, `unbekanntes Werkzeug ${name}`);
+          if (!PROPOSAL_TOOLS.has(name)) return result(call, { fehler: `Unbekanntes Werkzeug ${name}.` }, t.unknownTool(name));
           const p = parseProposal(name, a);
-          if (!p.ok) return result(call, { fehler: p.fehler }, 'Vorschlag mit Fehlern, die KI bessert nach');
+          if (!p.ok) return result(call, { fehler: p.fehler }, t.proposalFlawed);
           const problem = checkReferences(p.vorschlag, snap);
-          if (problem) return result(call, { fehler: problem }, 'Vorschlag mit Fehlern, die KI bessert nach');
+          if (problem) return result(call, { fehler: problem }, t.proposalFlawed);
           const id = `v${++proposals}`;
-          return result(call, { ok: true, vorschlag: id, hinweis: 'Die Person sieht den Vorschlag als Karte und entscheidet selbst. Stell ihn nicht als erledigt dar.' }, `schlägt vor: ${proposalTitle(p.vorschlag, snap)}`, {
+          return result(call, { ok: true, vorschlag: id, hinweis: 'Die Person sieht den Vorschlag als Karte und entscheidet selbst. Stell ihn nicht als erledigt dar.' }, t.proposes(proposalTitle(p.vorschlag, snap)), {
             vorschlag: { id, daten: p.vorschlag },
           });
         }
       }
     } catch (e) {
-      return result(call, { fehler: `Das Werkzeug ist abgestürzt: ${e instanceof Error ? e.message : String(e)}` }, `${name}: Fehler`);
+      return result(call, { fehler: `Das Werkzeug ist abgestürzt: ${e instanceof Error ? e.message : String(e)}` }, t.toolError(name));
     }
   }
 
@@ -438,50 +657,50 @@ function checkReferences(v: Vorschlag, snap: Snapshot): string | null {
   return null;
 }
 
-const AKTION: Record<Extract<Vorschlag, { art: 'markierung' }>['aktion'], string> = {
-  merken: 'Merken',
-  herzensjob: 'Als Herzensjob markieren',
-  beworben: 'Als beworben markieren',
-  weglegen: 'Weglegen',
-  zuruecksetzen: 'Markierung zurücksetzen',
-};
-
-export function proposalTitle(v: Vorschlag, snap: Snapshot): string {
-  const job = (id: string) => truncate(snap.views.get(id)?.job.title ?? 'Anzeige', 60);
+/**
+ * Titel eines Vorschlags. Für die Karte in der Sprache der Oberfläche; mit forAi = true deutsch, so wie
+ * die KI ihn in den Entscheidungen der Person zu lesen bekommt.
+ */
+export function proposalTitle(v: Vorschlag, snap: Snapshot, forAi = false): string {
+  const d = forAi ? DE : t;
+  // Namen von Start-Brücken übersetzt zeigen; die KI bekommt den gespeicherten Namen
+  const bridgeName = (name: string) => (forAi ? name : profileLabel(name));
+  const job = (id: string) => truncate(snap.views.get(id)?.job.title ?? d.posting, 60);
   switch (v.art) {
     case 'markierung':
-      return `${AKTION[v.aktion]}: „${job(v.id)}“`;
+      return d.markTitle(d.actions[v.aktion], job(v.id));
     case 'notiz':
-      return `Notiz zu „${job(v.id)}“`;
+      return d.noteOn(job(v.id));
     case 'bruecke': {
       const old = v.ersetzt_id ? horizontOf(snap.s.settings.profile).bruecken.find((b) => b.id === v.ersetzt_id) : null;
-      return old ? `Brücke „${old.name}“ ändern` : `Neue Brücke „${v.name}“`;
+      return old ? d.changeBridge(bridgeName(old.name)) : d.newBridge(bridgeName(v.name));
     }
     case 'profil':
-      return `Suchprofil ändern (${v.aenderungen.length} ${v.aenderungen.length === 1 ? 'Änderung' : 'Änderungen'})`;
+      return d.changeProfile(v.aenderungen.length);
     case 'filter':
-      return 'Filter im Stapel ändern';
+      return d.changeFilter;
   }
 }
 
 // ---------------------------------------------------------------- Vorschläge übernehmen
 
-const KAT_LABEL: Record<string, string> = { thema: 'Thema', stelle: 'Stellenart', methoden: 'Methoden & Können', rahmen: 'Rahmen', lieber_nicht: 'Lieber nicht' };
+const katLabel = (k: string): string => (k === 'lieber_nicht' ? t.ratherNot : categoryLabel(k as CategoryId));
 
 /** Die Änderungen eines Profil-Vorschlags in Worten, für die Karte. */
 export function describeProfileChanges(v: Extract<Vorschlag, { art: 'profil' }>, p: Suchprofil): string[] {
   const find = (kat: string, id?: string): ProfileItem | undefined => (kat === 'lieber_nicht' ? p.avoid : (p.categories.find((c) => c.id === kat)?.items ?? [])).find((it) => it.id === id);
   return v.aenderungen.map((a) => {
-    const kat = KAT_LABEL[a.kategorie];
+    const kat = katLabel(a.kategorie);
     const old = find(a.kategorie, a.id);
-    if (a.art === 'hinzufuegen') return `+ ${kat}: ${a.label} ${'♥'.repeat(a.herzen ?? 1)} (${(a.begriffe ?? []).join(', ')})`;
-    if (a.art === 'entfernen') return `− ${kat}: ${old?.label ?? a.id}`;
+    const oldLabel = old ? profileLabel(old.label) : a.id;
+    if (a.art === 'hinzufuegen') return `+ ${kat}: ${profileLabel(a.label ?? '')} ${'♥'.repeat(a.herzen ?? 1)} (${(a.begriffe ?? []).join(', ')})`;
+    if (a.art === 'entfernen') return `− ${kat}: ${oldLabel}`;
     const parts = [
-      a.label && a.label !== old?.label ? `heißt „${a.label}“` : '',
+      a.label && a.label !== old?.label ? t.renamed(profileLabel(a.label)) : '',
       a.herzen && a.herzen !== old?.hearts ? `${'♥'.repeat(old?.hearts ?? 1)} → ${'♥'.repeat(a.herzen)}` : '',
-      a.begriffe ? `Begriffe: ${a.begriffe.join(', ')}` : '',
+      a.begriffe ? t.terms(a.begriffe.join(', ')) : '',
     ].filter(Boolean);
-    return `~ ${kat}: ${old?.label ?? a.id}: ${parts.join('; ') || 'unverändert'}`;
+    return `~ ${kat}: ${oldLabel}: ${parts.join('; ') || t.unchanged}`;
   });
 }
 
@@ -490,13 +709,14 @@ function saveProfile(store: Store, next: Suchprofil, toast: string): void {
   store.updateSettings('profile', {
     ...next,
     origin: prev.origin === 'start' ? 'manuell' : prev.origin,
+    // gespeicherter Name, angezeigt über profileName()
     name: prev.origin === 'start' ? 'Eigenes Profil' : prev.name,
     updatedAt: new Date().toISOString(),
   });
-  store.toast(toast, { label: 'Rückgängig', run: () => store.updateSettings('profile', prev) }, 7000);
+  store.toast(toast, { label: t.undo, run: () => store.updateSettings('profile', prev) }, 7000);
 }
 
-/** Übernimmt einen Vorschlag. Gibt eine kurze Beschreibung für die KI zurück. */
+/** Übernimmt einen Vorschlag. Meldet es der Person und gibt eine kurze Beschreibung für die KI zurück (deutsch). */
 export function applyProposal(store: Store, v: Vorschlag): string {
   const s = store.getState();
   const p = s.settings.profile;
@@ -510,8 +730,8 @@ export function applyProposal(store: Store, v: Vorschlag): string {
         store.decide(v.id, null);
         if (s.marks.get(v.id)?.star) store.setStar(v.id, false);
       }
-      store.toast(`${AKTION[v.aktion]}: erledigt.`);
-      return AKTION[v.aktion];
+      store.toast(t.done(t.actions[v.aktion]));
+      return DE.actions[v.aktion];
     }
     case 'notiz': {
       const prev = s.marks.get(v.id)?.note?.trimEnd() ?? '';
@@ -520,7 +740,7 @@ export function applyProposal(store: Store, v: Vorschlag): string {
       const cut = next.length > 4000;
       if (cut) next = next.slice(0, 4000);
       store.setNote(v.id, next);
-      store.toast(cut ? 'Notiz gespeichert, wegen der Länge gekürzt.' : 'Notiz gespeichert.');
+      store.toast(cut ? t.noteSavedCut : t.noteSaved);
       return 'Notiz gespeichert';
     }
     case 'bruecke': {
@@ -537,7 +757,7 @@ export function applyProposal(store: Store, v: Vorschlag): string {
         herkunft: old?.herkunft ?? ('ki' as const),
       };
       const bruecken = old ? h.bruecken.map((x) => (x.id === old.id ? b : x)) : [...h.bruecken, b];
-      saveProfile(store, { ...p, horizont: { ...h, bruecken } }, old ? `Brücke „${b.name}“ geändert.` : `Brücke „${b.name}“ übernommen.`);
+      saveProfile(store, { ...p, horizont: { ...h, bruecken } }, old ? t.bridgeChanged(profileLabel(b.name)) : t.bridgeAdded(profileLabel(b.name)));
       return old ? `Brücke „${b.name}“ geändert` : `Brücke „${b.name}“ angelegt`;
     }
     case 'profil': {
@@ -553,12 +773,12 @@ export function applyProposal(store: Store, v: Vorschlag): string {
         if (a.kategorie === 'lieber_nicht') avoid = next;
         else if (cat) cat.items = next;
       }
-      saveProfile(store, { ...p, categories, avoid }, 'Suchprofil geändert.');
+      saveProfile(store, { ...p, categories, avoid }, t.profileChanged);
       return 'Suchprofil geändert';
     }
     case 'filter': {
       store.updateSettings('filter', applyFilterProposal(s.settings.filter, DEFAULT_FILTER, v));
-      store.toast('Filter im Stapel geändert.');
+      store.toast(t.filterChanged);
       return 'Filter geändert';
     }
   }
@@ -568,20 +788,25 @@ export function applyProposal(store: Store, v: Vorschlag): string {
 
 const DATE_LONG = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin' });
 
-export function filterText(f: JobFilter): string {
-  if (countActiveFilters(f) === 0) return 'keine (ganz Deutschland, alles)';
+/** Filter in Worten. Für die Karte in der Sprache der Oberfläche; mit forAi = true deutsch für den Kontext der KI. */
+export function filterText(f: JobFilter, forAi = false): string {
+  const d = forAi ? DE : t;
+  if (countActiveFilters(f) === 0) return d.noFilter;
+  const kind = (k: JobKind) => (forAi ? JOB_KIND_LABELS[k] : jobKindLabel(k));
+  const instKind = (k: InstitutionKind) => (forAi ? INSTITUTION_KIND_LABELS[k] : institutionKindLabel(k));
   return [
-    f.radiusKm != null ? `Umkreis ${f.radiusKm} km` : '',
-    f.states.length ? `Bundesländer ${f.states.join(', ')}` : '',
-    f.kinds.length ? `Stellenarten ${f.kinds.map((k) => JOB_KIND_LABELS[k]).join(', ')}` : '',
-    f.institutionKinds.length ? `Einrichtungsarten ${f.institutionKinds.map((k) => INSTITUTION_KIND_LABELS[k]).join(', ')}` : '',
-    f.payMin != null ? `ab E ${f.payMin}` : '',
-    f.workloadMin != null ? `ab ${f.workloadMin} %` : '',
-    f.permanentOnly ? 'nur unbefristet' : '',
-    f.minDaysLeft != null ? `Frist mindestens ${f.minDaysLeft} Tage` : '',
-    f.lanes.length ? `Ringe ${f.lanes.join(', ')}` : '',
-    f.newSitesOnly ? 'nur neue Websites' : '',
-    f.text ? `Suchtext „${f.text}“` : '',
+    f.radiusKm != null ? d.fRadius(f.radiusKm) : '',
+    f.states.length ? d.fStates(f.states.join(', ')) : '',
+    f.kinds.length ? d.fKinds(f.kinds.map(kind).join(', ')) : '',
+    f.institutionKinds.length ? d.fInstKinds(f.institutionKinds.map(instKind).join(', ')) : '',
+    f.payMin != null ? d.fPay(f.payMin) : '',
+    f.workloadMin != null ? d.fWorkload(f.workloadMin) : '',
+    f.permanentOnly ? d.fPermanent : '',
+    f.minDaysLeft != null ? d.fDaysLeft(f.minDaysLeft) : '',
+    // Die KI bekommt die Werte ihrer Werkzeuge (kern, horizont, weite), die Karte die Namen
+    f.lanes.length ? d.fLanes((forAi ? f.lanes : f.lanes.map(laneName)).join(', ')) : '',
+    f.newSitesOnly ? d.fNewSites : '',
+    f.text ? d.fText(f.text) : '',
   ]
     .filter(Boolean)
     .join('; ');
@@ -590,6 +815,7 @@ export function filterText(f: JobFilter): string {
 /**
  * Kontext, der jeder Frage mitgegeben wird: Datum, Datenstand, Markierungen, Filter, Lieblingsorte,
  * Entscheidungen über Vorschläge und – beim Einstieg aus einer Anzeige oder dem Horizont – das Thema.
+ * Ist die Oberfläche nicht deutsch, zuletzt die Sprache der Antwort (ANSWER_LANGUAGE).
  */
 export function turnContext(snap: Snapshot, conv: Pick<Conversation, 'jobId' | 'thema' | 'entscheidungen'>, ersteFrage: boolean): string {
   const today = todayBerlin();
@@ -632,7 +858,7 @@ export function turnContext(snap: Snapshot, conv: Pick<Conversation, 'jobId' | '
     `Heute ist ${DATE_LONG.format(new Date())} (${today}, deutsche Zeit).`,
     `Daten in der App: ${open} offene Anzeigen (Kern ${lanes.kern}, Horizont ${lanes.horizont}, Weite ${lanes.weite}), davon ${neu} in den letzten 7 Tagen entdeckt. Letzter Einsammel-Lauf: ${lastRun ? relativeTime(lastRun.finishedAt ?? lastRun.startedAt) : 'noch keiner'}.`,
     `Markierungen: ${gemerkt} gemerkt (${gemerktOffen} noch offen, davon ${baldFrist} mit Frist in den nächsten 14 Tagen), ${herz} Herzensjobs, ${beworben} beworben, ${weg} weggelegt.`,
-    `Filter im Stapel: ${filterText(s.settings.filter)}.`,
+    `Filter im Stapel: ${filterText(s.settings.filter, true)}.`,
     `Lieblingsorte (stehen im Stapel oben): ${favs.join(', ') || 'keine'}.`,
   ];
   if (conv.entscheidungen.length) lines.push(`Seit der letzten Antwort hat die Person über deine Vorschläge entschieden: ${conv.entscheidungen.join('; ')}.`);
@@ -650,5 +876,7 @@ export function turnContext(snap: Snapshot, conv: Pick<Conversation, 'jobId' | '
     const h = horizontOf(s.settings.profile);
     lines.push(`Die Frage kommt aus der Horizont-Seite. Offene Horizont-Anzeigen je Brücke: ${h.bruecken.map((b) => `${b.name}${b.aktiv ? '' : ' (pausiert)'}: ${per.get(b.id) ?? 0}`).join('; ') || 'keine Brücken'}.`);
   }
+  const l = lang();
+  if (l !== 'de') lines.push(ANSWER_LANGUAGE[l]);
   return lines.join('\n');
 }

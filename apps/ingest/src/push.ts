@@ -2,7 +2,7 @@
 // Anzeigen, die besonders gut zum Suchprofil passen (Einstellung „notifyHighScore“).
 
 import webpush from 'web-push';
-import { DEFAULT_REMINDER_DAYS, dueReminders, highScoreDigest, parseHighScoreAlert, reminderText, todayBerlin } from '@stellen/core';
+import { DEFAULT_REMINDER_DAYS, dueReminders, highScoreDigest, parseHighScoreAlert, reminderText, todayBerlin, type UiLang } from '@stellen/core';
 import { getSetting, listMarks, listPushSubscriptions, reminderSentStmt, remindersSent, removePushSubscription, type Db, type Stmt } from '@stellen/db';
 import type { IngestConfig } from './config';
 import type { RunLog } from './log';
@@ -17,6 +17,13 @@ interface Payload {
   body: string;
   url: string;
   tag?: string;
+  /** Dieselbe Nachricht auf Englisch und Serbisch; der Service Worker zeigt die Sprache des Geräts. */
+  i18n?: Partial<Record<UiLang, { title: string; body: string }>>;
+}
+
+/** Titel und Text in allen Sprachen der App (Deutsch oben, die anderen unter i18n). */
+function localized(make: (lang: UiLang) => { title: string; body: string }): Pick<Payload, 'title' | 'body' | 'i18n'> {
+  return { ...make('de'), i18n: { en: make('en'), sr: make('sr') } };
 }
 
 /** Zustellen an alle Geräte; true, wenn mindestens eines sie bekommen hat. Abgelaufene Abos werden entfernt. */
@@ -72,7 +79,8 @@ export async function sendReminders(db: Db, cfg: IngestConfig, log: RunLog, toda
   for (const d of due) {
     const job = byId.get(d.jobId);
     if (!job) continue;
-    const ok = await deliver(db, cfg, log, { title: reminderText(d.daysLeft), body: job.title, url: `/#/stelle/${encodeURIComponent(d.jobId)}`, tag: `frist-${d.jobId}` });
+    const texts = localized((lang) => ({ title: reminderText(d.daysLeft, lang), body: job.title }));
+    const ok = await deliver(db, cfg, log, { ...texts, url: `/#/stelle/${encodeURIComponent(d.jobId)}`, tag: `frist-${d.jobId}` });
     if (ok) {
       sent++;
       for (const t of d.covers) stmts.push(reminderSentStmt(d.jobId, t));
@@ -94,7 +102,11 @@ export async function sendHighScoreAlert(db: Db, cfg: IngestConfig, log: RunLog,
     log.info(`${n} neue Anzeige(n) ab ${setting.min} % – Push ist nicht eingerichtet.`);
     return 0;
   }
-  const ok = await deliver(db, cfg, log, digest);
+  const texts = localized((lang) => {
+    const d = highScoreDigest(jobs, setting.min, lang)!;
+    return { title: d.title, body: d.body };
+  });
+  const ok = await deliver(db, cfg, log, { ...digest, ...texts });
   log.info(ok ? `Benachrichtigung über ${n} neue Anzeige(n) ab ${setting.min} % verschickt.` : `${n} neue Anzeige(n) ab ${setting.min} % – kein Gerät hat Benachrichtigungen erlaubt.`);
   return ok ? n : 0;
 }

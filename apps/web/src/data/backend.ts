@@ -1,6 +1,7 @@
 // Schnittstelle zwischen App und Server – echte API (api.ts) oder Demo (demo.ts).
 
 import type { AssistantMessage, AssistantStepResult, Bruecke, City, DeadlineCheck, Favorite, FavoriteKind, Institution, InstitutionKind, Job, JobKind, KiUsageReport, Mark, RunInfo, Source, SourceConfig, SourceStatus, Suchprofil } from '@stellen/core';
+import { texts } from '../i18n';
 
 export interface SourceSummary {
   total: number;
@@ -179,9 +180,24 @@ export interface Backend {
   kiUsage(): Promise<KiUsageReport>;
 }
 
+const t = texts({
+  de: {
+    wrongKey: 'Der App-Schlüssel stimmt nicht.',
+    offline: 'Keine Verbindung zum Server.',
+  },
+  en: {
+    wrongKey: 'The app key isn’t right.',
+    offline: 'No connection to the server.',
+  },
+  sr: {
+    wrongKey: 'Ključ aplikacije nije ispravan.',
+    offline: 'Nema veze sa serverom.',
+  },
+});
+
 /** Schlüssel falsch oder fehlt. */
 export class AuthError extends Error {
-  constructor(message = 'Der App-Schlüssel stimmt nicht.') {
+  constructor(message = t.wrongKey) {
     super(message);
     this.name = 'AuthError';
   }
@@ -189,7 +205,7 @@ export class AuthError extends Error {
 
 /** Server nicht erreichbar (offline). */
 export class OfflineError extends Error {
-  constructor(message = 'Keine Verbindung zum Server.') {
+  constructor(message = t.offline) {
     super(message);
     this.name = 'OfflineError';
   }

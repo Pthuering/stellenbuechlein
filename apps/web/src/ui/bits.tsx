@@ -3,6 +3,28 @@
 import type { ReactNode } from 'react';
 import { IconHeart } from './icons';
 import { useAppState, useStore } from '../data/hooks';
+import { fmtNum, srForm, texts } from '../i18n';
+
+const t = texts({
+  de: {
+    heartsOf: (v: number, max: number) => `${fmtNum(v)} von ${max} Herzen`,
+    importance: 'Wichtigkeit',
+    hearts: (n: number) => `${n} ${n === 1 ? 'Herz' : 'Herzen'}`,
+    match: (v: number) => `Passt zu ${v} Prozent`,
+  },
+  en: {
+    heartsOf: (v, max) => `${fmtNum(v)} of ${max} hearts`,
+    importance: 'Importance',
+    hearts: (n) => `${n} ${n === 1 ? 'heart' : 'hearts'}`,
+    match: (v) => `${v} percent match`,
+  },
+  sr: {
+    heartsOf: (v, max) => `${fmtNum(v)} od ${max} srca`,
+    importance: 'Važnost',
+    hearts: (n) => `${n} ${srForm(n, 'srce', 'srca', 'srca')}`,
+    match: (v) => `Poklapanje ${v} posto`,
+  },
+});
 
 export function Hearts({ value, max = 3, onChange, label }: { value: number; max?: number; onChange?: (v: 1 | 2 | 3) => void; label?: string }) {
   const hearts = Array.from({ length: max }, (_, i) => {
@@ -34,19 +56,19 @@ export function Hearts({ value, max = 3, onChange, label }: { value: number; max
   });
   if (!onChange) {
     return (
-      <span className="hearts" role="img" aria-label={label ?? `${String(value).replace('.', ',')} von ${max} Herzen`}>
+      <span className="hearts" role="img" aria-label={label ?? t.heartsOf(value, max)}>
         {hearts}
       </span>
     );
   }
   return (
-    <span className="hearts" role="group" aria-label={label ?? 'Wichtigkeit'}>
+    <span className="hearts" role="group" aria-label={label ?? t.importance}>
       {hearts.map((h, i) => (
         <button
           key={i}
           type="button"
           className="hearts"
-          aria-label={`${i + 1} ${i === 0 ? 'Herz' : 'Herzen'}`}
+          aria-label={t.hearts(i + 1)}
           aria-pressed={i + 1 <= value}
           onClick={() => onChange((i + 1) as 1 | 2 | 3)}
         >
@@ -61,7 +83,7 @@ export function Hearts({ value, max = 3, onChange, label }: { value: number; max
 export function ScoreRing({ value, size = 64, className = '' }: { value: number; size?: number; className?: string }) {
   const color = value >= 75 ? 'var(--primary-strong)' : value >= 50 ? 'var(--primary-muted-strong)' : 'var(--text-muted)';
   return (
-    <div className={`score ${className}`} style={{ width: size, height: size }} aria-label={`Passt zu ${value} Prozent`} role="img">
+    <div className={`score ${className}`} style={{ width: size, height: size }} aria-label={t.match(value)} role="img">
       <svg viewBox="0 0 70 70" aria-hidden="true">
         <ellipse cx="35" cy="35.5" rx="27.5" ry="26.5" fill="var(--surface-raised)" opacity="0.92" />
         <path

@@ -4,6 +4,7 @@
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { clientsClaim } from 'workbox-core';
+import { createStore, get } from 'idb-keyval';
 
 declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: Array<{ url: string; revision: string | null }> };
 
@@ -20,6 +21,17 @@ interface PushPayload {
   body: string;
   url: string;
   tag?: string;
+  /** Übersetzungen (en, sr); Deutsch steht in title/body. */
+  i18n?: Record<string, { title?: string; body?: string } | undefined>;
+}
+
+/** Sprache der App auf diesem Gerät (legt die App in IndexedDB ab, siehe i18n/index.ts). */
+async function deviceLang(): Promise<string> {
+  try {
+    return (await get<string>('lang', createStore('stellenbuechlein', 'kv'))) ?? 'de';
+  } catch {
+    return 'de';
+  }
 }
 
 /** Adressen relativ zum Ort der App, damit sie auch in einem Unterordner der Website stimmen ("/#/…" → "<Ordner>/#/…"). */
@@ -33,13 +45,16 @@ self.addEventListener('push', (event: PushEvent) => {
     data.body = event.data?.text() ?? '';
   }
   event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: inScope('icons/icon-192.png'),
-      badge: inScope('icons/badge-96.png'),
-      tag: data.tag,
-      data: { url: inScope(data.url) },
-    }),
+    (async () => {
+      const t = data.i18n?.[await deviceLang()];
+      await self.registration.showNotification(t?.title ?? data.title, {
+        body: t?.body ?? data.body,
+        icon: inScope('icons/icon-192.png'),
+        badge: inScope('icons/badge-96.png'),
+        tag: data.tag,
+        data: { url: inScope(data.url) },
+      });
+    })(),
   );
 });
 

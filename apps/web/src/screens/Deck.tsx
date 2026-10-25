@@ -1,7 +1,7 @@
 // Der Stapel: Karteikarten zum Wischen. Rechts = merken, links = weglegen, hoch/tippen = alles lesen.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { bridgeExplanation, countActiveFilters, topReasons } from '@stellen/core';
+import { countActiveFilters, topReasons } from '@stellen/core';
 import { useAppState, useDeck, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
 import { deadlineOf, employerName, factChips, jobImage, laneLabel, placeLabel } from '../lib/format';
@@ -11,6 +11,123 @@ import { Empty, ScoreRing } from '../ui/bits';
 import { IconArrowUp, IconFilter, IconHeart, IconHistory, IconPin, IconStar, IconUndo, IconX } from '../ui/icons';
 import { FilterSheet } from './FilterSheet';
 import { HistorySheet } from './HistorySheet';
+import { bridgeText } from './JobDetail';
+import { srForm, texts } from '../i18n';
+import { profileLabel } from '../i18n/katalog';
+
+const t = texts({
+  de: {
+    fromHome: (km: string) => `${km} von zu Hause`,
+    favorite: 'Lieblingsort',
+    newSite: 'neue Website',
+    demo: 'Dummy',
+    deadlineUnsure: (date: string) => `Frist ${date}?`,
+    deadlineUnclear: 'Frist unklar',
+    checkOriginal: 'bitte im Original prüfen',
+    deadline: (date: string) => `Frist ${date}`,
+    noDeadline: 'Keine Frist angegeben',
+    whyFit: 'Warum das passen könnte:',
+    reasons: (list: string) => `passt wegen ${list}`,
+    readAll: 'ganze Anzeige lesen',
+    stampLike: 'Gemerkt!',
+    stampNope: 'Nö.',
+    stampStar: 'Herzensjob!',
+    toastSaved: 'Gemerkt.',
+    toastPassed: 'Weggelegt. Bleibt unter „Alle“.',
+    toastStar: 'Herzensjob! Erinnerung kommt vor der Frist.',
+    undo: 'Rückgängig',
+    title: 'Stapel',
+    allSeen: 'Alles durchgeschaut',
+    waiting: (n: number) => (n === 1 ? '1 Anzeige wartet' : `${n} Anzeigen warten`),
+    filterLabel: (n: number) => `Filter${n ? ` (${n} aktiv)` : ''}`,
+    historyLabel: 'Verlauf: gemerkte und weggelegte Anzeigen',
+    loading: 'Anzeigen werden geladen …',
+    noPostings: 'Noch keine Anzeigen',
+    firstCards: 'Sobald die Einsammel-Pipeline gelaufen ist, liegen hier die ersten Karten.',
+    filteredOut: 'Mit den aktuellen Filtern ist nichts mehr übrig. Neue Anzeigen kommen täglich gegen 12 Uhr.',
+    comeBack: 'Neue Anzeigen kommen täglich gegen 12 Uhr dazu, oder per „Jetzt einsammeln“ unter „Ich“.',
+    viewHistory: 'Verlauf ansehen',
+    changeFilters: 'Filter ändern',
+    actions: 'Aktionen für die oberste Karte',
+    passLabel: 'Weglegen (Nö)',
+    starLabel: 'Herzensjob: merken und vor der Frist erinnern',
+    save: 'Merken',
+  },
+  en: {
+    fromHome: (km) => `${km} from home`,
+    favorite: 'Favorite place',
+    newSite: 'new website',
+    demo: 'Demo',
+    deadlineUnsure: (date) => `Deadline ${date}?`,
+    deadlineUnclear: 'Deadline unclear',
+    checkOriginal: 'please check the original',
+    deadline: (date) => `Deadline ${date}`,
+    noDeadline: 'No deadline given',
+    whyFit: 'Why this could fit:',
+    reasons: (list) => `fits because of ${list}`,
+    readAll: 'read the full posting',
+    stampLike: 'Saved!',
+    stampNope: 'Nope.',
+    stampStar: 'Dream job!',
+    toastSaved: 'Saved.',
+    toastPassed: 'Passed. It’s still under “All”.',
+    toastStar: 'Dream job! You’ll get a reminder before the deadline.',
+    undo: 'Undo',
+    title: 'Stack',
+    allSeen: 'All caught up',
+    waiting: (n) => (n === 1 ? '1 posting waiting' : `${n} postings waiting`),
+    filterLabel: (n) => (n ? `Filters (${n} active)` : 'Filters'),
+    historyLabel: 'History: saved and passed postings',
+    loading: 'Loading postings…',
+    noPostings: 'No postings yet',
+    firstCards: 'Once the collecting pipeline has run, the first cards will be here.',
+    filteredOut: 'Nothing’s left with the current filters. New postings arrive daily around noon.',
+    comeBack: 'New postings arrive daily around noon, or tap “Collect now” under “Me”.',
+    viewHistory: 'View history',
+    changeFilters: 'Change filters',
+    actions: 'Actions for the top card',
+    passLabel: 'Pass (nope)',
+    starLabel: 'Dream job: save and remind me before the deadline',
+    save: 'Save',
+  },
+  sr: {
+    fromHome: (km) => `${km} od kuće`,
+    favorite: 'Omiljeno mesto',
+    newSite: 'novi sajt',
+    demo: 'Demo',
+    deadlineUnsure: (date) => `Rok ${date}?`,
+    deadlineUnclear: 'Rok nejasan',
+    checkOriginal: 'proveri u originalu',
+    deadline: (date) => `Rok ${date}`,
+    noDeadline: 'Rok nije naveden',
+    whyFit: 'Zašto bi ovo moglo da odgovara:',
+    reasons: (list) => `zašto odgovara: ${list}`,
+    readAll: 'pročitaj ceo oglas',
+    stampLike: 'Sačuvano!',
+    stampNope: 'Ma ne.',
+    stampStar: 'Posao iz snova!',
+    toastSaved: 'Sačuvano.',
+    toastPassed: 'Preskočeno. Ostaje u odeljku „Sve“.',
+    toastStar: 'Posao iz snova! Podsetnik stiže pre roka.',
+    undo: 'Opozovi',
+    title: 'Špil',
+    allSeen: 'Sve je pregledano',
+    waiting: (n) => `${n} ${srForm(n, 'oglas čeka', 'oglasa čekaju', 'oglasa čeka')}`,
+    filterLabel: (n) => (n ? `Filteri (aktivno: ${n})` : 'Filteri'),
+    historyLabel: 'Istorija: sačuvani i preskočeni oglasi',
+    loading: 'Učitavam oglase…',
+    noPostings: 'Još nema oglasa',
+    firstCards: 'Čim prikupljanje oglasa prođe prvi put, ovde će se pojaviti prve kartice.',
+    filteredOut: 'Sa trenutnim filterima nije ostalo ništa. Novi oglasi stižu svaki dan oko podne.',
+    comeBack: 'Novi oglasi stižu svaki dan oko podne, a možeš i da dodirneš „Prikupi sada“ u odeljku „Ja“.',
+    viewHistory: 'Pogledaj istoriju',
+    changeFilters: 'Promeni filtere',
+    actions: 'Radnje za gornju karticu',
+    passLabel: 'Preskoči (ma ne)',
+    starLabel: 'Posao iz snova: sačuvaj i podseti me pre roka',
+    save: 'Sačuvaj',
+  },
+});
 
 type Dir = 'left' | 'right' | 'up' | 'star';
 
@@ -49,9 +166,9 @@ function DeckCard({
   const showPhoto = s.settings.ui.cardImages !== false;
   const place = placeLabel(city, view.place.distanceKm);
   const dl = deadlineOf(job);
-  const reasons = topReasons(view.score, 3);
+  const reasons = topReasons(view.score, 3).map(profileLabel);
   const lane = view.lane.promoted || view.lane.lane !== 'kern' ? laneLabel(view.lane) : null;
-  const why = view.lane.lane !== 'kern' ? (view.lane.reason ?? (view.lane.bridge ? bridgeExplanation(view.lane.bridge) : null)) : null;
+  const why = view.lane.lane !== 'kern' ? (view.lane.reason ?? (view.lane.bridge ? bridgeText(view.lane.bridge) : null)) : null;
   const tilt = tiltOf(job.id);
   const top = depth === 0;
 
@@ -161,14 +278,14 @@ function DeckCard({
               credit={img.credit}
               seed={view.place.cityId ?? job.institutionId ?? job.id}
               caption={place.city}
-              sub={place.km ? `${place.km} von zu Hause` : undefined}
+              sub={place.km ? t.fromHome(place.km) : undefined}
               tilt={-tilt * 0.8}
             />
           </div>
           <ScoreRing className="card__score" value={view.score.score} size={68} />
           {view.favorite && (
             <span className="card__fav chip chip--primary">
-              <IconHeart filled width={14} height={14} /> Lieblingsort
+              <IconHeart filled width={14} height={14} /> {t.favorite}
             </span>
           )}
         </>
@@ -182,7 +299,7 @@ function DeckCard({
             </span>
             {view.favorite && (
               <span className="chip chip--primary chip--tiny">
-                <IconHeart filled width={12} height={12} /> Lieblingsort
+                <IconHeart filled width={12} height={12} /> {t.favorite}
               </span>
             )}
           </div>
@@ -193,8 +310,8 @@ function DeckCard({
         {(lane || job.newSite || job.dummy) && (
           <p className="card__tags">
             {lane && <span className="lane-tag">{lane}</span>}
-            {job.newSite && <span className="chip chip--neutral chip--tiny">neue Website</span>}
-            {job.dummy && <span className="chip chip--neutral chip--tiny chip--dummy">Dummy</span>}
+            {job.newSite && <span className="chip chip--neutral chip--tiny">{t.newSite}</span>}
+            {job.dummy && <span className="chip chip--neutral chip--tiny chip--dummy">{t.demo}</span>}
           </p>
         )}
         <p className="card__inst">
@@ -212,43 +329,43 @@ function DeckCard({
         {dl ? (
           dl.unsure ? (
             <p className="card__deadline card__deadline--unsure">
-              {dl.date ? `Frist ${dl.date}?` : 'Frist unklar'} <span>bitte im Original prüfen</span>
+              {dl.date ? t.deadlineUnsure(dl.date) : t.deadlineUnclear} <span>{t.checkOriginal}</span>
             </p>
           ) : (
             <p className="card__deadline">
-              <span className={dl.urgent ? 'marker' : ''}>Frist {dl.date}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span>
+              <span className={dl.urgent ? 'marker' : ''}>{t.deadline(dl.date ?? '')}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span>
             </p>
           )
         ) : (
           <p className="card__deadline" style={{ color: 'var(--text-muted)' }}>
-            Keine Frist angegeben
+            {t.noDeadline}
           </p>
         )}
         {why ? (
           // Horizont-Karte: Die Begründung ist wichtiger als die Kurzfassung (die steht in der Anzeige)
           <p className="card__why">
-            <b>Warum das passen könnte:</b> {why}
+            <b>{t.whyFit}</b> {why}
           </p>
         ) : (
           <>
             {job.summary && <p className="card__summary print">{job.summary}</p>}
-            {reasons.length > 0 && <p className="card__reasons">passt wegen {reasons.join(', ')}</p>}
+            {reasons.length > 0 && <p className="card__reasons">{t.reasons(reasons.join(', '))}</p>}
           </>
         )}
       </div>
       {top && (
         <button type="button" className="card__more" onClick={() => openJob(job.id)}>
-          <IconArrowUp width={16} height={16} /> ganze Anzeige lesen
+          <IconArrowUp width={16} height={16} /> {t.readAll}
         </button>
       )}
       <span ref={likeRef} className="stamp stamp--like" aria-hidden="true">
-        Gemerkt!
+        {t.stampLike}
       </span>
       <span ref={nopeRef} className="stamp stamp--nope" aria-hidden="true">
-        Nö.
+        {t.stampNope}
       </span>
       <span ref={starRef} className="stamp stamp--star" aria-hidden="true">
-        Herzensjob!
+        {t.stampStar}
       </span>
     </article>
   );
@@ -281,13 +398,13 @@ export function DeckScreen() {
       setPinned(null);
       if (dir === 'right') {
         store.decide(v.job.id, 'gemerkt');
-        store.toast('Gemerkt.', { label: 'Rückgängig', run: undo });
+        store.toast(t.toastSaved, { label: t.undo, run: undo });
       } else if (dir === 'left') {
         store.decide(v.job.id, 'abgelehnt');
-        store.toast('Weggelegt. Bleibt unter „Alle“.', { label: 'Rückgängig', run: undo });
+        store.toast(t.toastPassed, { label: t.undo, run: undo });
       } else if (dir === 'star') {
         store.setStar(v.job.id, true, true);
-        store.toast('Herzensjob! Erinnerung kommt vor der Frist.', { label: 'Rückgängig', run: undo });
+        store.toast(t.toastStar, { label: t.undo, run: undo });
       }
     },
     [store, undo],
@@ -298,8 +415,8 @@ export function DeckScreen() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (sheet || location.hash.includes('/stelle/')) return;
-      const t = e.target as HTMLElement;
-      if (t.closest('input, textarea, select')) return;
+      const target = e.target as HTMLElement;
+      if (target.closest('input, textarea, select')) return;
       if (e.key === 'ArrowRight') api.current?.fly('right');
       else if (e.key === 'ArrowLeft') api.current?.fly('left');
       else if (e.key === 'ArrowUp' && top) openJob(top.job.id);
@@ -318,16 +435,16 @@ export function DeckScreen() {
       <div className="page-head">
         <div>
           <h1 className="page-title" id="deck-title">
-            Stapel
+            {t.title}
           </h1>
-          <p className="page-sub">{waiting === 0 ? 'Alles durchgeschaut' : waiting === 1 ? '1 Anzeige wartet' : `${waiting} Anzeigen warten`}</p>
+          <p className="page-sub">{waiting === 0 ? t.allSeen : t.waiting(waiting)}</p>
         </div>
         <div style={{ display: 'flex', gap: 2 }}>
-          <button type="button" className="icon-btn" onClick={() => setSheet('filter')} aria-label={`Filter${activeFilters ? ` (${activeFilters} aktiv)` : ''}`}>
+          <button type="button" className="icon-btn" onClick={() => setSheet('filter')} aria-label={t.filterLabel(activeFilters)}>
             <IconFilter width={24} height={24} />
             {activeFilters > 0 && <span className="badge">{activeFilters}</span>}
           </button>
-          <button type="button" className="icon-btn" onClick={() => setSheet('verlauf')} aria-label="Verlauf: gemerkte und weggelegte Anzeigen">
+          <button type="button" className="icon-btn" onClick={() => setSheet('verlauf')} aria-label={t.historyLabel}>
             <IconHistory width={24} height={24} />
           </button>
         </div>
@@ -342,22 +459,16 @@ export function DeckScreen() {
             .map(({ v, i }) => <DeckCard key={v.job.id} view={v} depth={i} apiRef={i === 0 ? api : undefined} onDecide={i === 0 ? (dir) => decide(v, dir) : undefined} />)
         ) : (
           <Empty
-            title={s.jobs.size === 0 ? (s.sync.busy ? 'Anzeigen werden geladen …' : 'Noch keine Anzeigen') : 'Alles durchgeschaut'}
-            text={
-              s.jobs.size === 0
-                ? s.sync.error ?? 'Sobald die Einsammel-Pipeline gelaufen ist, liegen hier die ersten Karten.'
-                : activeFilters
-                  ? 'Mit den aktuellen Filtern ist nichts mehr übrig. Neue Anzeigen kommen täglich gegen 12 Uhr.'
-                  : 'Neue Anzeigen kommen täglich gegen 12 Uhr dazu, oder per „Jetzt einsammeln“ unter „Ich“.'
-            }
+            title={s.jobs.size === 0 ? (s.sync.busy ? t.loading : t.noPostings) : t.allSeen}
+            text={s.jobs.size === 0 ? s.sync.error ?? t.firstCards : activeFilters ? t.filteredOut : t.comeBack}
           >
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
               <button type="button" className="btn btn--small" onClick={() => setSheet('verlauf')}>
-                Verlauf ansehen
+                {t.viewHistory}
               </button>
               {activeFilters > 0 && (
                 <button type="button" className="btn btn--small btn--primary" onClick={() => setSheet('filter')}>
-                  Filter ändern
+                  {t.changeFilters}
                 </button>
               )}
             </div>
@@ -365,17 +476,17 @@ export function DeckScreen() {
         )}
       </div>
 
-      <div className="deck-actions" aria-label="Aktionen für die oberste Karte">
-        <button type="button" className="round-btn round-btn--small" onClick={undo} disabled={s.undo.length === 0} aria-label="Rückgängig">
+      <div className="deck-actions" aria-label={t.actions}>
+        <button type="button" className="round-btn round-btn--small" onClick={undo} disabled={s.undo.length === 0} aria-label={t.undo}>
           <IconUndo />
         </button>
-        <button type="button" className="round-btn round-btn--nope" onClick={() => api.current?.fly('left')} disabled={!top} aria-label="Weglegen (Nö)">
+        <button type="button" className="round-btn round-btn--nope" onClick={() => api.current?.fly('left')} disabled={!top} aria-label={t.passLabel}>
           <IconX />
         </button>
-        <button type="button" className="round-btn round-btn--star" onClick={() => api.current?.fly('star')} disabled={!top} aria-label="Herzensjob: merken und vor der Frist erinnern">
+        <button type="button" className="round-btn round-btn--star" onClick={() => api.current?.fly('star')} disabled={!top} aria-label={t.starLabel}>
           <IconStar />
         </button>
-        <button type="button" className="round-btn round-btn--like" onClick={() => api.current?.fly('right')} disabled={!top} aria-label="Merken">
+        <button type="button" className="round-btn round-btn--like" onClick={() => api.current?.fly('right')} disabled={!top} aria-label={t.save}>
           <IconHeart />
         </button>
       </div>

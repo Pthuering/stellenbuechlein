@@ -18,7 +18,8 @@ import {
 import data from '../src/data/demo-data.json';
 import { defaultSettings, type Store } from '../src/data/store';
 import type { JobView } from '../src/data/hooks';
-import { applyProposal, createToolbox, homeForAi, readJob, turnContext, type ChatEntry, type Snapshot } from '../src/lib/assistant';
+import { applyProposal, createToolbox, homeForAi, proposalTitle, readJob, turnContext, type ChatEntry, type Snapshot } from '../src/lib/assistant';
+import { setLang } from '../src/i18n';
 
 // Dummy-Anzeigen mit Fristen ab heute, damit sie „offen“ sind
 const today = todayBerlin();
@@ -134,6 +135,26 @@ describe('Kontext zu jeder Frage', () => {
 
   it('zählt beim Horizont die Anzeigen je Brücke', () => {
     expect(turnContext(snap, { jobId: null, thema: 'horizont', entscheidungen: [] }, true)).toMatch(/Offene Horizont-Anzeigen je Brücke: Mensch & KI: \d+/);
+  });
+
+  it('lässt die KI in der Sprache der Oberfläche antworten; was sie liest, bleibt deutsch', () => {
+    const conv = { jobId: null, thema: null, entscheidungen: [] };
+    const v = { art: 'bruecke', ersetzt_id: 'h-sec', name: 'IT-Sicherheit', feld: ['phishing'], warum: 'w', begruendung: 'b' } as const;
+    expect(turnContext(snap, conv, true)).not.toContain('Antworte auf');
+    vi.stubGlobal('document', { documentElement: {} });
+    try {
+      setLang('en');
+      const c = turnContext(snap, conv, true);
+      expect(c).toContain('Antworte auf Englisch');
+      expect(c).toContain('Filter im Stapel: keine');
+      expect(proposalTitle(v, snap)).toBe('Change bridge “IT security”');
+      expect(proposalTitle(v, snap, true)).toBe('Brücke „IT-Sicherheit“ ändern');
+      setLang('sr');
+      expect(turnContext(snap, conv, true)).toContain('Antworte auf Serbisch');
+    } finally {
+      setLang('de');
+      vi.unstubAllGlobals();
+    }
   });
 });
 

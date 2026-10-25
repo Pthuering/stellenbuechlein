@@ -1,10 +1,10 @@
 // Die ganze Anzeige: Foto, Eckdaten, warum sie passt, Merken/Herzensjob/beworben, Notiz, vollständiger Text.
 
 import { useEffect, useMemo, useState } from 'react';
-import { bridgeExplanation, CATEGORY_LABELS, formatDateDe, formatKm, horizontOf, INSTITUTION_KIND_LABELS, isAggregatorUrl, JOB_KIND_LABELS, type ScoreResult } from '@stellen/core';
+import { horizontOf, isAggregatorUrl, type BridgeHit, type FoundVia, type ScoreResult } from '@stellen/core';
 import { useAppState, useStore, useViews, type JobView } from '../data/hooks';
 import { closeOverlay, leaveOverlayTo } from '../lib/router';
-import { deadlineCheckText, deadlineOf, employerName, jobImage, laneLabel, shortDate } from '../lib/format';
+import { deadlineCheckText, deadlineOf, employerName, jobImage, laneLabel, shortDate, unknownPlace } from '../lib/format';
 import { setIntent } from '../lib/intent';
 import { useTestPhotos } from '../data/testPhotos';
 import { renderMarkdown } from '../lib/markdown';
@@ -12,20 +12,274 @@ import { Sheet } from '../ui/Sheet';
 import { Polaroid } from '../ui/Polaroid';
 import { Hearts, ScoreRing } from '../ui/bits';
 import { IconCheck, IconDoc, IconExternal, IconHeart, IconMail, IconPin, IconSpark, IconStar, IconX } from '../ui/icons';
+import { fmtDate, fmtKm, fmtPct, srForm, texts } from '../i18n';
+import { categoryLabel, institutionKindLabel, jobKindLabel } from '../i18n/labels';
+import { profileLabel } from '../i18n/katalog';
+
+const t = texts({
+  de: {
+    profileEmpty: 'Im Suchprofil ist noch nichts eingetragen.',
+    pointsOf: (points: number, max: number) => `${points} von ${max} Punkten`,
+    halfUnknown: ' (steht nicht in der Anzeige, zählt halb)',
+    ratherNot: 'Lieber nicht',
+    minusPoints: (n: number) => `−${n} Punkte`,
+    whyHint: 'Jede Kategorie ist voll, sobald drei Herzchen getroffen sind. Der Score sortiert nur, aussortiert wird nie.',
+    via: { Stellenart: 'Stellenart', Entgelt: 'Entgelt', Umfang: 'Umfang', Befristung: 'Befristung', Sprache: 'Sprache' } as Record<string, string>,
+    quote: (term: string) => `„${term}“`,
+    field: 'Feld',
+    link: 'Anknüpfung',
+    verdictFits: 'Die KI hält die Stelle für gut machbar.',
+    verdictMaybe: 'Die KI hält die Stelle für möglich, mit Lücken.',
+    bridgePaused: (name: string) => `Brücke „${name}“ pausiert. Solche Anzeigen kommen nicht mehr in den Stapel.`,
+    undo: 'Rückgängig',
+    weiteIntro: 'Außerhalb deiner Kernthemen und ohne Brücke, aber deine Fähigkeiten könnten hier tragen.',
+    horizonIntro: 'Außerhalb deiner Kernthemen, aber eine deiner Brücken passt.',
+    whyFit: 'Warum das passen könnte:',
+    pausedHint: 'Die Brücke ist pausiert, darum kommt die Anzeige nicht mehr in den Stapel.',
+    editBridge: 'Brücke bearbeiten',
+    pauseBridge: 'Brücke passt nicht, pausieren',
+    posting: 'Anzeige',
+    gone: 'Diese Anzeige gibt es nicht mehr. Abgelaufene Anzeigen werden nach zwei Wochen aufgeräumt, gemerkte bleiben.',
+    fDeadline: 'Frist',
+    fKind: 'Stellenart',
+    fPay: 'Entgelt',
+    fWorkload: 'Umfang',
+    fTerm: 'Befristung',
+    fStart: 'Beginn',
+    fRef: 'Kennziffer',
+    fLanguage: 'Sprache',
+    fContact: 'Kontakt',
+    unclear: 'unklar',
+    noneGiven: 'keine angegeben',
+    permanent: 'unbefristet',
+    fixedTerm: 'befristet',
+    langEn: 'Englisch',
+    langDe: 'Deutsch',
+    fromHome: (km: string) => `${km} von zu Hause`,
+    expired: 'abgelaufen',
+    saved: 'Gemerkt',
+    save: 'Merken',
+    dreamJob: 'Herzensjob',
+    applied: 'Beworben',
+    appliedOn: (date: string) => `Beworben ${date}`,
+    passed: 'Weggelegt',
+    pass: 'Weglegen',
+    reminderHint: (days: number[]) => `Erinnerung ${days.map((d) => (d === 1 ? '1 Tag' : `${d} Tage`)).join(', ')} vor der Frist.`,
+    newSiteHead: 'Von einer neuen Website.',
+    newSiteText: (employer: string | null, via: FoundVia | null | undefined) =>
+      `${employer ? `${employer} steht` : 'Diese Website steht'} noch nicht im Quellen-Register${via === 'erkundung' ? ' (gefunden bei der Suche nach blinden Flecken)' : via === 'portal' ? ' (gefunden über ein Portal)' : ''}.`,
+    checkSite: 'Website als Quelle prüfen',
+    demoSiteHint: 'In der eingerichteten App lässt sich die Website hier direkt per KI-Probelauf ins Register aufnehmen.',
+    aggregatorHint: 'Die Anzeige liegt bei einer Jobbörse; die Website des Arbeitgebers ist noch nicht bekannt.',
+    match: (n: number) => `Passt zu ${fmtPct(n)}`,
+    less: 'weniger',
+    why: 'warum?',
+    askAi: 'KI fragen',
+    keyFacts: 'Eckdaten',
+    demoHead: 'Dummy-Anzeige.',
+    demoText: 'Erfunden, damit sich die App ausprobieren lässt.',
+    demoInst: 'Der Knopf führt zur echten Stellenliste der Einrichtung; diese Stelle gibt es dort nicht.',
+    demoNoEmployer: 'Den Arbeitgeber gibt es nicht.',
+    original: 'Original-Anzeige',
+    instList: 'Stellenliste der Einrichtung',
+    favorite: 'Lieblingsort',
+    makeFavorite: 'Einrichtung als Lieblingsort',
+    aiSummary: 'KI-Kurzfassung',
+    incomplete: 'Der Text ist vielleicht unvollständig. Der Browser-Agent versucht es beim nächsten Lauf noch einmal. Bis dahin lieber im Original nachlesen.',
+    postingText: 'Anzeigentext',
+    note: 'Notiz',
+    notePlaceholder: 'z. B. Ansprechperson, offene Fragen, Ideen fürs Anschreiben',
+    foundVia: 'Gefunden über',
+    source: 'Quelle',
+    discovered: 'Entdeckt',
+  },
+  en: {
+    profileEmpty: 'Your search profile is still empty.',
+    pointsOf: (points, max) => `${points} of ${max} points`,
+    halfUnknown: ' (not in the posting, counts half)',
+    ratherNot: 'Rather not',
+    minusPoints: (n) => `−${n} ${n === 1 ? 'point' : 'points'}`,
+    whyHint: 'Each category is full once three hearts are matched. The match score only sorts; nothing is ever filtered out.',
+    via: { Stellenart: 'position type', Entgelt: 'pay grade', Umfang: 'hours', Befristung: 'permanent contract', Sprache: 'language' },
+    quote: (term) => `“${term}”`,
+    field: 'Field',
+    link: 'link',
+    verdictFits: 'The AI thinks this job is very doable.',
+    verdictMaybe: 'The AI thinks this job is possible, with some gaps.',
+    bridgePaused: (name) => `Bridge “${name}” paused. Postings like this won’t go into the stack anymore.`,
+    undo: 'Undo',
+    weiteIntro: 'Outside your core topics and without a bridge, but your skills could carry over here.',
+    horizonIntro: 'Outside your core topics, but one of your bridges fits.',
+    whyFit: 'Why this could fit:',
+    pausedHint: 'This bridge is paused, so the posting no longer goes into the stack.',
+    editBridge: 'Edit bridge',
+    pauseBridge: 'Bridge doesn’t fit, pause it',
+    posting: 'Posting',
+    gone: 'This posting no longer exists. Expired postings are cleared out after two weeks; saved ones stay.',
+    fDeadline: 'Deadline',
+    fKind: 'Position type',
+    fPay: 'Pay',
+    fWorkload: 'Hours',
+    fTerm: 'Contract',
+    fStart: 'Start',
+    fRef: 'Reference no.',
+    fLanguage: 'Language',
+    fContact: 'Contact',
+    unclear: 'unclear',
+    noneGiven: 'none given',
+    permanent: 'permanent',
+    fixedTerm: 'fixed-term',
+    langEn: 'English',
+    langDe: 'German',
+    fromHome: (km) => `${km} from home`,
+    expired: 'expired',
+    saved: 'Saved',
+    save: 'Save',
+    dreamJob: 'Dream job',
+    applied: 'Applied',
+    appliedOn: (date) => `Applied ${date}`,
+    passed: 'Passed',
+    pass: 'Pass',
+    reminderHint: (days) => `Reminder${days.length > 1 ? 's' : ''} ${days.map((d) => (d === 1 ? '1 day' : `${d} days`)).join(', ')} before the deadline.`,
+    newSiteHead: 'From a new website.',
+    newSiteText: (employer, via) =>
+      `${employer ? `${employer} isn’t` : 'This website isn’t'} in the registry yet${via === 'erkundung' ? ' (found while looking for blind spots)' : via === 'portal' ? ' (found via a portal)' : ''}.`,
+    checkSite: 'Check website as a source',
+    demoSiteHint: 'In the fully set-up app, you can add the website to the registry right here with an AI test run.',
+    aggregatorHint: 'The posting is on a job board; the employer’s website isn’t known yet.',
+    match: (n) => `${fmtPct(n)} match`,
+    less: 'less',
+    why: 'why?',
+    askAi: 'Ask AI',
+    keyFacts: 'Key facts',
+    demoHead: 'Demo posting.',
+    demoText: 'Made up so you can try out the app.',
+    demoInst: 'The button leads to the institution’s real job list; this job isn’t on it.',
+    demoNoEmployer: 'The employer doesn’t exist.',
+    original: 'Original posting',
+    instList: 'Institution’s job list',
+    favorite: 'Favorite place',
+    makeFavorite: 'Set institution as favorite place',
+    aiSummary: 'AI summary',
+    incomplete: 'The text may be incomplete. The browser agent will try again on the next run. Until then, better check the original.',
+    postingText: 'Posting text',
+    note: 'Note',
+    notePlaceholder: 'e.g. contact person, open questions, ideas for the cover letter',
+    foundVia: 'Found via',
+    source: 'Source',
+    discovered: 'Discovered',
+  },
+  sr: {
+    profileEmpty: 'U profilu pretrage još ništa nije uneto.',
+    pointsOf: (points, max) => `${points} od ${max} ${srForm(max, 'poena', 'poena', 'poena')}`,
+    halfUnknown: ' (nije navedeno u oglasu, računa se upola)',
+    ratherNot: 'Radije ne',
+    minusPoints: (n) => `−${n} ${srForm(n, 'poen', 'poena', 'poena')}`,
+    whyHint: 'Svaka kategorija je puna čim se pogode tri srca. Poklapanje samo određuje redosled, ništa se ne izbacuje.',
+    via: { Stellenart: 'vrsta pozicije', Entgelt: 'platni razred', Umfang: 'obim zaposlenja', Befristung: 'ugovor na neodređeno', Sprache: 'jezik' },
+    quote: (term) => `„${term}“`,
+    field: 'Oblast',
+    link: 'veza',
+    verdictFits: 'AI procenjuje da je ovaj posao sasvim izvodljiv.',
+    verdictMaybe: 'AI procenjuje da je ovaj posao moguć, ali uz neke praznine.',
+    bridgePaused: (name) => `Most „${name}“ je pauziran. Takvi oglasi više neće ulaziti u špil.`,
+    undo: 'Opozovi',
+    weiteIntro: 'Van tvojih ključnih tema i bez mosta, ali bi tvoje veštine ovde mogle da dođu do izražaja.',
+    horizonIntro: 'Van tvojih ključnih tema, ali odgovara jedan od tvojih mostova.',
+    whyFit: 'Zašto bi ovo moglo da odgovara:',
+    pausedHint: 'Most je pauziran, pa oglas više ne ulazi u špil.',
+    editBridge: 'Izmeni most',
+    pauseBridge: 'Most ne odgovara, pauziraj ga',
+    posting: 'Oglas',
+    gone: 'Ovaj oglas više ne postoji. Istekli oglasi se uklanjaju posle dve nedelje, sačuvani ostaju.',
+    fDeadline: 'Rok',
+    fKind: 'Vrsta pozicije',
+    fPay: 'Plata',
+    fWorkload: 'Obim zaposlenja',
+    fTerm: 'Trajanje ugovora',
+    fStart: 'Početak',
+    fRef: 'Šifra oglasa',
+    fLanguage: 'Jezik',
+    fContact: 'Kontakt',
+    unclear: 'nejasan',
+    noneGiven: 'nije naveden',
+    permanent: 'na neodređeno',
+    fixedTerm: 'na određeno',
+    langEn: 'engleski',
+    langDe: 'nemački',
+    fromHome: (km) => `${km} od kuće`,
+    expired: 'isteklo',
+    saved: 'Sačuvano',
+    save: 'Sačuvaj',
+    dreamJob: 'Posao iz snova',
+    applied: 'Prijava poslata',
+    appliedOn: (date) => `Prijava poslata ${date}`,
+    passed: 'Preskočeno',
+    pass: 'Preskoči',
+    reminderHint: (days) => `${days.length > 1 ? 'Podsetnici' : 'Podsetnik'} ${days.map((d) => `${d} ${srForm(d, 'dan', 'dana', 'dana')}`).join(', ')} pre roka.`,
+    newSiteHead: 'Sa novog sajta.',
+    newSiteText: (employer, via) =>
+      `${employer ? `${employer} još nije` : 'Ovaj sajt još nije'} u registru${via === 'erkundung' ? ' (oglas je pronađen u potrazi za slepim mrljama)' : via === 'portal' ? ' (oglas je pronađen preko portala)' : ''}.`,
+    checkSite: 'Proveri sajt kao izvor',
+    demoSiteHint: 'U potpuno podešenoj aplikaciji sajt se ovde odmah može dodati u registar, uz probni prolaz sa AI.',
+    aggregatorHint: 'Oglas je objavljen na berzi poslova; sajt poslodavca još nije poznat.',
+    match: (n) => `Poklapanje ${fmtPct(n)}`,
+    less: 'manje',
+    why: 'zašto?',
+    askAi: 'Pitaj AI',
+    keyFacts: 'Osnovni podaci',
+    demoHead: 'Probni oglas.',
+    demoText: 'Izmišljen je da bi se aplikacija mogla isprobati.',
+    demoInst: 'Dugme vodi na pravu listu oglasa ove ustanove; ovog posla tamo nema.',
+    demoNoEmployer: 'Ovaj poslodavac ne postoji.',
+    original: 'Originalni oglas',
+    instList: 'Lista oglasa ustanove',
+    favorite: 'Omiljeno mesto',
+    makeFavorite: 'Dodaj ustanovu u omiljena mesta',
+    aiSummary: 'AI rezime',
+    incomplete: 'Tekst je možda nepotpun. Agent u pregledaču pokušaće ponovo u sledećem prolazu. Do tada je bolje proveriti u originalu.',
+    postingText: 'Tekst oglasa',
+    note: 'Beleška',
+    notePlaceholder: 'npr. osoba za kontakt, otvorena pitanja, ideje za propratno pismo',
+    foundVia: 'Pronađeno preko',
+    source: 'Izvor',
+    discovered: 'Otkriveno',
+  },
+});
+
+/**
+ * Kurze Begründung einer Brücke ohne KI, in der Sprache der App: Feld: „a“; Anknüpfung: „b“.
+ * Die Begriffe selbst stammen aus dem Suchprofil und bleiben, wie sie sind.
+ */
+export function bridgeText(hit: BridgeHit): string {
+  const quoted = (terms: string[], n: number) =>
+    terms
+      .slice(0, n)
+      .map((x) => t.quote(x))
+      .join(', ');
+  return `${t.field}: ${quoted(hit.feld, 2)}; ${t.link}: ${quoted(hit.anker, 3)}`;
+}
+
+/** Wodurch ein Eintrag getroffen hat: ein Begriff aus der Anzeige („…“) oder eine Angabe (Stellenart, Entgelt …). */
+function viaText(via: string): string {
+  const m = /^„(.*)“$/.exec(via);
+  if (m) return t.quote(m[1]);
+  return t.via[via] ?? via;
+}
 
 function Why({ score }: { score: ScoreResult }) {
   const cats = score.categories.filter((c) => c.max > 0);
-  if (cats.length === 0) return <p className="hint">Im Suchprofil ist noch nichts eingetragen.</p>;
+  if (cats.length === 0) return <p className="hint">{t.profileEmpty}</p>;
   return (
     <div className="why">
       {cats.map((c) => (
         <div className="why__cat" key={c.id}>
           <div className="why__head">
             <span>
-              {CATEGORY_LABELS[c.id]} <Hearts value={c.hearts} label={`${String(c.hearts).replace('.', ',')} von 3 Herzen`} />
+              {categoryLabel(c.id)} <Hearts value={c.hearts} />
             </span>
             <span className="why__pts">
-              {Math.round(c.points)} von {Math.round(c.max)} Punkten
+              {t.pointsOf(Math.round(c.points), Math.round(c.max))}
             </span>
           </div>
           <div className="why__bar" aria-hidden="true">
@@ -35,9 +289,9 @@ function Why({ score }: { score: ScoreResult }) {
             <div key={h.item.id} className={`why__item why__item--${h.state}`}>
               <span aria-hidden="true">{h.state === 'ja' ? '✓' : h.state === 'unbekannt' ? '?' : '–'}</span>
               <span>
-                {h.item.label}
-                {h.state === 'ja' && h.via ? <span style={{ color: 'var(--text-muted)' }}> ({h.via})</span> : null}
-                {h.state === 'unbekannt' ? <span style={{ color: 'var(--text-muted)' }}> (steht nicht in der Anzeige, zählt halb)</span> : null}
+                {profileLabel(h.item.label)}
+                {h.state === 'ja' && h.via ? <span style={{ color: 'var(--text-muted)' }}> ({viaText(h.via)})</span> : null}
+                {h.state === 'unbekannt' ? <span style={{ color: 'var(--text-muted)' }}>{t.halfUnknown}</span> : null}
               </span>
             </div>
           ))}
@@ -46,18 +300,18 @@ function Why({ score }: { score: ScoreResult }) {
       {score.penalties.length > 0 && (
         <div className="why__cat">
           <div className="why__head">
-            <span>Lieber nicht</span>
-            <span className="why__pts">−{score.penalty} Punkte</span>
+            <span>{t.ratherNot}</span>
+            <span className="why__pts">{t.minusPoints(score.penalty)}</span>
           </div>
           {score.penalties.map((h) => (
             <div key={h.item.id} className="why__item">
               <span aria-hidden="true">✗</span>
-              <span>{h.item.label}</span>
+              <span>{profileLabel(h.item.label)}</span>
             </div>
           ))}
         </div>
       )}
-      <p className="hint">Jede Kategorie ist voll, sobald drei Herzchen getroffen sind. Der Score sortiert nur, aussortiert wird nie.</p>
+      <p className="hint">{t.whyHint}</p>
     </div>
   );
 }
@@ -69,30 +323,28 @@ function HorizonNote({ v }: { v: JobView }) {
   const l = v.lane;
   if (l.lane === 'kern') return null;
   const bridge = l.bridge?.bridge ?? null;
-  const verdict = l.verdict === 'passt' ? 'Die KI hält die Stelle für gut machbar.' : l.verdict === 'eher' ? 'Die KI hält die Stelle für möglich, mit Lücken.' : null;
+  const verdict = l.verdict === 'passt' ? t.verdictFits : l.verdict === 'eher' ? t.verdictMaybe : null;
   const pause = () => {
     if (!bridge) return;
     const prev = s.settings.profile;
     const h = horizontOf(prev);
     store.updateSettings('profile', { ...prev, horizont: { ...h, bruecken: h.bruecken.map((b) => (b.id === bridge.id ? { ...b, aktiv: false } : b)) }, updatedAt: new Date().toISOString() });
-    store.toast(`Brücke „${bridge.name}“ pausiert. Solche Anzeigen kommen nicht mehr in den Stapel.`, { label: 'Rückgängig', run: () => store.updateSettings('profile', prev) }, 7000);
+    store.toast(t.bridgePaused(profileLabel(bridge.name)), { label: t.undo, run: () => store.updateSettings('profile', prev) }, 7000);
   };
   return (
     <div className="horizon-note">
       <p className="horizon-note__head">{laneLabel(l)}</p>
       <p>
-        {l.lane === 'weite'
-          ? 'Außerhalb deiner Kernthemen und ohne Brücke, aber deine Fähigkeiten könnten hier tragen.'
-          : 'Außerhalb deiner Kernthemen, aber eine deiner Brücken passt.'}{' '}
+        {l.lane === 'weite' ? t.weiteIntro : t.horizonIntro}{' '}
         {verdict}
       </p>
       {l.reason && (
         <p>
-          <b>Warum das passen könnte:</b> {l.reason}
+          <b>{t.whyFit}</b> {l.reason}
         </p>
       )}
-      {l.bridge && <p className="hint">{bridgeExplanation(l.bridge)}</p>}
-      {!l.promoted && l.lane === 'horizont' && <p className="hint">Die Brücke ist pausiert, darum kommt die Anzeige nicht mehr in den Stapel.</p>}
+      {l.bridge && <p className="hint">{bridgeText(l.bridge)}</p>}
+      {!l.promoted && l.lane === 'horizont' && <p className="hint">{t.pausedHint}</p>}
       <div className="horizon-note__actions">
         {bridge && (
           <button
@@ -103,12 +355,12 @@ function HorizonNote({ v }: { v: JobView }) {
               leaveOverlayTo('/ich/horizont');
             }}
           >
-            Brücke bearbeiten
+            {t.editBridge}
           </button>
         )}
         {bridge && bridge.aktiv && (
           <button type="button" className="btn btn--small btn--quiet" onClick={pause}>
-            Brücke passt nicht, pausieren
+            {t.pauseBridge}
           </button>
         )}
       </div>
@@ -129,8 +381,8 @@ export function JobDetail({ id }: { id: string }) {
 
   if (!v) {
     return (
-      <Sheet title="Anzeige" onClose={closeOverlay}>
-        <p>Diese Anzeige gibt es nicht mehr. Abgelaufene Anzeigen werden nach zwei Wochen aufgeräumt, gemerkte bleiben.</p>
+      <Sheet title={t.posting} onClose={closeOverlay}>
+        <p>{t.gone}</p>
       </Sheet>
     );
   }
@@ -147,7 +399,7 @@ export function JobDetail({ id }: { id: string }) {
   const facts: [string, React.ReactNode][] = [];
   if (dl && dl.date)
     facts.push([
-      'Frist',
+      t.fDeadline,
       <>
         <span className={dl.unsure ? 'deadline-unsure' : dl.urgent ? 'marker' : ''}>{dl.date}</span> <span style={{ color: 'var(--text-muted)' }}>{dl.left}</span>
         {dlText && <small className={`facts__note ${dl.unsure ? 'facts__note--warn' : ''}`}>{dlText}</small>}
@@ -155,23 +407,23 @@ export function JobDetail({ id }: { id: string }) {
     ]);
   else if (dl)
     facts.push([
-      'Frist',
+      t.fDeadline,
       <>
-        <span className="deadline-unsure">unklar</span>
+        <span className="deadline-unsure">{t.unclear}</span>
         {dlText && <small className="facts__note facts__note--warn">{dlText}</small>}
       </>,
     ]);
-  else facts.push(['Frist', <span style={{ color: 'var(--text-muted)' }}>keine angegeben</span>]);
-  if (job.kind) facts.push(['Stellenart', JOB_KIND_LABELS[job.kind]]);
-  if (job.payGrade) facts.push(['Entgelt', job.payGrade]);
-  if (job.workloadPct || job.workloadText) facts.push(['Umfang', job.workloadPct ? `${job.workloadPct} %${job.workloadText && !job.workloadText.includes('%') ? ` (${job.workloadText})` : ''}` : job.workloadText]);
-  if (job.fixedTerm || job.isPermanent != null) facts.push(['Befristung', job.isPermanent ? 'unbefristet' : job.fixedTerm ?? 'befristet']);
-  if (job.startText) facts.push(['Beginn', job.startText]);
-  if (job.referenceNo) facts.push(['Kennziffer', job.referenceNo]);
-  if (job.language) facts.push(['Sprache', job.language === 'en' ? 'Englisch' : 'Deutsch']);
+  else facts.push([t.fDeadline, <span style={{ color: 'var(--text-muted)' }}>{t.noneGiven}</span>]);
+  if (job.kind) facts.push([t.fKind, jobKindLabel(job.kind)]);
+  if (job.payGrade) facts.push([t.fPay, job.payGrade]);
+  if (job.workloadPct || job.workloadText) facts.push([t.fWorkload, job.workloadPct ? `${fmtPct(job.workloadPct)}${job.workloadText && !job.workloadText.includes('%') ? ` (${job.workloadText})` : ''}` : job.workloadText]);
+  if (job.fixedTerm || job.isPermanent != null) facts.push([t.fTerm, job.isPermanent ? t.permanent : job.fixedTerm ?? t.fixedTerm]);
+  if (job.startText) facts.push([t.fStart, job.startText]);
+  if (job.referenceNo) facts.push([t.fRef, job.referenceNo]);
+  if (job.language) facts.push([t.fLanguage, job.language === 'en' ? t.langEn : t.langDe]);
   if (job.contact)
     facts.push([
-      'Kontakt',
+      t.fContact,
       <a href={`mailto:${job.contact}`}>
         <IconMail width={16} height={16} style={{ verticalAlign: '-3px' }} /> {job.contact}
       </a>,
@@ -180,7 +432,7 @@ export function JobDetail({ id }: { id: string }) {
   return (
     <Sheet onClose={closeOverlay} full labelledBy="detail-title">
       <div className="detail-photo">
-        <Polaroid src={img.src} credit={img.credit} seed={v.place.cityId ?? job.institutionId ?? job.id} caption={city?.name ?? 'Ort unbekannt'} sub={v.place.distanceKm != null ? `${formatKm(v.place.distanceKm)} von zu Hause` : undefined} tilt={-0.8} />
+        <Polaroid src={img.src} credit={img.credit} seed={v.place.cityId ?? job.institutionId ?? job.id} caption={city?.name ?? unknownPlace()} sub={v.place.distanceKm != null ? t.fromHome(fmtKm(v.place.distanceKm)) : undefined} tilt={-0.8} />
         <div style={{ position: 'absolute', right: 0, bottom: 22 }}>
           <ScoreRing value={v.score.score} size={76} />
         </div>
@@ -193,32 +445,31 @@ export function JobDetail({ id }: { id: string }) {
         {job.title}
       </h1>
       <p className="detail-place">
-        <IconPin width={16} height={16} /> {city?.name ?? job.locationText ?? 'Ort unbekannt'}
-        {inst && <span className="chip">{INSTITUTION_KIND_LABELS[inst.kind]}</span>}
-        {job.status === 'abgelaufen' && <span className="chip chip--neutral">abgelaufen</span>}
+        <IconPin width={16} height={16} /> {city?.name ?? job.locationText ?? unknownPlace()}
+        {inst && <span className="chip">{institutionKindLabel(inst.kind)}</span>}
+        {job.status === 'abgelaufen' && <span className="chip chip--neutral">{t.expired}</span>}
       </p>
 
       <div className="detail-actions">
         <button type="button" className={`btn ${saved ? 'btn--primary' : ''}`} aria-pressed={saved} onClick={() => store.decide(job.id, saved ? null : 'gemerkt')}>
-          <IconHeart filled={saved} width={20} height={20} /> {saved ? 'Gemerkt' : 'Merken'}
+          <IconHeart filled={saved} width={20} height={20} /> {saved ? t.saved : t.save}
         </button>
         <button type="button" className={`btn ${mark?.star ? 'btn--accent' : ''}`} aria-pressed={!!mark?.star} onClick={() => store.setStar(job.id, !mark?.star)}>
-          <IconStar filled={!!mark?.star} width={20} height={20} style={mark?.star ? { color: 'var(--accent-strong)' } : undefined} /> Herzensjob
+          <IconStar filled={!!mark?.star} width={20} height={20} style={mark?.star ? { color: 'var(--accent-strong)' } : undefined} /> {t.dreamJob}
         </button>
         <button type="button" className={`btn ${mark?.appliedAt ? 'btn--secondary' : ''}`} aria-pressed={!!mark?.appliedAt} onClick={() => store.setApplied(job.id, !mark?.appliedAt)}>
-          <IconCheck width={20} height={20} /> {mark?.appliedAt ? `Beworben ${shortDate(mark.appliedAt)}` : 'Beworben'}
+          <IconCheck width={20} height={20} /> {mark?.appliedAt ? t.appliedOn(shortDate(mark.appliedAt)) : t.applied}
         </button>
         <button type="button" className="btn" aria-pressed={rejected} onClick={() => store.decide(job.id, rejected ? null : 'abgelehnt')}>
-          <IconX width={20} height={20} /> {rejected ? 'Weggelegt' : 'Weglegen'}
+          <IconX width={20} height={20} /> {rejected ? t.passed : t.pass}
         </button>
       </div>
-      {mark?.star && dl && dl.date && !dl.past && <p className="hint">Erinnerung {s.settings.reminders.days.map((d) => (d === 1 ? '1 Tag' : `${d} Tage`)).join(', ')} vor der Frist.</p>}
+      {mark?.star && dl && dl.date && !dl.past && <p className="hint">{t.reminderHint(s.settings.reminders.days)}</p>}
 
       <HorizonNote v={v} />
       {job.newSite && (
         <div className="notice" style={{ marginTop: 12 }}>
-          <b>Von einer neuen Website.</b> {job.employer ? `${job.employer} steht` : 'Diese Website steht'} noch nicht im Quellen-Register
-          {job.foundVia === 'erkundung' ? ' (gefunden bei der Suche nach blinden Flecken)' : job.foundVia === 'portal' ? ' (gefunden über ein Portal)' : ''}.
+          <b>{t.newSiteHead}</b> {t.newSiteText(job.employer ?? null, job.foundVia)}
           {!isAggregatorUrl(job.url) && !s.demo ? (
             <div style={{ marginTop: 8 }}>
               <button
@@ -229,22 +480,22 @@ export function JobDetail({ id }: { id: string }) {
                   leaveOverlayTo('/ich/quellen');
                 }}
               >
-                Website als Quelle prüfen
+                {t.checkSite}
               </button>
             </div>
           ) : !isAggregatorUrl(job.url) ? (
-            <p className="hint" style={{ margin: '6px 0 0' }}>In der eingerichteten App lässt sich die Website hier direkt per KI-Probelauf ins Register aufnehmen.</p>
+            <p className="hint" style={{ margin: '6px 0 0' }}>{t.demoSiteHint}</p>
           ) : (
-            <p className="hint" style={{ margin: '6px 0 0' }}>Die Anzeige liegt bei einer Jobbörse; die Website des Arbeitgebers ist noch nicht bekannt.</p>
+            <p className="hint" style={{ margin: '6px 0 0' }}>{t.aggregatorHint}</p>
           )}
         </div>
       )}
 
       <h2 className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span>Passt zu {v.score.score} %</span>
+        <span>{t.match(v.score.score)}</span>
         <span style={{ display: 'flex', gap: 6 }}>
           <button type="button" className="btn btn--quiet btn--small" onClick={() => setShowWhy((x) => !x)} aria-expanded={showWhy}>
-            {showWhy ? 'weniger' : 'warum?'}
+            {showWhy ? t.less : t.why}
           </button>
           {s.aiSuggest && !s.demo && (
             <button
@@ -255,14 +506,14 @@ export function JobDetail({ id }: { id: string }) {
                 leaveOverlayTo('/ich/ki');
               }}
             >
-              <IconSpark width={18} height={18} /> KI fragen
+              <IconSpark width={18} height={18} /> {t.askAi}
             </button>
           )}
         </span>
       </h2>
       {showWhy && <Why score={v.score} />}
 
-      <h2 className="section-title">Eckdaten</h2>
+      <h2 className="section-title">{t.keyFacts}</h2>
       <ul className="facts">
         {facts.map(([k, val]) => (
           <li key={k}>
@@ -274,18 +525,17 @@ export function JobDetail({ id }: { id: string }) {
 
       {job.dummy && (
         <p className="notice notice--info" style={{ marginTop: 14 }}>
-          <b>Dummy-Anzeige.</b> Erfunden, damit sich die App ausprobieren lässt.{' '}
-          {job.institutionId ? 'Der Knopf führt zur echten Stellenliste der Einrichtung; diese Stelle gibt es dort nicht.' : 'Den Arbeitgeber gibt es nicht.'}
+          <b>{t.demoHead}</b> {t.demoText} {job.institutionId ? t.demoInst : t.demoNoEmployer}
         </p>
       )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0 4px' }}>
         {!job.dummy ? (
           <a className="btn btn--primary" href={job.url} target="_blank" rel="noopener noreferrer">
-            <IconExternal width={20} height={20} /> Original-Anzeige
+            <IconExternal width={20} height={20} /> {t.original}
           </a>
         ) : job.institutionId ? (
           <a className="btn btn--primary" href={job.url} target="_blank" rel="noopener noreferrer">
-            <IconExternal width={20} height={20} /> Stellenliste der Einrichtung
+            <IconExternal width={20} height={20} /> {t.instList}
           </a>
         ) : null}
         {job.pdfUrl && (
@@ -295,43 +545,43 @@ export function JobDetail({ id }: { id: string }) {
         )}
         {inst && (
           <button type="button" className="btn" aria-pressed={instFav} onClick={() => store.setFavorite('institution', inst.id, !instFav)}>
-            <IconHeart filled={instFav} width={20} height={20} /> {instFav ? 'Lieblingsort' : 'Einrichtung als Lieblingsort'}
+            <IconHeart filled={instFav} width={20} height={20} /> {instFav ? t.favorite : t.makeFavorite}
           </button>
         )}
       </div>
 
       {job.summary && job.summaryByAi && (
         <div className="ai-note">
-          <b>KI-Kurzfassung</b>
+          <b>{t.aiSummary}</b>
           {job.summary}
         </div>
       )}
       {job.completeness === 'teilweise' && (
         <p className="notice notice--warn" style={{ marginTop: 14 }}>
-          Der Text ist vielleicht unvollständig. Der Browser-Agent versucht es beim nächsten Lauf noch einmal. Bis dahin lieber im Original nachlesen.
+          {t.incomplete}
         </p>
       )}
 
-      <article className="clipping" aria-label="Anzeigentext">
+      <article className="clipping" aria-label={t.postingText}>
         <span className="tape tape--tr" aria-hidden="true" />
         <div dangerouslySetInnerHTML={{ __html: html }} />
       </article>
 
-      <h2 className="section-title">Notiz</h2>
+      <h2 className="section-title">{t.note}</h2>
       <textarea
         className="input"
         style={{ minHeight: 90, fontFamily: 'var(--hand)', fontSize: 16 }}
         value={note}
-        placeholder="z. B. Ansprechperson, offene Fragen, Ideen fürs Anschreiben"
+        placeholder={t.notePlaceholder}
         onChange={(e) => setNote(e.target.value)}
         onBlur={() => note !== (mark?.note ?? '') && store.setNote(job.id, note)}
       />
 
-      <h2 className="section-title">Gefunden über</h2>
+      <h2 className="section-title">{t.foundVia}</h2>
       <ul className="facts">
         {(job.sources ?? []).map((src) => (
           <li key={src.sourceId}>
-            <span className="facts__k">{src.label ?? 'Quelle'}</span>
+            <span className="facts__k">{src.label ?? t.source}</span>
             {/\.example\//.test(src.url) ? (
               // erfundene Adresse der Dummy-Daten: kein Link
               <span className="facts__v" style={{ overflowWrap: 'anywhere', fontSize: 14 }}>
@@ -345,8 +595,8 @@ export function JobDetail({ id }: { id: string }) {
           </li>
         ))}
         <li>
-          <span className="facts__k">Entdeckt</span>
-          <span className="facts__v">{formatDateDe(job.firstSeenAt.slice(0, 10))}</span>
+          <span className="facts__k">{t.discovered}</span>
+          <span className="facts__v">{fmtDate(job.firstSeenAt)}</span>
         </li>
       </ul>
     </Sheet>

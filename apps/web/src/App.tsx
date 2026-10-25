@@ -14,8 +14,40 @@ import { JobDetail } from './screens/JobDetail';
 import { Login } from './screens/Login';
 import { Toasts, Doodle } from './ui/bits';
 import { IconHeart, IconList, IconMap, IconMe, IconStack, SvgDefs } from './ui/icons';
+import { srForm, texts } from './i18n';
 
-const TAB_LABEL: Record<Tab, string> = { stapel: 'Stapel', karte: 'Karte', gemerkt: 'Gemerkt', alle: 'Alle', ich: 'Ich' };
+const t = texts({
+  de: {
+    tabs: { stapel: 'Stapel', karte: 'Karte', gemerkt: 'Gemerkt', alle: 'Alle', ich: 'Ich' } as Record<Tab, string>,
+    tabsLabel: 'Bereiche',
+    urgent: (n: number) => `${n} ${n === 1 ? 'Frist' : 'Fristen'} in den nächsten 7 Tagen`,
+    demoBanner: 'Dummy-Daten: erfundene Anzeigen, alles bleibt in diesem Browser.',
+    openPlaceholders: (n: number) => `Noch ${n} Platzhalter offen.`,
+    checklist: 'Checkliste',
+    checklistOpen: (n: number) => ` · ${n} offen`,
+    loading: 'Büchlein wird aufgeschlagen …',
+  },
+  en: {
+    tabs: { stapel: 'Stack', karte: 'Map', gemerkt: 'Saved', alle: 'All', ich: 'Me' },
+    tabsLabel: 'Sections',
+    urgent: (n) => `${n} ${n === 1 ? 'deadline' : 'deadlines'} in the next 7 days`,
+    demoBanner: 'Demo data: made-up postings, everything stays in this browser.',
+    openPlaceholders: (n) => `${n} ${n === 1 ? 'placeholder' : 'placeholders'} still to replace.`,
+    checklist: 'Checklist',
+    checklistOpen: (n) => ` · ${n} open`,
+    loading: 'Opening the little book…',
+  },
+  sr: {
+    tabs: { stapel: 'Špil', karte: 'Mapa', gemerkt: 'Sačuvano', alle: 'Sve', ich: 'Ja' },
+    tabsLabel: 'Odeljci',
+    urgent: (n) => `${n} ${srForm(n, 'rok', 'roka', 'rokova')} u narednih 7 dana`,
+    demoBanner: 'Probni podaci: izmišljeni oglasi, sve ostaje u ovom pregledaču.',
+    openPlaceholders: (n) => `Još ${n} ${srForm(n, 'privremena vrednost', 'privremene vrednosti', 'privremenih vrednosti')} za zamenu.`,
+    checklist: 'Kontrolna lista',
+    checklistOpen: (n) => ` · još ${n}`,
+    loading: 'Otvaram knjižicu…',
+  },
+});
 const TAB_ICON: Record<Tab, (p: { width: number; height: number }) => React.ReactElement> = {
   stapel: (p) => <IconStack {...p} />,
   karte: (p) => <IconMap {...p} />,
@@ -33,10 +65,11 @@ function ChecklistBanner() {
   const onPage = route.tab === 'ich' && route.sub === 'checkliste';
   return (
     <div className="demo-banner" role="note">
-      <span>{s.demo ? 'Dummy-Daten: erfundene Anzeigen, alles bleibt in diesem Browser.' : `Noch ${c.openRequired} Platzhalter offen.`}</span>
+      <span>{s.demo ? t.demoBanner : t.openPlaceholders(c.openRequired)}</span>
       {!onPage && (
         <button type="button" className="demo-banner__btn" onClick={() => navigate('/ich/checkliste')}>
-          Checkliste{c.open ? ` · ${c.open} offen` : ''}
+          {t.checklist}
+          {c.open ? t.checklistOpen(c.open) : ''}
         </button>
       )}
     </div>
@@ -49,7 +82,7 @@ function Loading() {
       <div className="screen paper" style={{ display: 'grid', placeItems: 'center' }}>
         <div className="empty">
           <Doodle kind="teacup" />
-          <h2>Büchlein wird aufgeschlagen …</h2>
+          <h2>{t.loading}</h2>
         </div>
       </div>
     </div>
@@ -101,13 +134,13 @@ export function App() {
       <main className="main" key={`${route.tab}/${route.sub ?? ''}`}>
         {screen}
       </main>
-      <nav className="tabs" aria-label="Bereiche">
-        {TABS.map((t) => (
-          <button key={t} type="button" className="tab" aria-current={route.tab === t ? 'page' : undefined} onClick={() => navigate(`/${t}`)}>
-            {TAB_ICON[t]({ width: 24, height: 24 })}
-            <span>{TAB_LABEL[t]}</span>
-            {t === 'gemerkt' && urgent > 0 && (
-              <span className="badge" aria-label={`${urgent} Fristen in den nächsten 7 Tagen`}>
+      <nav className="tabs" aria-label={t.tabsLabel}>
+        {TABS.map((tab) => (
+          <button key={tab} type="button" className="tab" aria-current={route.tab === tab ? 'page' : undefined} onClick={() => navigate(`/${tab}`)}>
+            {TAB_ICON[tab]({ width: 24, height: 24 })}
+            <span>{t.tabs[tab]}</span>
+            {tab === 'gemerkt' && urgent > 0 && (
+              <span className="badge" aria-label={t.urgent(urgent)}>
                 {urgent}
               </span>
             )}

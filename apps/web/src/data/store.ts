@@ -32,6 +32,22 @@ import {
 } from '@stellen/core';
 import { AuthError, OfflineError, type Backend, type SourceSummary } from './backend';
 import { idbGet, idbSet, lsGet, lsSet } from './local';
+import { texts } from '../i18n';
+
+const t = texts({
+  de: {
+    noKey: 'Kein App-Schlüssel hinterlegt.',
+    offline: 'Offline – zeige gespeicherten Stand.',
+  },
+  en: {
+    noKey: 'No app key saved.',
+    offline: 'Offline – showing the last saved state.',
+  },
+  sr: {
+    noKey: 'Nema sačuvanog ključa aplikacije.',
+    offline: 'Van mreže – prikazujem poslednje sačuvano stanje.',
+  },
+});
 
 export type SavedSort = 'frist' | 'score' | 'neu' | 'ort';
 
@@ -187,7 +203,7 @@ export class Store {
   }
 
   get api(): Backend {
-    if (!this.backend) throw new AuthError('Kein App-Schlüssel hinterlegt.');
+    if (!this.backend) throw new AuthError(t.noKey);
     return this.backend;
   }
 
@@ -298,7 +314,7 @@ export class Store {
         this.set({ phase: 'login', sync: { ...this.state.sync, busy: false, error: e.message } });
         return;
       }
-      const msg = e instanceof OfflineError ? 'Offline – zeige gespeicherten Stand.' : e instanceof Error ? e.message : String(e);
+      const msg = e instanceof OfflineError ? t.offline : e instanceof Error ? e.message : String(e);
       this.set({ phase: this.state.jobs.size || this.state.institutions.size ? 'ready' : this.state.phase === 'loading' ? 'ready' : this.state.phase, sync: { ...this.state.sync, busy: false, error: msg } });
     }
   }

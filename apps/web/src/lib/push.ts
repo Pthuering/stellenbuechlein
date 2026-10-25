@@ -1,6 +1,14 @@
 // Benachrichtigungen für Fristen-Erinnerungen (Web Push).
 // iPhone/iPad: nur in der zum Home-Bildschirm hinzugefügten App (ab iOS 16.4).
 
+import { texts } from '../i18n';
+
+const t = texts({
+  de: { notAllowed: 'Benachrichtigungen wurden nicht erlaubt.' },
+  en: { notAllowed: 'Notifications weren’t allowed.' },
+  sr: { notAllowed: 'Obaveštenja nisu dozvoljena.' },
+});
+
 export type PushState = 'unsupported' | 'ios-needs-install' | 'denied' | 'off' | 'on';
 
 function isIos(): boolean {
@@ -35,7 +43,7 @@ function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
 
 export async function subscribePush(vapidPublicKey: string): Promise<PushSubscriptionJSON> {
   const permission = await Notification.requestPermission();
-  if (permission !== 'granted') throw new Error('Benachrichtigungen wurden nicht erlaubt.');
+  if (permission !== 'granted') throw new Error(t.notAllowed);
   const reg = await navigator.serviceWorker.ready;
   const existing = await reg.pushManager.getSubscription();
   const sub = existing ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) }));

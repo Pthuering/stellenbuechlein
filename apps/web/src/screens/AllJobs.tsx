@@ -8,8 +8,68 @@ import { JobRow } from '../ui/JobRow';
 import { PageHead } from '../ui/PageHead';
 import { IconFilter, IconSearch, IconX } from '../ui/icons';
 import { FilterSheet } from './FilterSheet';
+import { srForm, texts } from '../i18n';
+import { sortLabel } from '../i18n/labels';
 
 const PAGE = 40;
+const SORT_KEYS = Object.keys(SORT_LABELS) as SortKey[];
+
+const t = texts({
+  de: {
+    title: 'Alle Anzeigen',
+    open: (n: number) => (n === 1 ? '1 offene Anzeige' : `${n} offene Anzeigen`),
+    ofThemPassed: (n: number) => `, davon ${n} weggelegt`,
+    shownOf: (shown: number, open: number) => `${shown} von ${open} offenen Anzeigen`,
+    filterLabel: (n: number) => `Filter${n ? ` (${n} aktiv)` : ''}`,
+    search: 'Suchen',
+    searchPlaceholder: 'Titel, Thema, Ort, Einrichtung …',
+    sort: 'Sortieren',
+    filtersActive: (n: number, query: boolean) => `${n} Filter aktiv${query ? ', dazu die Suche' : ''}.`,
+    searchActive: 'Suche aktiv.',
+    showAll: 'alles zeigen',
+    noPostings: 'Noch keine Anzeigen',
+    nothingFound: 'Nichts gefunden',
+    noPostingsText: 'Sobald die Pipeline eingesammelt hat, steht hier jede gefundene Anzeige.',
+    nothingFoundText: 'Mit dieser Suche und diesen Filtern passt keine Anzeige. Filter blenden nur aus, gelöscht wird nichts.',
+    more: (n: number) => `Weitere ${n} zeigen`,
+  },
+  en: {
+    title: 'All postings',
+    open: (n) => (n === 1 ? '1 open posting' : `${n} open postings`),
+    ofThemPassed: (n) => `, ${n} of them passed`,
+    shownOf: (shown, open) => `${shown} of ${open} open ${open === 1 ? 'posting' : 'postings'}`,
+    filterLabel: (n) => (n ? `Filters (${n} active)` : 'Filters'),
+    search: 'Search',
+    searchPlaceholder: 'Title, topic, place, institution…',
+    sort: 'Sort',
+    filtersActive: (n, query) => `${n} ${n === 1 ? 'filter' : 'filters'} active${query ? ', plus the search' : ''}.`,
+    searchActive: 'Search active.',
+    showAll: 'show all',
+    noPostings: 'No postings yet',
+    nothingFound: 'Nothing found',
+    noPostingsText: 'Once the pipeline has collected postings, every one it finds will show up here.',
+    nothingFoundText: 'No posting matches this search and these filters. Filters only hide postings; nothing gets deleted.',
+    more: (n) => `Show ${n} more`,
+  },
+  sr: {
+    title: 'Svi oglasi',
+    open: (n) => `${n} ${srForm(n, 'otvoren oglas', 'otvorena oglasa', 'otvorenih oglasa')}`,
+    ofThemPassed: (n) => `, od toga ${n} ${srForm(n, 'preskočen', 'preskočena', 'preskočenih')}`,
+    shownOf: (shown, open) => `${shown} od ${open} ${srForm(open, 'otvorenog oglasa', 'otvorena oglasa', 'otvorenih oglasa')}`,
+    filterLabel: (n) => (n ? `Filteri (aktivno: ${n})` : 'Filteri'),
+    search: 'Pretraga',
+    searchPlaceholder: 'Naziv, tema, mesto, ustanova…',
+    sort: 'Sortiraj',
+    filtersActive: (n, query) => `${n} ${srForm(n, 'aktivan filter', 'aktivna filtera', 'aktivnih filtera')}${query ? ', uz to i pretraga' : ''}.`,
+    searchActive: 'Pretraga je aktivna.',
+    showAll: 'prikaži sve',
+    noPostings: 'Još nema oglasa',
+    nothingFound: 'Ništa nije pronađeno',
+    noPostingsText: 'Čim prikupljanje oglasa prođe, ovde će stajati svaki pronađeni oglas.',
+    nothingFoundText: 'Nijedan oglas ne odgovara ovoj pretrazi i ovim filterima. Filteri samo sakrivaju oglase, ništa se ne briše.',
+    more: (n) => `Prikaži još ${n}`,
+  },
+});
 // Suche gilt nur hier (nicht für Stapel und Karte) und bleibt beim Reiterwechsel erhalten.
 let lastQuery = '';
 
@@ -56,14 +116,10 @@ export function AllJobsScreen() {
     <section className="screen paper" aria-labelledby="all-title">
       <PageHead
         id="all-title"
-        title="Alle Anzeigen"
-        sub={
-          list.length === open.length
-            ? `${open.length} offene Anzeigen${rejected ? `, davon ${rejected} weggelegt` : ''}`
-            : `${list.length} von ${open.length} offenen Anzeigen`
-        }
+        title={t.title}
+        sub={list.length === open.length ? `${t.open(open.length)}${rejected ? t.ofThemPassed(rejected) : ''}` : t.shownOf(list.length, open.length)}
       >
-        <button type="button" className="icon-btn" onClick={() => setFilterOpen(true)} aria-label={`Filter${active ? ` (${active} aktiv)` : ''}`}>
+        <button type="button" className="icon-btn" onClick={() => setFilterOpen(true)} aria-label={t.filterLabel(active)}>
           <IconFilter width={24} height={24} />
           {active > 0 && <span className="badge">{active}</span>}
         </button>
@@ -71,16 +127,16 @@ export function AllJobsScreen() {
 
       <div className="toolbar">
         <label className="search">
-          <span className="visually-hidden">Suchen</span>
+          <span className="visually-hidden">{t.search}</span>
           <IconSearch />
-          <input className="input" type="search" value={query} placeholder="Titel, Thema, Ort, Einrichtung …" onChange={(e) => setQuery(e.target.value)} enterKeyHint="search" />
+          <input className="input" type="search" value={query} placeholder={t.searchPlaceholder} onChange={(e) => setQuery(e.target.value)} enterKeyHint="search" />
         </label>
         <label>
-          <span className="visually-hidden">Sortieren</span>
+          <span className="visually-hidden">{t.sort}</span>
           <select className="select" value={sort} onChange={(e) => store.updateSettings('sort', { ...s.settings.sort, all: e.target.value as SortKey })}>
-            {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+            {SORT_KEYS.map((k) => (
               <option key={k} value={k}>
-                {SORT_LABELS[k]}
+                {sortLabel(k)}
               </option>
             ))}
           </select>
@@ -88,7 +144,7 @@ export function AllJobsScreen() {
       </div>
       {(active > 0 || query) && (
         <p className="hint" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {active > 0 ? `${active} Filter aktiv${query ? ', dazu die Suche' : ''}.` : 'Suche aktiv.'}
+          {active > 0 ? t.filtersActive(active, !!query) : t.searchActive}
           <button
             type="button"
             className="btn btn--quiet btn--small"
@@ -97,7 +153,7 @@ export function AllJobsScreen() {
               store.updateSettings('filter', DEFAULT_FILTER);
             }}
           >
-            <IconX width={16} height={16} /> alles zeigen
+            <IconX width={16} height={16} /> {t.showAll}
           </button>
         </p>
       )}
@@ -105,8 +161,8 @@ export function AllJobsScreen() {
       {list.length === 0 ? (
         <Empty
           art="search"
-          title={open.length === 0 ? 'Noch keine Anzeigen' : 'Nichts gefunden'}
-          text={open.length === 0 ? 'Sobald die Pipeline eingesammelt hat, steht hier jede gefundene Anzeige.' : 'Mit dieser Suche und diesen Filtern passt keine Anzeige. Filter blenden nur aus, gelöscht wird nichts.'}
+          title={open.length === 0 ? t.noPostings : t.nothingFound}
+          text={open.length === 0 ? t.noPostingsText : t.nothingFoundText}
         />
       ) : (
         <>
@@ -118,7 +174,7 @@ export function AllJobsScreen() {
           {limit < list.length && (
             <div className="list-more" ref={sentinel}>
               <button type="button" className="btn btn--small" onClick={() => setLimit((l) => l + PAGE)}>
-                Weitere {Math.min(PAGE, list.length - limit)} zeigen
+                {t.more(Math.min(PAGE, list.length - limit))}
               </button>
             </div>
           )}

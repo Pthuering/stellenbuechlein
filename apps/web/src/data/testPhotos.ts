@@ -4,6 +4,13 @@
 
 import { useSyncExternalStore } from 'react';
 import { idbDel, idbGet, idbSet } from './local';
+import { texts } from '../i18n';
+
+const t = texts({
+  de: { credit: 'Testfoto, nur auf diesem Gerät' },
+  en: { credit: 'Test photo, only on this device' },
+  sr: { credit: 'Probna fotografija, samo na ovom uređaju' },
+});
 
 const KEY = 'demo.testfotos.v1';
 const MAX_EDGE = 960;
@@ -111,4 +118,7 @@ export async function clearTestPhotos(): Promise<void> {
   await idbDel(KEY);
 }
 
-export const TEST_PHOTO_CREDIT = 'Testfoto, nur auf diesem Gerät';
+/** Bildnachweis für Testfotos in der aktuellen Sprache. */
+export function testPhotoCredit(): string {
+  return t.credit;
+}

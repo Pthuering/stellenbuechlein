@@ -3,6 +3,13 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { IconX } from './icons';
+import { texts } from '../i18n';
+
+const t = texts({
+  de: { close: 'Schließen' },
+  en: { close: 'Close' },
+  sr: { close: 'Zatvori' },
+});
 
 /** Blätter liegen immer über der ganzen App – nicht im scrollenden Bildschirm, aus dem sie geöffnet werden. */
 const openSheets: symbol[] = [];
@@ -92,7 +99,7 @@ export function Sheet({
           {title ? <h2 className="sheet__title">{title}</h2> : <span />}
           <div style={{ display: 'flex', gap: 4 }}>
             {actions}
-            <button type="button" className="icon-btn" onClick={onClose} aria-label="Schließen">
+            <button type="button" className="icon-btn" onClick={onClose} aria-label={t.close}>
               <IconX width={24} height={24} />
             </button>
           </div>

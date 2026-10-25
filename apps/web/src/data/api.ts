@@ -15,6 +15,13 @@ import {
   type SourcesData,
   type SyncPage,
 } from './backend';
+import { texts } from '../i18n';
+
+const t = texts({
+  de: { serverStatus: (status: number) => `Server antwortet mit ${status}.` },
+  en: { serverStatus: (status) => `The server responded with ${status}.` },
+  sr: { serverStatus: (status) => `Server odgovara kodom ${status}.` },
+});
 
 export class HttpBackend implements Backend {
   readonly demo = false;
@@ -37,7 +44,7 @@ export class HttpBackend implements Backend {
     if (res.status === 401) throw new AuthError();
     if (!res.ok) {
       const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      throw new Error(body?.error ?? `Server antwortet mit ${res.status}.`);
+      throw new Error(body?.error ?? t.serverStatus(res.status));
     }
     return (asText ? await res.text() : await res.json()) as T;
   }

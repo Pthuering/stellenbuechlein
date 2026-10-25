@@ -7,6 +7,57 @@ import { horizontOf, truncate } from '@stellen/core';
 import type { AcceptCheckBody, Backend, BootstrapData, CheckResult, Discovery, GateSkip, NewSourceBody, SourceCheck, SourcePatchBody, SourcesData, SyncPage } from './backend';
 import { lsGet, lsSet } from './local';
 import data from './demo-data.json';
+import { texts } from '../i18n';
+
+// Übersetzt werden nur die Texte, mit denen die Demo sich selbst erklärt (Meldungen, Hinweise zum
+// nachgestellten Probelauf). Dummy-Anzeigen, Einrichtungen, Brücken und die Protokollzeilen bleiben Deutsch.
+const t = texts({
+  de: {
+    checkSummaryOwn: (name: string | null) =>
+      `Nachgestellt für die Demo: Die Seite listet Stellen von ${name ?? 'dieser Einrichtung'}. In der eingerichteten App liest die Pipeline die Seite und ein paar Anzeigen wirklich, und die KI beurteilt das Ergebnis.`,
+    checkSummaryOther: 'Nachgestellt für die Demo: Diese Website wurde nicht abgerufen. Die Proben unten sind Dummy-Anzeigen und zeigen nur, wie ein Ergebnis aussieht.',
+    checkNote: 'Demo: Es wurde nichts abgerufen. Im echten Betrieb dauert ein Probelauf zwei bis vier Minuten.',
+    addSourceDemo: 'In der Demo werden Quellen über den Probelauf angelegt.',
+    checkNotFound: 'Probelauf nicht gefunden.',
+    checkNotDone: 'Der Probelauf ist noch nicht fertig.',
+    newSource: 'Neue Quelle',
+    addedNote: 'In der Demo per nachgestelltem Probelauf angelegt.',
+    noPush: 'Benachrichtigungen gibt es nur in der eingerichteten App.',
+    noIngest: 'In der Demo wird nicht eingesammelt.',
+    noAi: 'Die KI gibt es nur in der eingerichteten App.',
+    logHead: 'Dummy-Protokoll: In der Demo läuft keine Pipeline. So sieht ein Lauf im echten Betrieb ungefähr aus.',
+  },
+  en: {
+    checkSummaryOwn: (name) =>
+      `Simulated for the demo: the page lists jobs at ${name ?? 'this institution'}. In the configured app, the pipeline actually reads the page and a few postings, and the AI assesses the result.`,
+    checkSummaryOther: 'Simulated for the demo: this website wasn’t fetched. The samples below are demo postings and only show what a result looks like.',
+    checkNote: 'Demo: nothing was fetched. In real use, a test run takes two to four minutes.',
+    addSourceDemo: 'In the demo, sources are added via a test run.',
+    checkNotFound: 'Test run not found.',
+    checkNotDone: 'The test run isn’t finished yet.',
+    newSource: 'New source',
+    addedNote: 'Added in the demo via a simulated test run.',
+    noPush: 'Notifications are only available in the configured app.',
+    noIngest: 'The demo doesn’t collect postings.',
+    noAi: 'The AI is only available in the configured app.',
+    logHead: 'Demo log: no pipeline runs in the demo. This is roughly what a run looks like in real use.',
+  },
+  sr: {
+    checkSummaryOwn: (name) =>
+      `Simulirano za demo: stranica navodi oglase ${name ? `ustanove ${name}` : 'ove ustanove'}. U podešenoj aplikaciji sistem za prikupljanje zaista čita stranicu i nekoliko oglasa, a AI ocenjuje rezultat.`,
+    checkSummaryOther: 'Simulirano za demo: ovaj sajt nije preuzet. Primeri ispod su probni oglasi i samo pokazuju kako rezultat izgleda.',
+    checkNote: 'Demo: ništa nije preuzeto. U pravom radu probni prolaz traje dva do četiri minuta.',
+    addSourceDemo: 'U demu se izvori dodaju preko probnog prolaza.',
+    checkNotFound: 'Probni prolaz nije pronađen.',
+    checkNotDone: 'Probni prolaz još nije završen.',
+    newSource: 'Novi izvor',
+    addedNote: 'Dodato u demu preko simuliranog probnog prolaza.',
+    noPush: 'Obaveštenja postoje samo u podešenoj aplikaciji.',
+    noIngest: 'U demu nema prikupljanja.',
+    noAi: 'AI je dostupan samo u podešenoj aplikaciji.',
+    logHead: 'Probni zapisnik: u demu sistem za prikupljanje ne radi. Ovako otprilike izgleda prolaz u pravom radu.',
+  },
+});
 
 interface DemoData {
   cities: City[];
@@ -119,12 +170,10 @@ function demoCheckResult(url: string, jobs: Job[]): CheckResult {
     gateGuess: 'psych',
     ai: {
       verdict: own.length ? 'gut' : 'mit_einschraenkungen',
-      summary: own.length
-        ? `Nachgestellt für die Demo: Die Seite listet Stellen von ${name ?? 'dieser Einrichtung'}. In der eingerichteten App liest die Pipeline die Seite und ein paar Anzeigen wirklich, und die KI beurteilt das Ergebnis.`
-        : 'Nachgestellt für die Demo: Diese Website wurde nicht abgerufen. Die Proben unten sind Dummy-Anzeigen und zeigen nur, wie ein Ergebnis aussieht.',
+      summary: own.length ? t.checkSummaryOwn(name) : t.checkSummaryOther,
     },
     verdict: own.length ? 'gut' : 'mit_einschraenkungen',
-    notes: ['Demo: Es wurde nichts abgerufen. Im echten Betrieb dauert ein Probelauf zwei bis vier Minuten.'],
+    notes: [t.checkNote],
     durationMs: 2400,
     checkedAt: new Date().toISOString(),
   };
@@ -220,7 +269,7 @@ export class DemoBackend implements Backend {
   }
 
   async addSource(_body: NewSourceBody): Promise<void> {
-    throw new Error('In der Demo werden Quellen über den Probelauf angelegt.');
+    throw new Error(t.addSourceDemo);
   }
 
   async resolveSuggestion(): Promise<void> {
@@ -239,14 +288,14 @@ export class DemoBackend implements Backend {
     await wait(150);
     this.polls.set(id, (this.polls.get(id) ?? 0) + 1);
     const c = (this.s.checks ?? []).find((x) => x.id === id);
-    if (!c) throw new Error('Probelauf nicht gefunden.');
+    if (!c) throw new Error(t.checkNotFound);
     return this.settle(c);
   }
 
   async acceptCheck(id: number, body: AcceptCheckBody): Promise<void> {
     const c = (this.s.checks ?? []).find((x) => x.id === id);
-    if (!c?.result) throw new Error('Der Probelauf ist noch nicht fertig.');
-    const name = body.institution?.name ?? D.institutions.find((i) => i.id === body.institutionId)?.name ?? 'Neue Quelle';
+    if (!c?.result) throw new Error(t.checkNotDone);
+    const name = body.institution?.name ?? D.institutions.find((i) => i.id === body.institutionId)?.name ?? t.newSource;
     const src: Source = {
       id: `demo-${normalizeText(name).replace(/ /g, '-').slice(0, 30)}-${Date.now().toString(36)}`,
       institutionId: body.institutionId ?? null,
@@ -254,7 +303,7 @@ export class DemoBackend implements Backend {
       label: body.label ?? name,
       url: body.url ?? c.result.listUrl,
       adapter: 'auto',
-      config: { ...c.result.config, note: 'In der Demo per nachgestelltem Probelauf angelegt.' },
+      config: { ...c.result.config, note: t.addedNote },
       gate: body.gate,
       enabled: true,
       verified: true,
@@ -289,7 +338,7 @@ export class DemoBackend implements Backend {
   }
 
   async runLog(): Promise<string> {
-    return DEMO_LOG;
+    return `${t.logHead}\n${DEMO_LOG}`;
   }
 
   async skips(): Promise<GateSkip[]> {
@@ -297,7 +346,7 @@ export class DemoBackend implements Backend {
   }
 
   async pushSubscribe(): Promise<void> {
-    throw new Error('Benachrichtigungen gibt es nur in der eingerichteten App.');
+    throw new Error(t.noPush);
   }
 
   async pushUnsubscribe(): Promise<void> {
@@ -305,22 +354,22 @@ export class DemoBackend implements Backend {
   }
 
   async triggerIngest(): Promise<void> {
-    throw new Error('In der Demo wird nicht eingesammelt.');
+    throw new Error(t.noIngest);
   }
 
   async assistantStep(): Promise<never> {
-    throw new Error('Die KI gibt es nur in der eingerichteten App.');
+    throw new Error(t.noAi);
   }
 
   async kiUsage(): Promise<never> {
-    throw new Error('Die KI gibt es nur in der eingerichteten App.');
+    throw new Error(t.noAi);
   }
 }
 
 /** Nachgestellter Lauf von heute gegen 12 Uhr. */
 const DEMO_RUN: RunInfo = { id: 1, startedAt: daysAgoIso(0), finishedAt: daysAgoIso(0, 23), ok: true, stats: D.run.stats };
+/** Protokollzeilen wie von der Pipeline (bleiben Deutsch); die erklärende Kopfzeile kommt in runLog() dazu. */
 const DEMO_LOG = [
-  'Dummy-Protokoll: In der Demo läuft keine Pipeline. So sieht ein Lauf im echten Betrieb ungefähr aus.',
   '',
   '12:00 Startdaten geprüft (Städte, Einrichtungen, Quellen)',
   '12:01 Quellen einsammeln: Feeds, Bewerbungsportale, Listenseiten, Sitemaps',

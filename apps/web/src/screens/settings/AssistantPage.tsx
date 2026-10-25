@@ -10,8 +10,8 @@ import {
   DAILY_HINT_EUR,
   DEFAULT_FILTER,
   EUR_PER_USD,
-  formatDateDe,
   runAssistantLoop,
+  todayBerlin,
   toWire,
   type AssistantPreset,
   type KiUsageReport,
@@ -37,14 +37,179 @@ import { takeIntent } from '../../lib/intent';
 import { renderMarkdown } from '../../lib/markdown';
 import { openJob } from '../../lib/router';
 import { IconSpark } from '../../ui/icons';
+import { fmtDate, lang, srForm, texts } from '../../i18n';
 import { SubPage } from './Settings';
 
-const MONTH = new Intl.DateTimeFormat('de-DE', { month: 'long', timeZone: 'Europe/Berlin' });
+const t = texts({
+  de: {
+    title: 'KI-Assistent',
+    sub: 'Fragen zu Anzeigen, deinem Profil und deinen Brücken',
+    months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+    today: 'Heute',
+    balance: 'Guthaben bei DeepSeek',
+    less: 'weniger',
+    perDay: 'pro Tag',
+    dayParts: (app: string, collecting: string) => `App ${app}, Einsammeln ${collecting}`,
+    dailyHint: (sum: string) => `Heute schon ${sum} für die KI (Gespräche und Einsammeln). Nur ein Hinweis, gesperrt wird nichts.`,
+    balanceLow: 'Das Guthaben bei DeepSeek reicht nicht mehr für Anfragen. Aufladen unter platform.deepseek.com.',
+    ai: 'KI',
+    reasoning: 'Gedankengang',
+    jobGone: 'Anzeige gibt es nicht mehr',
+    field: (terms: string) => `Feld: ${terms}`,
+    link: (terms: string) => `Anknüpfung: ${terms}`,
+    linkDefault: 'Standard (Menschen, Verhalten, Empirie)',
+    search: (queries: string) => `Suche: ${queries}`,
+    bridgeTest: (n: number, outside: number) => `passt gerade auf ${n} offene Anzeige${n === 1 ? '' : 'n'}, davon ${outside} außerhalb des Kerns`,
+    filterAfter: (filter: string) => `Danach: ${filter}`,
+    kicker: 'Vorschlag der KI',
+    apply: 'Übernehmen',
+    noThanks: 'Nein danke',
+    applied: '✓ übernommen',
+    declined: 'abgelehnt',
+    stepsLabel: 'Arbeitsschritte der KI',
+    busy: (sec: number) => `Die KI recherchiert und denkt gründlich nach … ${sec} s`,
+    busyLong: ' Das dauert oft ein bis drei Minuten, bei großen Recherchen länger.',
+    stop: 'Stopp',
+    noDemo: 'In der Demo gibt es die KI nicht. In der eingerichteten App recherchiert sie hier in deinen Anzeigen.',
+    noKey: 'Für die KI braucht der Worker einen KI-Schlüssel (LLM_API_KEY), siehe docs/SCHLUESSEL.md.',
+    aboutJob: 'Gespräch zur Anzeige',
+    aboutHorizon: 'Gespräch über deinen Horizont und deine Brücken',
+    intro:
+      'Die KI recherchiert in allen Anzeigen der App, liest Volltexte und kennt dein Suchprofil. Sie nutzt das große Modell mit gründlichem Nachdenken, deshalb dauert eine Antwort meist ein bis drei Minuten. Ändern kann sie nichts: Was sie vorschlägt, übernimmst du selbst.',
+    retry: 'Nochmal versuchen',
+    inputLabel: 'Frage an die KI',
+    followUp: 'Nachfragen …',
+    askPlaceholder: 'Frag etwas zu Anzeigen, deinem Profil oder deinen Brücken …',
+    ask: 'Fragen',
+    newChat: 'Neues Gespräch',
+    failed: (msg: string) => `Ging nicht: ${msg}`,
+    /** Vorgefertigte Fragen nach id; auf Deutsch gilt der Text aus dem Kern (ASSISTANT_PRESETS). */
+    presets: {} as Record<string, string>,
+  },
+  en: {
+    title: 'AI assistant',
+    sub: 'Questions about postings, your profile and your bridges',
+    months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+    today: 'Today',
+    balance: 'DeepSeek balance',
+    less: 'less',
+    perDay: 'per day',
+    dayParts: (app, collecting) => `App ${app}, collecting ${collecting}`,
+    dailyHint: (sum) => `Already ${sum} on AI today (chats and collecting). Just a heads-up, nothing gets blocked.`,
+    balanceLow: 'Your DeepSeek balance is too low for requests. Top it up at platform.deepseek.com.',
+    ai: 'AI',
+    reasoning: 'Reasoning',
+    jobGone: 'This posting no longer exists',
+    field: (terms) => `Field: ${terms}`,
+    link: (terms) => `Link: ${terms}`,
+    linkDefault: 'Default (people, behavior, empirical work)',
+    search: (queries) => `Search: ${queries}`,
+    bridgeTest: (n, outside) => `currently matches ${n} open ${n === 1 ? 'posting' : 'postings'}, ${outside} of them outside the core`,
+    filterAfter: (filter) => `After applying: ${filter}`,
+    kicker: 'AI suggestion',
+    apply: 'Apply',
+    noThanks: 'No thanks',
+    applied: '✓ applied',
+    declined: 'declined',
+    stepsLabel: 'Steps the AI took',
+    busy: (sec) => `The AI is researching and thinking it through… ${sec} s`,
+    busyLong: ' This often takes one to three minutes, longer for bigger searches.',
+    stop: 'Stop',
+    noDemo: 'The AI isn’t available in the demo. In the full app, it searches your postings right here.',
+    noKey: 'The AI needs an AI key (LLM_API_KEY) on the Worker, see docs/SCHLUESSEL.md.',
+    aboutJob: 'Chat about the posting',
+    aboutHorizon: 'Chat about your Horizon and your bridges',
+    intro:
+      'The AI searches all postings in the app, reads full texts and knows your search profile. It uses the large model with thorough reasoning, so an answer usually takes one to three minutes. It can’t change anything: you apply its suggestions yourself.',
+    retry: 'Try again',
+    inputLabel: 'Question for the AI',
+    followUp: 'Ask a follow-up…',
+    askPlaceholder: 'Ask something about postings, your profile or your bridges…',
+    ask: 'Ask',
+    newChat: 'New chat',
+    failed: (msg) => `Didn’t work: ${msg}`,
+    presets: {
+      passt: 'Is this job a good fit for me?',
+      dagegen: 'What are the downsides of this job?',
+      bewerbung: 'What should I highlight in my application?',
+      aehnlich: 'Are there similar jobs?',
+      'bruecken-fehlen': 'Which bridges am I still missing?',
+      'bruecken-schaerfen': 'Which of my bridges pull in the wrong postings?',
+      woche: 'Any good new postings this week?',
+      fristen: 'Which saved jobs have deadlines coming up?',
+      vergleich: 'Compare my saved jobs.',
+    },
+  },
+  sr: {
+    title: 'AI asistent',
+    sub: 'Pitanja o oglasima, tvom profilu i tvojim mostovima',
+    months: ['Januar', 'Februar', 'Mart', 'April', 'Maj', 'Jun', 'Jul', 'Avgust', 'Septembar', 'Oktobar', 'Novembar', 'Decembar'],
+    today: 'Danas',
+    balance: 'Stanje na DeepSeek nalogu',
+    less: 'manje',
+    perDay: 'po danu',
+    dayParts: (app, collecting) => `Aplikacija ${app}, prikupljanje ${collecting}`,
+    dailyHint: (sum) => `Danas je već potrošeno ${sum} na AI (razgovori i prikupljanje). Samo napomena, ništa se ne blokira.`,
+    balanceLow: 'Stanje na DeepSeek nalogu više nije dovoljno za zahteve. Dopuni ga na platform.deepseek.com.',
+    ai: 'AI',
+    reasoning: 'Tok razmišljanja',
+    jobGone: 'Oglas više ne postoji',
+    field: (terms) => `Oblast: ${terms}`,
+    link: (terms) => `Veza: ${terms}`,
+    linkDefault: 'Podrazumevano (ljudi, ponašanje, empirija)',
+    search: (queries) => `Pretraga: ${queries}`,
+    bridgeTest: (n, outside) => `trenutno obuhvata ${n} ${srForm(n, 'otvoren oglas', 'otvorena oglasa', 'otvorenih oglasa')}, od toga ${outside} van jezgra`,
+    filterAfter: (filter) => `Nakon primene: ${filter}`,
+    kicker: 'AI predlog',
+    apply: 'Primeni',
+    noThanks: 'Ne, hvala',
+    applied: '✓ primenjeno',
+    declined: 'odbijeno',
+    stepsLabel: 'Koraci AI asistenta',
+    busy: (sec) => `AI istražuje i temeljno razmišlja… ${sec} s`,
+    busyLong: ' To često traje jedan do tri minuta, kod većih pretraga i duže.',
+    stop: 'Zaustavi',
+    noDemo: 'U demo verziji AI nije dostupan. U podešenoj aplikaciji ovde pretražuje tvoje oglase.',
+    noKey: 'Za AI je Workeru potreban AI ključ (LLM_API_KEY), pogledaj docs/SCHLUESSEL.md.',
+    aboutJob: 'Razgovor o oglasu',
+    aboutHorizon: 'Razgovor o tvom Horizontu i tvojim mostovima',
+    intro:
+      'AI pretražuje sve oglase u aplikaciji, čita cele tekstove i poznaje tvoj profil pretrage. Koristi veliki model sa temeljnim razmišljanjem, pa odgovor obično stiže za jedan do tri minuta. Ne može ništa da promeni: njegove predloge primenjuješ ti.',
+    retry: 'Pokušaj ponovo',
+    inputLabel: 'Pitanje za AI',
+    followUp: 'Postavi dodatno pitanje…',
+    askPlaceholder: 'Pitaj nešto o oglasima, tvom profilu ili tvojim mostovima…',
+    ask: 'Pitaj',
+    newChat: 'Novi razgovor',
+    failed: (msg) => `Nije uspelo: ${msg}`,
+    presets: {
+      passt: 'Da li mi ova pozicija odgovara?',
+      dagegen: 'Šta govori protiv ove pozicije?',
+      bewerbung: 'Šta da istaknem u prijavi?',
+      aehnlich: 'Ima li sličnih pozicija?',
+      'bruecken-fehlen': 'Koji mi mostovi još nedostaju?',
+      'bruecken-schaerfen': 'Koji od mojih mostova hvataju pogrešne oglase?',
+      woche: 'Ima li ove nedelje dobrih novih oglasa?',
+      fristen: 'Kojim sačuvanim pozicijama uskoro ističe rok?',
+      vergleich: 'Uporedi moje sačuvane pozicije.',
+    },
+  },
+});
+
+/** Text einer vorgefertigten Frage (Knopf und Frage im Gespräch); die Arbeitsanweisung dazu bleibt deutsch. */
+const presetQuestion = (p: AssistantPreset): string => t.presets[p.id] ?? p.frage;
+
+/** Betrag mit zwei Nachkommastellen: „1,23 €“ (Deutsch, Serbisch), „€1.23“ (Englisch). */
+function money(x: number, unit = '€'): string {
+  const s = x.toFixed(2);
+  if (lang() === 'en') return unit.length === 1 ? `${unit}${s}` : `${unit} ${s}`;
+  return `${s.replace('.', ',')} ${unit}`;
+}
 
 function eur(usd: number): string {
   const e = usd * EUR_PER_USD;
-  if (e > 0 && e < 0.01) return '< 0,01 €';
-  return `≈ ${e.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+  if (e > 0 && e < 0.01) return `< ${money(0.01)}`;
+  return `≈ ${money(e)}`;
 }
 
 function UsageBox({ usage, heuteUsd }: { usage: KiUsageReport | null; heuteUsd: number | null }) {
@@ -55,42 +220,38 @@ function UsageBox({ usage, heuteUsd }: { usage: KiUsageReport | null; heuteUsd: 
   return (
     <div className="ki-usage">
       <p className="ki-usage__line">
-        <span>Heute {eur(heute)}</span>
+        <span>
+          {t.today} {eur(heute)}
+        </span>
         {usage && (
           <span>
-            {MONTH.format(new Date())} {eur(Math.max(usage.monatUsd, heute))}
+            {t.months[+todayBerlin().slice(5, 7) - 1]} {eur(Math.max(usage.monatUsd, heute))}
           </span>
         )}
         {g && (
           <span>
-            Guthaben bei DeepSeek {g.betrag.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {g.waehrung === 'USD' ? '$' : g.waehrung}
+            {t.balance} {money(g.betrag, g.waehrung === 'USD' ? '$' : g.waehrung)}
           </span>
         )}
         {usage && usage.tage.length > 0 && (
           <button type="button" className="linkish" aria-expanded={open} onClick={() => setOpen((x) => !x)}>
-            {open ? 'weniger' : 'pro Tag'}
+            {open ? t.less : t.perDay}
           </button>
         )}
       </p>
       {open && usage && (
         <ul className="ki-usage__days">
-          {usage.tage.slice(0, 21).map((t) => (
-            <li key={t.tag}>
-              <span>{formatDateDe(t.tag)}</span>
-              <span>{eur(t.appUsd + t.einsammelnUsd)}</span>
-              <small>
-                App {eur(t.appUsd)}, Einsammeln {eur(t.einsammelnUsd)}
-              </small>
+          {usage.tage.slice(0, 21).map((day) => (
+            <li key={day.tag}>
+              <span>{fmtDate(day.tag)}</span>
+              <span>{eur(day.appUsd + day.einsammelnUsd)}</span>
+              <small>{t.dayParts(eur(day.appUsd), eur(day.einsammelnUsd))}</small>
             </li>
           ))}
         </ul>
       )}
-      {heute * EUR_PER_USD > DAILY_HINT_EUR && (
-        <p className="notice notice--warn">
-          Heute schon {eur(heute)} für die KI (Gespräche und Einsammeln). Nur ein Hinweis, gesperrt wird nichts.
-        </p>
-      )}
-      {g && !g.verfuegbar && <p className="notice notice--warn">Das Guthaben bei DeepSeek reicht nicht mehr für Anfragen. Aufladen unter platform.deepseek.com.</p>}
+      {heute * EUR_PER_USD > DAILY_HINT_EUR && <p className="notice notice--warn">{t.dailyHint(eur(heute))}</p>}
+      {g && !g.verfuegbar && <p className="notice notice--warn">{t.balanceLow}</p>}
     </div>
   );
 }
@@ -100,12 +261,13 @@ function Answer({ entry }: { entry: ChatEntry }) {
   return (
     <div className="ki-a">
       <p className="ki-a__head">
-        <IconSpark width={16} height={16} /> KI{entry.sekunden ? <small> · {entry.sekunden} s</small> : null}
+        <IconSpark width={16} height={16} /> {t.ai}
+        {entry.sekunden ? <small> · {entry.sekunden} s</small> : null}
       </p>
       <div className="ki-a__body" dangerouslySetInnerHTML={{ __html: html }} />
       {entry.reasoning_content && (
         <details className="ki-a__thoughts">
-          <summary>Gedankengang</summary>
+          <summary>{t.reasoning}</summary>
           <p>{entry.reasoning_content}</p>
         </details>
       )}
@@ -115,7 +277,7 @@ function Answer({ entry }: { entry: ChatEntry }) {
 
 function JobLink({ id, snap }: { id: string; snap: Snapshot }) {
   const v = snap.views.get(id);
-  if (!v) return <span>Anzeige gibt es nicht mehr</span>;
+  if (!v) return <span>{t.jobGone}</span>;
   return (
     <button type="button" className="linkish" onClick={() => openJob(id)}>
       {v.job.title}
@@ -148,15 +310,11 @@ function ProposalCard({ entry, status, snap, onDecide }: { entry: ChatEntry; sta
     case 'bruecke':
       body = (
         <>
-          <p className="bridge__terms">Feld: {d.feld.join(', ')}</p>
-          <p className="bridge__terms">Anknüpfung: {d.anker?.length ? d.anker.join(', ') : 'Standard (Menschen, Verhalten, Empirie)'}</p>
-          {d.suche?.length ? <p className="bridge__terms">Suche: {d.suche.join(', ')}</p> : null}
+          <p className="bridge__terms">{t.field(d.feld.join(', '))}</p>
+          <p className="bridge__terms">{t.link(d.anker?.length ? d.anker.join(', ') : t.linkDefault)}</p>
+          {d.suche?.length ? <p className="bridge__terms">{t.search(d.suche.join(', '))}</p> : null}
           <p className="bridge__why">{d.warum}</p>
-          {bridgeTest && (
-            <p className="bridge__meta">
-              passt gerade auf {bridgeTest.treffer} offene Anzeige{bridgeTest.treffer === 1 ? '' : 'n'}, davon {bridgeTest.ausserhalb_kern} außerhalb des Kerns
-            </p>
-          )}
+          {bridgeTest && <p className="bridge__meta">{t.bridgeTest(bridgeTest.treffer, bridgeTest.ausserhalb_kern)}</p>}
         </>
       );
       break;
@@ -170,26 +328,26 @@ function ProposalCard({ entry, status, snap, onDecide }: { entry: ChatEntry; sta
       );
       break;
     case 'filter':
-      body = <p className="ki-card__line">Danach: {filterText(applyFilterProposal(snap.s.settings.filter, DEFAULT_FILTER, d))}</p>;
+      body = <p className="ki-card__line">{t.filterAfter(filterText(applyFilterProposal(snap.s.settings.filter, DEFAULT_FILTER, d)))}</p>;
       break;
   }
   return (
     <div className={`ki-card ki-card--${status}`}>
-      <p className="ki-card__kicker">Vorschlag der KI</p>
+      <p className="ki-card__kicker">{t.kicker}</p>
       <p className="ki-card__title">{proposalTitle(d, snap)}</p>
       {body}
       {d.begruendung && <p className="ki-card__why">{d.begruendung}</p>}
       {status === 'offen' ? (
         <div className="ki-card__actions">
           <button type="button" className="btn btn--small btn--primary" onClick={() => onDecide(true)}>
-            Übernehmen
+            {t.apply}
           </button>
           <button type="button" className="btn btn--small btn--quiet" onClick={() => onDecide(false)}>
-            Nein danke
+            {t.noThanks}
           </button>
         </div>
       ) : (
-        <p className="ki-card__status">{status === 'uebernommen' ? '✓ übernommen' : 'abgelehnt'}</p>
+        <p className="ki-card__status">{status === 'uebernommen' ? t.applied : t.declined}</p>
       )}
     </div>
   );
@@ -202,9 +360,9 @@ function Entries({ conv, snap, onDecide }: { conv: Conversation; snap: Snapshot;
   const flush = (key: string) => {
     if (!steps.length) return;
     out.push(
-      <ul className="ki-steps" key={`s${key}`} aria-label="Arbeitsschritte der KI">
-        {steps.map((t, i) => (
-          <li key={i}>{t}</li>
+      <ul className="ki-steps" key={`s${key}`} aria-label={t.stepsLabel}>
+        {steps.map((step, i) => (
+          <li key={i}>{step}</li>
         ))}
       </ul>,
     );
@@ -240,19 +398,19 @@ function Entries({ conv, snap, onDecide }: { conv: Conversation; snap: Snapshot;
 function Busy({ since, onStop }: { since: number; onStop: () => void }) {
   const [, tick] = useState(0);
   useEffect(() => {
-    const t = window.setInterval(() => tick((x) => x + 1), 1000);
-    return () => window.clearInterval(t);
+    const id = window.setInterval(() => tick((x) => x + 1), 1000);
+    return () => window.clearInterval(id);
   }, []);
   const sec = Math.round((Date.now() - since) / 1000);
   return (
     <div className="ki-busy" role="status">
       <IconSpark className="ki-busy__icon" width={20} height={20} />
       <span>
-        Die KI recherchiert und denkt gründlich nach … {sec} s
-        {sec > 20 && <small className="hint"> Das dauert oft ein bis drei Minuten, bei großen Recherchen länger.</small>}
+        {t.busy(sec)}
+        {sec > 20 && <small className="hint">{t.busyLong}</small>}
       </span>
       <button type="button" className="btn btn--small btn--quiet" onClick={onStop}>
-        Stopp
+        {t.stop}
       </button>
     </div>
   );
@@ -356,12 +514,13 @@ export function AssistantPage() {
     const c = convRef.current;
     const e = c?.entries.find((x) => x.vorschlag?.id === id);
     if (!c || !e?.vorschlag || (c.status[id] ?? 'offen') !== 'offen') return;
-    let what = proposalTitle(e.vorschlag.daten, snapRef.current);
+    // Was die KI über die Entscheidung erfährt, bleibt deutsch
+    let what = proposalTitle(e.vorschlag.daten, snapRef.current, true);
     if (accept) {
       try {
         what = applyProposal(store, e.vorschlag.daten);
       } catch (err) {
-        store.toast(`Ging nicht: ${err instanceof Error ? err.message : String(err)}`);
+        store.toast(t.failed(err instanceof Error ? err.message : String(err)));
         return;
       }
     }
@@ -376,11 +535,9 @@ export function AssistantPage() {
   const job = conv?.jobId ? views.get(conv.jobId) : undefined;
 
   return (
-    <SubPage title="KI-Assistent" sub="Fragen zu Anzeigen, deinem Profil und deinen Brücken">
+    <SubPage title={t.title} sub={t.sub}>
       {!available ? (
-        <p className="notice notice--info">
-          {s.demo ? 'In der Demo gibt es die KI nicht. In der eingerichteten App recherchiert sie hier in deinen Anzeigen.' : 'Für die KI braucht der Worker einen KI-Schlüssel (LLM_API_KEY), siehe docs/SCHLUESSEL.md.'}
-        </p>
+        <p className="notice notice--info">{s.demo ? t.noDemo : t.noKey}</p>
       ) : (
         <>
           <UsageBox usage={usage} heuteUsd={heuteUsd} />
@@ -388,22 +545,20 @@ export function AssistantPage() {
             <p className="ki-topic">
               {job ? (
                 <>
-                  Gespräch zur Anzeige <JobLink id={job.job.id} snap={snap} />
+                  {t.aboutJob} <JobLink id={job.job.id} snap={snap} />
                 </>
               ) : (
-                'Gespräch über deinen Horizont und deine Brücken'
+                t.aboutHorizon
               )}
             </p>
           )}
           {!asked && loaded && (
             <>
-              <p className="hint">
-                Die KI recherchiert in allen Anzeigen der App, liest Volltexte und kennt dein Suchprofil. Sie nutzt das große Modell mit gründlichem Nachdenken, deshalb dauert eine Antwort meist ein bis drei Minuten. Ändern kann sie nichts: Was sie vorschlägt, übernimmst du selbst.
-              </p>
+              <p className="hint">{t.intro}</p>
               <div className="ki-presets">
                 {presets.map((p) => (
-                  <button key={p.id} type="button" className="btn btn--small" onClick={() => ask(p.frage, p)}>
-                    {p.frage}
+                  <button key={p.id} type="button" className="btn btn--small" onClick={() => ask(presetQuestion(p), p)}>
+                    {presetQuestion(p)}
                   </button>
                 ))}
               </div>
@@ -422,7 +577,7 @@ export function AssistantPage() {
               {canRetry && (
                 <div style={{ marginTop: 8 }}>
                   <button type="button" className="btn btn--small" onClick={() => void run()}>
-                    Nochmal versuchen
+                    {t.retry}
                   </button>
                 </div>
               )}
@@ -438,7 +593,7 @@ export function AssistantPage() {
             }}
           >
             <label className="visually-hidden" htmlFor="ki-input">
-              Frage an die KI
+              {t.inputLabel}
             </label>
             <textarea
               id="ki-input"
@@ -446,7 +601,7 @@ export function AssistantPage() {
               rows={3}
               value={input}
               disabled={!!busy}
-              placeholder={asked ? 'Nachfragen …' : 'Frag etwas zu Anzeigen, deinem Profil oder deinen Brücken …'}
+              placeholder={asked ? t.followUp : t.askPlaceholder}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -457,7 +612,7 @@ export function AssistantPage() {
             />
             <div className="ki-composer__actions">
               <button type="submit" className="btn btn--primary" disabled={!!busy || !input.trim()}>
-                <IconSpark width={18} height={18} /> Fragen
+                <IconSpark width={18} height={18} /> {t.ask}
               </button>
               {asked && !busy && (
                 <button
@@ -470,7 +625,7 @@ export function AssistantPage() {
                     setError(null);
                   }}
                 >
-                  Neues Gespräch
+                  {t.newChat}
                 </button>
               )}
             </div>

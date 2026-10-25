@@ -1,6 +1,13 @@
 // Polaroid mit Foto (Anzeige → Einrichtung → Stadt) oder, wenn keins da ist, einer gezeichneten Postkarte.
 
 import { useState, type ReactNode } from 'react';
+import { texts } from '../i18n';
+
+const t = texts({
+  de: { sketch: 'Skizze der Stadt (noch kein Foto)' },
+  en: { sketch: 'Sketch of the city (no photo yet)' },
+  sr: { sketch: 'Skica grada (još nema fotografije)' },
+});
 
 function hashOf(s: string): number {
   let h = 2166136261;
@@ -67,7 +74,7 @@ export function CityDoodle({ seed }: { seed: string }) {
     i++;
   }
   return (
-    <svg className="polaroid__img polaroid__img--sketch" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Skizze der Stadt (noch kein Foto)">
+    <svg className="polaroid__img polaroid__img--sketch" viewBox="0 0 320 170" preserveAspectRatio="xMidYMid slice" role="img" aria-label={t.sketch}>
       <rect width="320" height="170" fill={GROUND_FILL} />
       {back}
       {front}

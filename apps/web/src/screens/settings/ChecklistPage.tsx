@@ -9,6 +9,61 @@ import { appConfig } from '../../lib/config';
 import { navigate } from '../../lib/router';
 import { IconCheck, IconChevron } from '../../ui/icons';
 import { SubPage } from './Settings';
+import { texts } from '../../i18n';
+
+const t = texts({
+  de: {
+    detected: 'erkannt',
+    ticked: 'abgehakt',
+    optional: 'optional',
+    replace: 'Ersetzen:',
+    goThere: 'Hinspringen',
+    title: 'Platzhalter-Checkliste',
+    progress: (done: number, total: number, optionalOpen: number) => `${done} von ${total} erledigt${optionalOpen ? `, ${optionalOpen} offene davon optional` : ''}`,
+    progressLabel: 'Fortschritt',
+    intro: 'Alles, was noch Dummy, Beispiel oder Standardwert ist. Was die App selbst erkennen kann, hakt sie ab („erkannt“); den Rest hakst du ab, wenn er ersetzt ist oder so bleiben soll.',
+    ticksLocal: ' Die Haken bleiben in diesem Browser.',
+    ticksSynced: ' Die Haken werden mit dem Server abgeglichen.',
+    open: (n: number) => `${n} offen`,
+    allDone: 'alles erledigt',
+    showBanner: 'Leiste „Checkliste“ oben zeigen',
+    showBannerHint: 'Solange noch Punkte offen sind. Die Liste selbst bleibt unter „Ich“.',
+  },
+  en: {
+    detected: 'detected',
+    ticked: 'ticked',
+    optional: 'optional',
+    replace: 'Replace:',
+    goThere: 'Go there',
+    title: 'Placeholder checklist',
+    progress: (done, total, optionalOpen) => `${done} of ${total} done${optionalOpen ? `, ${optionalOpen} of the open ones optional` : ''}`,
+    progressLabel: 'Progress',
+    intro: 'Everything that is still demo data, an example or a default. Whatever the app can detect itself, it ticks off (“detected”); you tick off the rest once it’s replaced or is meant to stay as it is.',
+    ticksLocal: ' The ticks stay in this browser.',
+    ticksSynced: ' The ticks are synced with the server.',
+    open: (n) => `${n} open`,
+    allDone: 'all done',
+    showBanner: 'Show the “Checklist” bar at the top',
+    showBannerHint: 'As long as items are still open. The list itself stays under “Me”.',
+  },
+  sr: {
+    detected: 'prepoznato',
+    ticked: 'štiklirano',
+    optional: 'opciono',
+    replace: 'Zamena:',
+    goThere: 'Idi tamo',
+    title: 'Kontrolna lista privremenih vrednosti',
+    progress: (done, total, optionalOpen) => `Gotovo ${done} od ${total}${optionalOpen ? `, od preostalih ${optionalOpen} opciono` : ''}`,
+    progressLabel: 'Napredak',
+    intro: 'Sve što je još probno, primer ili podrazumevana vrednost. Ono što aplikacija sama prepozna, sama i štiklira („prepoznato“); ostalo štikliraš ti, kad je zamenjeno ili treba da ostane takvo.',
+    ticksLocal: ' Oznake ostaju u ovom pregledaču.',
+    ticksSynced: ' Oznake se sinhronizuju sa serverom.',
+    open: (n) => `još ${n}`,
+    allDone: 'sve je gotovo',
+    showBanner: 'Prikaži traku „Kontrolna lista“ na vrhu',
+    showBannerHint: 'Dok god ima otvorenih stavki. Sama lista ostaje pod „Ja“.',
+  },
+});
 
 /** Stand der Checkliste für Seite und Leiste oben. */
 export function useChecklist() {
@@ -57,19 +112,19 @@ function Item({ st, onToggle }: { st: CheckStatus; onToggle: (on: boolean) => vo
       <div className="check-item__body">
         <p className="check-item__title">
           <label htmlFor={id}>{item.title}</label>
-          {st.autoDone && <span className="chip chip--secondary chip--tiny">erkannt</span>}
-          {!st.autoDone && st.manualDone && <span className="chip chip--primary chip--tiny">abgehakt</span>}
-          {item.optional && <span className="chip chip--neutral chip--tiny">optional</span>}
+          {st.autoDone && <span className="chip chip--secondary chip--tiny">{t.detected}</span>}
+          {!st.autoDone && st.manualDone && <span className="chip chip--primary chip--tiny">{t.ticked}</span>}
+          {item.optional && <span className="chip chip--neutral chip--tiny">{t.optional}</span>}
         </p>
         <p className="check-item__what" id={`${id}-what`}>
           {item.what}
         </p>
         <p className="check-item__where">
-          <b>Ersetzen:</b> {item.where}
+          <b>{t.replace}</b> {item.where}
         </p>
         {item.route && !st.done && (
           <button type="button" className="btn btn--small btn--quiet check-item__go" onClick={() => navigate(item.route!)}>
-            Hinspringen <IconChevron width={16} height={16} aria-hidden="true" />
+            {t.goThere} <IconChevron width={16} height={16} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -91,13 +146,13 @@ export function ChecklistPage() {
   };
 
   return (
-    <SubPage title="Platzhalter-Checkliste" sub={`${done} von ${c.total} erledigt${c.openRequired < c.open ? `, ${c.open - c.openRequired} offene davon optional` : ''}`}>
-      <div className="check-progress" role="progressbar" aria-valuemin={0} aria-valuemax={c.total} aria-valuenow={done} aria-label="Fortschritt">
+    <SubPage title={t.title} labelId="sub-checkliste" sub={t.progress(done, c.total, c.open - c.openRequired)}>
+      <div className="check-progress" role="progressbar" aria-valuemin={0} aria-valuemax={c.total} aria-valuenow={done} aria-label={t.progressLabel}>
         <span style={{ width: `${Math.round((done / c.total) * 100)}%` }} />
       </div>
       <p className="hint">
-        Alles, was noch Dummy, Beispiel oder Standardwert ist. Was die App selbst erkennen kann, hakt sie ab („erkannt“); den Rest hakst du ab, wenn er ersetzt ist oder so bleiben soll.
-        {s.demo ? ' Die Haken bleiben in diesem Browser.' : ' Die Haken werden mit dem Server abgeglichen.'}
+        {t.intro}
+        {s.demo ? t.ticksLocal : t.ticksSynced}
       </p>
 
       {CHECK_GROUPS.map((g) => {
@@ -106,7 +161,7 @@ export function ChecklistPage() {
         return (
           <section key={g.id} className="group" aria-labelledby={`cg-${g.id}`}>
             <h2 className="section-title" id={`cg-${g.id}`}>
-              {g.title} <small className="hint">{open ? `${open} offen` : 'alles erledigt'}</small>
+              {g.title} <small className="hint">{open ? t.open(open) : t.allDone}</small>
             </h2>
             <p className="hint" style={{ marginTop: -4 }}>
               {g.sub}
@@ -123,9 +178,9 @@ export function ChecklistPage() {
       {!s.demo && (
         <label className="toggle" style={{ marginTop: 8 }}>
           <span>
-            Leiste „Checkliste“ oben zeigen
+            {t.showBanner}
             <br />
-            <small className="hint">Solange noch Punkte offen sind. Die Liste selbst bleibt unter „Ich“.</small>
+            <small className="hint">{t.showBannerHint}</small>
           </span>
           <input type="checkbox" checked={!cl.hideBanner} onChange={(e) => store.updateSettings('checklist', { ...cl, hideBanner: !e.target.checked })} />
         </label>

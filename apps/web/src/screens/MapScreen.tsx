@@ -2,13 +2,111 @@
 // Tippen zoomt hinein: Deutschland → Bundesland → Stadt → Einrichtung.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { DE_BOUNDS, isOpen, MAP_HEIGHT, MAP_WIDTH, project, STATES, todayBerlin, type FavoriteKind, type StateCode } from '@stellen/core';
+import { DE_BOUNDS, isOpen, MAP_HEIGHT, MAP_WIDTH, project, todayBerlin, type FavoriteKind, type StateCode } from '@stellen/core';
 import { filterViews, sortSaved, sortViews, useAppState, useGeo, useStore, useViews, type JobView } from '../data/hooks';
-import { institutionName, plural } from '../lib/format';
+import { institutionName } from '../lib/format';
 import { Empty } from '../ui/bits';
 import { JobRow } from '../ui/JobRow';
 import { PageHead } from '../ui/PageHead';
 import { IconChevron, IconHeart } from '../ui/icons';
+import { srForm, texts } from '../i18n';
+import { stateName } from '../i18n/labels';
+
+const t = texts({
+  de: {
+    title: 'Karte',
+    savedCount: (n: number) => `${n} ${n === 1 ? 'gemerkte Anzeige' : 'gemerkte Anzeigen'}`,
+    openCount: (n: number) => `${n} ${n === 1 ? 'offene Anzeige' : 'offene Anzeigen'}`,
+    modeLabel: 'Was die Karte zeigt',
+    modeSaved: 'Gemerkt',
+    modeAll: 'Alle',
+    crumbsLabel: 'Kartenausschnitt',
+    germany: 'Deutschland',
+    noInstitution: 'Ohne Einrichtung',
+    inCity: (city: string) => `In ${city}`,
+    inState: (state: string) => `In ${state}`,
+    allSaved: 'Alle gemerkten',
+    allOpen: 'Alle offenen',
+    mapLabel: (what: string) => `Karte, Ausschnitt ${what}`,
+    pinLabel: (label: string, n: number, horizon: number) => `${label}: ${n} ${n === 1 ? 'Anzeige' : 'Anzeigen'}${horizon ? `, davon ${horizon} im Horizont` : ''}`,
+    legendHas: 'mit Anzeigen',
+    legendFav: 'Lieblingsort',
+    legendHome: 'Zuhause',
+    legendHorizon: 'mit Horizont',
+    legendRadius: (km: number) => `Umkreis ${km} km`,
+    favOn: 'Lieblingsort',
+    favOff: 'Als Lieblingsort',
+    favHint: 'Anzeigen aus Lieblingsorten stehen in Stapel und Liste ganz oben.',
+    emptySavedTitle: 'Noch nichts auf der Karte',
+    emptyAllTitle: 'Keine offenen Anzeigen',
+    emptySavedText: 'Gemerkte Anzeigen erscheinen hier an ihrem Ort. Oben auf „Alle“ tippen, um alle offenen Anzeigen zu sehen.',
+    emptyAllText: 'Mit den aktuellen Filtern bleibt nichts übrig.',
+    showMore: 'Weitere zeigen',
+    unlocated: (n: number) => `${n} ${n === 1 ? 'Anzeige hat' : 'Anzeigen haben'} keinen erkannten Ort und steh${n === 1 ? 't' : 'en'} nur in der Liste.`,
+  },
+  en: {
+    title: 'Map',
+    savedCount: (n) => `${n} saved ${n === 1 ? 'posting' : 'postings'}`,
+    openCount: (n) => `${n} open ${n === 1 ? 'posting' : 'postings'}`,
+    modeLabel: 'What the map shows',
+    modeSaved: 'Saved',
+    modeAll: 'All',
+    crumbsLabel: 'Map area',
+    germany: 'Germany',
+    noInstitution: 'No institution',
+    inCity: (city) => `In ${city}`,
+    inState: (state) => `In ${state}`,
+    allSaved: 'All saved',
+    allOpen: 'All open',
+    mapLabel: (what) => `Map, showing: ${what}`,
+    pinLabel: (label, n, horizon) => `${label}: ${n} ${n === 1 ? 'posting' : 'postings'}${horizon ? `, ${horizon} of them in Horizon` : ''}`,
+    legendHas: 'with postings',
+    legendFav: 'favorite place',
+    legendHome: 'home',
+    legendHorizon: 'with Horizon',
+    legendRadius: (km) => `${km} km radius`,
+    favOn: 'Favorite place',
+    favOff: 'Set as favorite place',
+    favHint: 'Postings from favorite places come first in the stack and the list.',
+    emptySavedTitle: 'Nothing on the map yet',
+    emptyAllTitle: 'No open postings',
+    emptySavedText: 'Saved postings show up here at their location. Tap “All” at the top to see all open postings.',
+    emptyAllText: 'Nothing’s left with the current filters.',
+    showMore: 'Show more',
+    unlocated: (n) => `${n} ${n === 1 ? 'posting has' : 'postings have'} no recognized location and only ${n === 1 ? 'appears' : 'appear'} in the list.`,
+  },
+  sr: {
+    title: 'Mapa',
+    savedCount: (n) => `${n} ${srForm(n, 'sačuvan oglas', 'sačuvana oglasa', 'sačuvanih oglasa')}`,
+    openCount: (n) => `${n} ${srForm(n, 'otvoren oglas', 'otvorena oglasa', 'otvorenih oglasa')}`,
+    modeLabel: 'Šta mapa prikazuje',
+    modeSaved: 'Sačuvano',
+    modeAll: 'Sve',
+    crumbsLabel: 'Deo mape',
+    germany: 'Nemačka',
+    noInstitution: 'Bez ustanove',
+    inCity: (city) => `U gradu ${city}`,
+    inState: (state) => `U pokrajini ${state}`,
+    allSaved: 'Svi sačuvani',
+    allOpen: 'Svi otvoreni',
+    mapLabel: (what) => `Mapa, prikaz: ${what}`,
+    pinLabel: (label, n, horizon) => `${label}: ${n} ${srForm(n, 'oglas', 'oglasa', 'oglasa')}${horizon ? `, od toga ${horizon} u Horizontu` : ''}`,
+    legendHas: 'sa oglasima',
+    legendFav: 'omiljeno mesto',
+    legendHome: 'dom',
+    legendHorizon: 'sa Horizontom',
+    legendRadius: (km) => `radijus ${km} km`,
+    favOn: 'Omiljeno mesto',
+    favOff: 'Dodaj u omiljena mesta',
+    favHint: 'Oglasi iz omiljenih mesta stoje na samom vrhu, u špilu i na listi.',
+    emptySavedTitle: 'Na mapi još nema ničega',
+    emptyAllTitle: 'Nema otvorenih oglasa',
+    emptySavedText: 'Sačuvani oglasi se ovde prikazuju na svom mestu. Dodirni „Sve“ gore da vidiš sve otvorene oglase.',
+    emptyAllText: 'Sa trenutnim filterima ne ostaje ništa.',
+    showMore: 'Prikaži još',
+    unlocated: (n) => `${n} ${srForm(n, 'oglas', 'oglasa', 'oglasa')} bez prepoznatog mesta ${srForm(n, 'nalazi se', 'nalaze se', 'nalazi se')} samo na listi.`,
+  },
+});
 
 interface MapStateShape {
   code: StateCode;
@@ -195,7 +293,7 @@ export function MapScreen() {
       return spread(
         map.states
           .filter((st) => statesWithJobs.has(st.code))
-          .map((st): Pin => ({ key: `s:${st.code}`, level: 'state', ref: st.code, x: st.label[0], y: st.label[1], count: statesWithJobs.get(st.code)!, horizon: horizonByState.get(st.code) ?? 0, label: st.name, fav: isFav('state', st.code) })),
+          .map((st): Pin => ({ key: `s:${st.code}`, level: 'state', ref: st.code, x: st.label[0], y: st.label[1], count: statesWithJobs.get(st.code)!, horizon: horizonByState.get(st.code) ?? 0, label: stateName(st.code), fav: isFav('state', st.code) })),
         30 / pxPerUnit,
       );
     }
@@ -232,7 +330,7 @@ export function MapScreen() {
     for (const [id, { count, horizon }] of byInst) {
       const inst = id === NO_INST ? undefined : s.institutions.get(id);
       const [x, y] = inst?.lat != null && inst.lon != null ? project(inst.lon, inst.lat) : project(city.lon, city.lat);
-      list.push({ key: `i:${id}`, level: 'inst', ref: id, x, y, count, horizon, label: inst ? institutionName(inst, true) : 'Ohne Einrichtung', fav: inst ? isFav('institution', id) : false });
+      list.push({ key: `i:${id}`, level: 'inst', ref: id, x, y, count, horizon, label: inst ? institutionName(inst, true) : t.noInstitution, fav: inst ? isFav('institution', id) : false });
     }
     // Einrichtungen am selben Ort auseinanderziehen (Abstand in Kartenpunkten bei aktuellem Zoom)
     return spread(list, 26 / (pxPerUnit * view.s));
@@ -260,41 +358,41 @@ export function MapScreen() {
     : selCity
       ? { kind: 'city', ref: selCity.id, name: selCity.name }
       : sel.state
-        ? { kind: 'state', ref: sel.state, name: STATES[sel.state] }
+        ? { kind: 'state', ref: sel.state, name: stateName(sel.state) }
         : null;
   const favOn = favTarget ? isFav(favTarget.kind, favTarget.ref) : false;
-  const listTitle = selInst ? selInst.name : sel.inst === NO_INST ? 'Ohne Einrichtung' : selCity ? `In ${selCity.name}` : sel.state ? `In ${STATES[sel.state]}` : mode === 'gemerkt' ? 'Alle gemerkten' : 'Alle offenen';
+  const listTitle = selInst ? selInst.name : sel.inst === NO_INST ? t.noInstitution : selCity ? t.inCity(selCity.name) : sel.state ? t.inState(stateName(sel.state)) : mode === 'gemerkt' ? t.allSaved : t.allOpen;
 
   return (
     <section className="screen paper" aria-labelledby="map-title">
-      <PageHead id="map-title" title="Karte" sub={mode === 'gemerkt' ? plural(jobs.length, 'gemerkte Anzeige', 'gemerkte Anzeigen') : plural(jobs.length, 'offene Anzeige', 'offene Anzeigen')}>
-        <div className="segmented segmented--small" role="group" aria-label="Was die Karte zeigt">
+      <PageHead id="map-title" title={t.title} sub={mode === 'gemerkt' ? t.savedCount(jobs.length) : t.openCount(jobs.length)}>
+        <div className="segmented segmented--small" role="group" aria-label={t.modeLabel}>
           <button type="button" aria-pressed={mode === 'gemerkt'} onClick={() => store.updateSettings('ui', { ...s.settings.ui, mapMode: 'gemerkt' })}>
-            Gemerkt
+            {t.modeSaved}
           </button>
           <button type="button" aria-pressed={mode === 'alle'} onClick={() => store.updateSettings('ui', { ...s.settings.ui, mapMode: 'alle' })}>
-            Alle
+            {t.modeAll}
           </button>
         </div>
       </PageHead>
 
-      <nav className="crumbs" aria-label="Kartenausschnitt">
+      <nav className="crumbs" aria-label={t.crumbsLabel}>
         {sel.state ? (
           <button type="button" onClick={() => setSel({ state: null, city: null, inst: null })}>
-            Deutschland
+            {t.germany}
           </button>
         ) : (
-          <span aria-current="location">Deutschland</span>
+          <span aria-current="location">{t.germany}</span>
         )}
         {sel.state && (
           <>
             <IconChevron width={14} height={14} aria-hidden="true" />
             {sel.city ? (
               <button type="button" onClick={() => setSel({ state: sel.state, city: null, inst: null })}>
-                {STATES[sel.state]}
+                {stateName(sel.state)}
               </button>
             ) : (
-              <span aria-current="location">{STATES[sel.state]}</span>
+              <span aria-current="location">{stateName(sel.state)}</span>
             )}
           </>
         )}
@@ -313,7 +411,7 @@ export function MapScreen() {
         {sel.inst && (
           <>
             <IconChevron width={14} height={14} aria-hidden="true" />
-            <span aria-current="location">{selInst ? institutionName(selInst, true) : 'Ohne Einrichtung'}</span>
+            <span aria-current="location">{selInst ? institutionName(selInst, true) : t.noInstitution}</span>
           </>
         )}
       </nav>
@@ -322,7 +420,7 @@ export function MapScreen() {
         {!map ? (
           <div className="map-svg map-svg--loading" aria-hidden="true" />
         ) : (
-          <svg ref={svgRef} className="map-svg" viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={`Karte, Ausschnitt ${listTitle}`}>
+          <svg ref={svgRef} className="map-svg" viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label={t.mapLabel(listTitle)}>
             <g className="zoom" style={{ transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.s})` }}>
               {map.states.map((st) => {
                 const has = statesWithJobs.has(st.code);
@@ -336,7 +434,7 @@ export function MapScreen() {
                     d={st.d}
                     onClick={() => setSel(active && !sel.city ? { state: null, city: null, inst: null } : { state: st.code, city: null, inst: null })}
                   >
-                    <title>{st.name}</title>
+                    <title>{stateName(st.code)}</title>
                   </path>
                 );
               })}
@@ -381,7 +479,7 @@ export function MapScreen() {
                   }}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${p.label}: ${plural(p.count, 'Anzeige', 'Anzeigen')}${p.horizon ? `, davon ${p.horizon} im Horizont` : ''}`}
+                  aria-label={t.pinLabel(p.label, p.count, p.horizon)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -406,22 +504,22 @@ export function MapScreen() {
         )}
         <p className="map-legend hint" aria-hidden="true">
           <span className="legend-item">
-            <span className="swatch swatch--has" /> mit Anzeigen
+            <span className="swatch swatch--has" /> {t.legendHas}
           </span>
           <span className="legend-item">
-            <span className="swatch swatch--fav" /> Lieblingsort
+            <span className="swatch swatch--fav" /> {t.legendFav}
           </span>
           <span className="legend-item">
-            <span className="swatch swatch--home" /> Zuhause
+            <span className="swatch swatch--home" /> {t.legendHome}
           </span>
           {pins.some((p) => p.horizon > 0) && (
             <span className="legend-item">
-              <span className="swatch swatch--horizon" /> mit Horizont
+              <span className="swatch swatch--horizon" /> {t.legendHorizon}
             </span>
           )}
           {radius != null && (
             <span className="legend-item">
-              <span className="swatch swatch--radius" /> Umkreis {radius} km
+              <span className="swatch swatch--radius" /> {t.legendRadius(radius)}
             </span>
           )}
         </p>
@@ -433,18 +531,14 @@ export function MapScreen() {
         </h2>
         {favTarget && (
           <button type="button" className={`btn btn--small ${favOn ? 'btn--primary' : ''}`} aria-pressed={favOn} onClick={() => store.setFavorite(favTarget.kind, favTarget.ref, !favOn)}>
-            <IconHeart filled={favOn} width={18} height={18} /> {favOn ? 'Lieblingsort' : 'Als Lieblingsort'}
+            <IconHeart filled={favOn} width={18} height={18} /> {favOn ? t.favOn : t.favOff}
           </button>
         )}
       </div>
-      {favTarget && !favOn && <p className="hint">Anzeigen aus Lieblingsorten stehen in Stapel und Liste ganz oben.</p>}
+      {favTarget && !favOn && <p className="hint">{t.favHint}</p>}
 
       {jobs.length === 0 ? (
-        <Empty
-          art="map"
-          title={mode === 'gemerkt' ? 'Noch nichts auf der Karte' : 'Keine offenen Anzeigen'}
-          text={mode === 'gemerkt' ? 'Gemerkte Anzeigen erscheinen hier an ihrem Ort. Oben auf „Alle“ tippen, um alle offenen Anzeigen zu sehen.' : 'Mit den aktuellen Filtern bleibt nichts übrig.'}
-        />
+        <Empty art="map" title={mode === 'gemerkt' ? t.emptySavedTitle : t.emptyAllTitle} text={mode === 'gemerkt' ? t.emptySavedText : t.emptyAllText} />
       ) : (
         <>
           <ul className="list">
@@ -455,11 +549,11 @@ export function MapScreen() {
           {limit < inSel.length && (
             <div className="list-more">
               <button type="button" className="btn btn--small" onClick={() => setLimit((l) => l + 40)}>
-                Weitere zeigen
+                {t.showMore}
               </button>
             </div>
           )}
-          {!sel.state && unlocated.length > 0 && <p className="hint">{plural(unlocated.length, 'Anzeige hat', 'Anzeigen haben')} keinen erkannten Ort und steh{unlocated.length === 1 ? 't' : 'en'} nur in der Liste.</p>}
+          {!sel.state && unlocated.length > 0 && <p className="hint">{t.unlocated(unlocated.length)}</p>}
         </>
       )}
     </section>

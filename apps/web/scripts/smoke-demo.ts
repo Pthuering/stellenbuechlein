@@ -1,5 +1,5 @@
 // Rauchtest für die gebaute Demo (dist-demo/index.html) im echten Browser:
-// Wischen, Rückgängig, Detail, Filter, Umfrage, Steckbrief-Import, Karte, Platzhalter-Checkliste – und keine Laufzeitfehler.
+// Wischen, Rückgängig, Detail, Filter, Umfrage, Steckbrief-Import, Karte, Platzhalter-Checkliste, Sprachen – und keine Laufzeitfehler.
 // Mit installiertem Chrome statt Playwright-Chromium: CHROMIUM_PATH="…/chrome.exe".
 //   npm run build:demo && npx tsx apps/web/scripts/smoke-demo.ts
 
@@ -24,7 +24,8 @@ const waiting = async (page: Page): Promise<number> => {
 };
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+// Die Prüfungen klicken auf deutsche Texte; Englisch und Serbisch kommen am Ende dran.
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: 'de-DE' });
 const errors: string[] = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -186,6 +187,20 @@ try {
   await page.waitForSelector('.list .row');
   assert.ok((await page.locator('.row .chip >> text=neue Website').count()) >= 3, 'Markierung „neue Website“ fehlt');
   assert.ok((await page.locator('.row .chip--dummy').count()) >= 10, 'Etikett „Dummy“ fehlt');
+
+  // Sprachen: Reiter übersetzt, alle Seiten laufen ohne Fehler
+  for (const [lang, saved] of [['en', 'Saved'], ['sr', 'Sačuvano']] as const) {
+    await page.evaluate((l) => localStorage.setItem('sb.lang', JSON.stringify(l)), lang);
+    await page.goto(`${url}#/stapel`);
+    await page.reload();
+    await page.waitForSelector('.card--top');
+    assert.equal(await page.locator('.tab', { hasText: saved }).count(), 1, `Reiter „${saved}“ fehlt (${lang})`);
+    for (const route of ['karte', 'gemerkt', 'alle', 'ich', 'ich/umfrage', 'ich/profil', 'ich/steckbrief', 'ich/horizont', 'ich/orte', 'ich/zuhause', 'ich/erinnerungen', 'ich/quellen', 'ich/ki', 'ich/checkliste', 'ich/ueber']) {
+      await page.goto(`${url}#/${route}`);
+      await page.waitForTimeout(150);
+    }
+  }
+  await page.evaluate(() => localStorage.setItem('sb.lang', JSON.stringify('de')));
 
   assert.deepEqual(errors, [], `Laufzeitfehler:\n${errors.join('\n')}`);
   console.log('Rauchtest bestanden.');

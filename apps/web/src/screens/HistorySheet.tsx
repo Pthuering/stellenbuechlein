@@ -7,6 +7,55 @@ import { deadlineInfo, employerName } from '../lib/format';
 import { Sheet } from '../ui/Sheet';
 import { Empty } from '../ui/bits';
 import { IconHeart, IconStar, IconX } from '../ui/icons';
+import { texts } from '../i18n';
+
+const t = texts({
+  de: {
+    title: 'Verlauf',
+    which: 'Welche Entscheidungen',
+    saved: (n: number) => `Gemerkt (${n})`,
+    passed: (n: number) => `Weggelegt (${n})`,
+    emptySaved: 'Noch nichts gemerkt',
+    emptyPassed: 'Noch nichts weggelegt',
+    emptySavedText: 'Im Stapel nach rechts wischen, um eine Anzeige zu merken.',
+    emptyPassedText: 'Was du nach links wischst, landet hier und bleibt unter „Alle“ sichtbar.',
+    deadline: (date: string) => `, Frist ${date}`,
+    pass: 'weglegen',
+    saveAfterAll: 'doch merken',
+    backOnTop: 'Liegt wieder oben auf dem Stapel.',
+    backToDeck: 'zurück in den Stapel',
+  },
+  en: {
+    title: 'History',
+    which: 'Which decisions',
+    saved: (n) => `Saved (${n})`,
+    passed: (n) => `Passed (${n})`,
+    emptySaved: 'Nothing saved yet',
+    emptyPassed: 'Nothing passed yet',
+    emptySavedText: 'Swipe right in the stack to save a posting.',
+    emptyPassedText: 'Whatever you swipe left ends up here and stays visible under “All”.',
+    deadline: (date) => `, deadline ${date}`,
+    pass: 'pass',
+    saveAfterAll: 'save after all',
+    backOnTop: 'Back on top of the stack.',
+    backToDeck: 'back to the stack',
+  },
+  sr: {
+    title: 'Istorija',
+    which: 'Koje odluke',
+    saved: (n) => `Sačuvano (${n})`,
+    passed: (n) => `Preskočeno (${n})`,
+    emptySaved: 'Još ništa nije sačuvano',
+    emptyPassed: 'Još ništa nije preskočeno',
+    emptySavedText: 'U špilu prevuci karticu udesno da sačuvaš oglas.',
+    emptyPassedText: 'Ono što prevučeš ulevo završava ovde i ostaje vidljivo u odeljku „Sve“.',
+    deadline: (date) => `, rok ${date}`,
+    pass: 'preskoči',
+    saveAfterAll: 'ipak sačuvaj',
+    backOnTop: 'Ponovo je na vrhu špila.',
+    backToDeck: 'vrati u špil',
+  },
+});
 
 export function HistorySheet({ onClose, onUndo }: { onClose: () => void; onUndo: (id: string) => void }) {
   const s = useAppState();
@@ -34,20 +83,20 @@ export function HistorySheet({ onClose, onUndo }: { onClose: () => void; onUndo:
   }, [s.marks]);
 
   return (
-    <Sheet title="Verlauf" onClose={onClose} full>
-      <div className="segmented" role="group" aria-label="Welche Entscheidungen">
+    <Sheet title={t.title} onClose={onClose} full>
+      <div className="segmented" role="group" aria-label={t.which}>
         <button type="button" aria-pressed={tab === 'gemerkt'} onClick={() => setTab('gemerkt')}>
-          Gemerkt ({counts.g})
+          {t.saved(counts.g)}
         </button>
         <button type="button" aria-pressed={tab === 'abgelehnt'} onClick={() => setTab('abgelehnt')}>
-          Weggelegt ({counts.a})
+          {t.passed(counts.a)}
         </button>
       </div>
       {list.length === 0 ? (
         <Empty
           art={tab === 'gemerkt' ? 'heart' : 'teacup'}
-          title={tab === 'gemerkt' ? 'Noch nichts gemerkt' : 'Noch nichts weggelegt'}
-          text={tab === 'gemerkt' ? 'Im Stapel nach rechts wischen, um eine Anzeige zu merken.' : 'Was du nach links wischst, landet hier und bleibt unter „Alle“ sichtbar.'}
+          title={tab === 'gemerkt' ? t.emptySaved : t.emptyPassed}
+          text={tab === 'gemerkt' ? t.emptySavedText : t.emptyPassedText}
         />
       ) : (
         <ul className="list">
@@ -61,17 +110,17 @@ export function HistorySheet({ onClose, onUndo }: { onClose: () => void; onUndo:
                 </span>
                 <div className="row__main">
                   <p className="row__title">{v.job.title}</p>
-                  <p className="row__sub">{employerName(v.job, inst, true)}{dl ? `, Frist ${dl.date}` : ''}</p>
+                  <p className="row__sub">{employerName(v.job, inst, true)}{dl ? t.deadline(dl.date) : ''}</p>
                 </div>
                 <div className="row__meta" onClick={(e) => e.stopPropagation()}>
                   {tab === 'gemerkt' ? (
                     <button type="button" className="btn btn--quiet btn--small" onClick={() => store.decide(v.job.id, 'abgelehnt')}>
-                      weglegen
+                      {t.pass}
                     </button>
                   ) : (
                     <>
                       <button type="button" className="btn btn--quiet btn--small" onClick={() => store.decide(v.job.id, 'gemerkt')}>
-                        doch merken
+                        {t.saveAfterAll}
                       </button>
                       <button
                         type="button"
@@ -79,10 +128,10 @@ export function HistorySheet({ onClose, onUndo }: { onClose: () => void; onUndo:
                         onClick={() => {
                           store.decide(v.job.id, null);
                           onUndo(v.job.id);
-                          store.toast('Liegt wieder oben auf dem Stapel.');
+                          store.toast(t.backOnTop);
                         }}
                       >
-                        zurück in den Stapel
+                        {t.backToDeck}
                       </button>
                     </>
                   )}
