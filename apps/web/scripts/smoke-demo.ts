@@ -8,6 +8,7 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium, type Page } from 'playwright-core';
+import { CHECK_ITEMS } from '../src/lib/checklist';
 
 const file = resolve(dirname(fileURLToPath(import.meta.url)), '../dist-demo/index.html');
 if (!existsSync(file)) {
@@ -178,7 +179,7 @@ try {
   await page.waitForTimeout(200);
   const after = (await page.locator('.page-sub').first().textContent()) ?? '';
   assert.equal(Number(after.match(/d+/)?.[0]), Number(before.match(/d+/)?.[0]) + 1, 'Haken in der Checkliste zählt nicht');
-  assert.ok((await page.locator('.check-item').count()) >= 20, 'Checkliste unvollständig');
+  assert.equal(await page.locator('.check-item').count(), CHECK_ITEMS.length, 'Checkliste unvollständig');
 
   // Neue Websites: mindestens drei Anzeigen in „Alle“ markiert
   await page.goto(`${url}#/alle`);
