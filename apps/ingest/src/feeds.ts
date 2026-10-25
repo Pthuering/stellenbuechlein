@@ -192,7 +192,7 @@ export function candidatesFromJson(body: string, baseUrl: string): Candidate[] {
   }
   const out = new Map<string, Candidate>();
   const visit = (v: unknown, depth: number): void => {
-    if (depth > 6 || !v || typeof v !== 'object') return;
+    if (depth > 12 || !v || typeof v !== 'object') return;
     if (Array.isArray(v)) {
       for (const x of v) visit(x, depth + 1);
       return;
@@ -203,7 +203,8 @@ export function candidatesFromJson(body: string, baseUrl: string): Candidate[] {
     if (title && rawUrl) {
       try {
         const url = new URL(rawUrl.trim(), baseUrl).toString();
-        if (/^https?:/.test(url) && !out.has(url)) out.set(url, { url, title: title.trim(), via: 'json' });
+        // Links auf Schnittstellen (z. B. Sprachumschalter einer Headless-CMS-Antwort) sind keine Anzeigen
+        if (/^https?:/.test(url) && !/\/api\//i.test(new URL(url).pathname) && !out.has(url)) out.set(url, { url, title: title.trim(), via: 'json' });
         return;
       } catch {
         // ungültige Adresse: weiter in die Tiefe

@@ -30,8 +30,8 @@ export default defineConfig(({ mode }) => {
             registerType: 'autoUpdate',
             injectRegister: false,
             manifest: {
-              name: 'Stellenbüchlein',
-              short_name: 'Stellenbüchlein',
+              name: 'Taras Cutesy Jobsearch App',
+              short_name: 'Taras Jobs',
               description: 'Forschungsstellen mit Psychologie-Bezug – gesammelt, sortiert, gemerkt.',
               lang: 'de',
               start_url: './#/stapel',

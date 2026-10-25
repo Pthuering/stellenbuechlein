@@ -7,6 +7,7 @@ import { canonicalUrl, registrableHost } from '@stellen/core';
 import { extractLinks, findFeedLinks, jobPostingsFrom, load, looksLikeJsShell, visibleText, type PageLink } from './html';
 import { candidatesFromJson, parseFeed, parseJsonFeed, parsePersonioXml, parseSitemap } from './feeds';
 import { baDiscover } from './portals';
+import { InteramtSession, viaInteramt } from './interamt';
 import { biteListingsIn, JSON_ATS, jsonAtsOf, viaBite, viaJsonAts, type JsonAts } from './ats';
 import type { Candidate } from './extract';
 import type { Http } from './http';
@@ -299,6 +300,17 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
     }
   }
 
+  if (source.adapter === 'interamt' || cfg.ats === 'interamt') {
+    try {
+      const session = new InteramtSession(ctx.cfg);
+      const list = await viaInteramt(session, { queries: cfg.queries?.length ? cfg.queries : ['Psycholog'], maxPages: cfg.maxPages ?? 40, maxDetails: Number(cfg.maxDetails ?? 400) }, ctx.log);
+      merge(found, list);
+      return { candidates: [...found.values()], methods: ['portal:interamt'], status: list.length ? 'ok' : 'leer', note: `${session.requests} Abrufe` };
+    } catch (e) {
+      return { candidates: [], methods, status: 'fehler', note: `Interamt: ${e instanceof Error ? e.message : String(e)}` };
+    }
+  }
+
   // 1) Feed
   if (cfg.feedUrl) {
     const list = cfg.feedUrl.endsWith('.json')
@@ -358,6 +370,18 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
     if (merge(found, list) > 0) methods.push('json');
     else notes.push('JSON-Liste ohne erkennbare Anzeigen');
     isApi = true;
+    // Folgeseiten, wenn die Schnittstelle blättert (z. B. Helmholtz: pageParam "search[page]", ab 2)
+    if (typeof cfg.pageParam === 'string' && list.length) {
+      let pages = 1;
+      for (let i = 2; i <= maxPages; i++) {
+        const u = new URL(first.url);
+        u.searchParams.set(cfg.pageParam, String(i));
+        const r = await ctx.http.get(u.toString(), { accept: 'application/json', ignoreRobots });
+        if (!r.ok || merge(found, candidatesFromJson(r.text, r.url)) === 0) break;
+        pages++;
+      }
+      if (pages > 1) methods.push(`${pages} Seiten`);
+    }
   } else {
     listHtml = first.text;
     const { candidates, links, feeds } = candidatesFromListHtml(first.text, first.url, cfg, 'liste');

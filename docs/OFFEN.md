@@ -53,7 +53,11 @@ Neun parallele Recherchen haben Hochschulen und Kliniken in allen Regionen, auß
 - [ ] **Globale Listen** (NIQ, Kantar, Human8, Pearson) enthalten viel aus dem Ausland. Der Grobfilter sortiert nach Psychologie, nicht nach Land; ausländische Orte stehen ohne Stadt da.
 - [ ] **Koordinaten neuer Städte** (87) sind auf etwa 0,01 Grad genau aus der Recherche übernommen. Für die Karte reicht das.
 - [ ] **Abgleich mit dem Hochschulkompass** bleibt sinnvoll: Die Recherche hat nach Psychologie-Studiengängen gesucht, aber nicht systematisch Studiengang für Studiengang.
-- [ ] **Portale ohne vollständige Adresse, deshalb abgeschaltet:** EURAXESS, academics.de, Helmholtz-Stellenbörse, Interamt.
+- [x] **Die vier abgeschalteten Portale sind seit dem 25. Oktober an** (rein privater Gebrauch):
+  - **EURAXESS:** Filter Deutschland und Psychological sciences.
+  - **Helmholtz-Stellenbörse:** über ihre JSON-Schnittstelle, auf wissenschaftliche Stellen gefiltert.
+  - **Interamt:** eigener Adapter mit Sitzung, Suche „Psycholog“, rund 250 Abrufe und sechs Minuten am Tag.
+  - **academics.de:** Branche Psychologie. academics.de untersagt automatisierten Zugriff ohne Erlaubnis und behält sich Text- und Data-Mining vor (§ 44b UrhG); eine Erlaubnis ließe sich über info@academics.de anfragen.
 
 ## 4. Noch nicht gegen echte Dienste getestet
 

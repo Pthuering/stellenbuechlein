@@ -26,7 +26,7 @@ interface PushPayload {
 const inScope = (path: string): string => new URL(path.replace(/^\//, ''), self.registration.scope).href;
 
 self.addEventListener('push', (event: PushEvent) => {
-  let data: PushPayload = { title: 'Stellenbüchlein', body: '', url: '/#/gemerkt' };
+  let data: PushPayload = { title: 'Taras Cutesy Jobsearch App', body: '', url: '/#/gemerkt' };
   try {
     data = { ...data, ...(event.data?.json() as Partial<PushPayload>) };
   } catch {

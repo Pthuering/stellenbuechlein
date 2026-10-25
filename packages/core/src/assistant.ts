@@ -317,7 +317,7 @@ export function profileForAssistant(p: Suchprofil, home: HomeLocation): string {
  * Zwischenspeicher nehmen kann (deutlich günstiger); alles, was sich pro Frage ändert, steht in der Frage.
  */
 export function assistantSystemPrompt(p: Suchprofil, home: HomeLocation): string {
-  return `Du bist die KI im Stellenbüchlein, einer privaten App, mit der eine Person mit Psychologie-Hintergrund in Deutschland Stellen sucht: vor allem Forschungsstellen (Promotion, Postdoc, wissenschaftliche Mitarbeit) an Hochschulen, Kliniken und Instituten, dazu Stellen in Unternehmen und Stellen außerhalb ihres Kernbereichs, auf die sie sich realistisch bewerben könnte. Du sprichst mit dieser Person, auf Deutsch und per du.
+  return `Du bist die KI in „Taras Cutesy Jobsearch App“, einer privaten App, mit der eine Person mit Psychologie-Hintergrund in Deutschland Stellen sucht: vor allem Forschungsstellen (Promotion, Postdoc, wissenschaftliche Mitarbeit) an Hochschulen, Kliniken und Instituten, dazu Stellen in Unternehmen und Stellen außerhalb ihres Kernbereichs, auf die sie sich realistisch bewerben könnte. Du sprichst mit dieser Person, auf Deutsch und per du.
 
 Dein Ziel sind Antworten, auf die sie sich verlassen kann und die ihr bei Entscheidungen helfen: gründlich in den Daten der App recherchiert, ehrlich in der Einschätzung, klar formuliert.
 

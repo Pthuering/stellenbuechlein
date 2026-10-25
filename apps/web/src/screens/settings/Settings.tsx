@@ -343,7 +343,7 @@ function SettingsHome() {
       <div className="group">
         <h2 className="section-title">App</h2>
         <div className="group__card">
-          <Row label="Über das Stellenbüchlein" sub={`Version ${__APP_VERSION__}, Quellen der Karten und Bilder`} onClick={() => navigate('/ich/ueber')} />
+          <Row label="Über die App" sub={`Taras Cutesy Jobsearch App, Version ${__APP_VERSION__}, Quellen der Karten und Bilder`} onClick={() => navigate('/ich/ueber')} />
           {s.demo ? (
             <button
               type="button"

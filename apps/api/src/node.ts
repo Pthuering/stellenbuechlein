@@ -79,5 +79,5 @@ serve({
   },
 });
 
-console.log(`Stellenbüchlein läuft auf http://localhost:${port} (Datenbank: ${dbPath})`);
+console.log(`Taras Cutesy Jobsearch App läuft auf http://localhost:${port} (Datenbank: ${dbPath})`);
 if (!env.APP_KEY) console.warn('Achtung: APP_KEY ist nicht gesetzt – die App kann sich nicht anmelden.');

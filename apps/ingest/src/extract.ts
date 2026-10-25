@@ -162,6 +162,8 @@ export interface ExtractResult {
 }
 
 /** Ruft eine Anzeige ab (HTML oder PDF) und liefert möglichst vollständigen Text. */
+const GENERIC_TITLE = /^(?:job ?offers?|jobs?|vacanc(?:y|ies)|stellenangebote?|stellenanzeigen?|stellenausschreibung(?:en)?|jobangebote?|karriere|careers?|details?)$/i;
+
 export async function extractPosting(http: Http, url: string, opts: { titleHint?: string | null; ignoreRobots?: boolean } = {}): Promise<ExtractResult> {
   const r = await http.get(url, { ignoreRobots: opts.ignoreRobots });
   if (!r.ok) return { data: null, status: r.status, error: r.error, blockedByRobots: r.blockedByRobots, needsBrowser: r.status === 403 };
@@ -186,7 +188,8 @@ export async function extractPosting(http: Http, url: string, opts: { titleHint?
 
   const { data, pdfLinks, listLike, jsShell } = fromHtml(r.text, r.url);
   if (listLike && !data.complete) return { data: null, status: r.status, notAPosting: true };
-  if (!data.title && opts.titleHint) data.title = opts.titleHint;
+  // Allgemeine Überschriften („Job offer“, „Stellenangebot“) durch den Titel aus der Liste ersetzen
+  if ((!data.title || GENERIC_TITLE.test(data.title.trim())) && opts.titleHint) data.title = opts.titleHint;
 
   // Kurzer Text, aber PDF verlinkt → PDF anhängen ("nichts auslassen").
   const mentionsPdf = /pdf|ausschreibung als|download|herunterladen/i.test(data.descriptionMd);

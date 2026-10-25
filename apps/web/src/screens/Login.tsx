@@ -41,7 +41,7 @@ export function Login() {
             <Doodle kind="heart" />
           </div>
           <h1 className="page-title" style={{ textAlign: 'center' }}>
-            Stellenbüchlein
+            Taras Cutesy Jobsearch App
           </h1>
           <p className="page-sub" style={{ textAlign: 'center', marginTop: 0 }}>
             Forschungsstellen mit Psychologie-Bezug, gesammelt und sortiert

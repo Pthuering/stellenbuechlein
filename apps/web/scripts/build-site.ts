@@ -40,7 +40,7 @@ writeFileSync(resolve(out, 'config.json'), `${JSON.stringify(config, null, 2)}\n
 const headers = readFileSync(resolve(dist, '_headers'), 'utf8').replace(/Content-Security-Policy: .*/, `Content-Security-Policy: ${CSP}`);
 writeFileSync(resolve(out, '_headers'), headers);
 
-const htaccess = `# Stellenbüchlein auf Apache-Webspace (IONOS, Strato, all-inkl, Hetzner Webhosting, …).
+const htaccess = `# Taras Cutesy Jobsearch App auf Apache-Webspace (IONOS, Strato, all-inkl, Hetzner Webhosting, …).
 # Die Datei gilt nur für diesen Ordner. Wird sie vom Anbieter nicht unterstützt, läuft die App
 # trotzdem, nur ohne die Sicherheits-Kopfzeilen.
 
@@ -80,7 +80,7 @@ AddType image/svg+xml .svg
 `;
 writeFileSync(resolve(out, '.htaccess'), htaccess);
 
-const readme = `Stellenbüchlein – Paket für die eigene Website
+const readme = `Taras Cutesy Jobsearch App – Paket für die eigene Website
 ==============================================
 
 1. Den GESAMTEN Inhalt dieses Ordners (auch die versteckte Datei .htaccess) in einen

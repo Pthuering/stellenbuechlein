@@ -6,7 +6,7 @@ import { SubPage } from './Settings';
 export function AboutPage() {
   const s = useAppState();
   return (
-    <SubPage title="Über das Stellenbüchlein" sub={`Version ${__APP_VERSION__}${s.demo ? ', Demo' : ''}`}>
+    <SubPage title="Über die App" sub={`Version ${__APP_VERSION__}${s.demo ? ', Demo' : ''}`}>
       <h2 className="section-title">Wie es arbeitet</h2>
       <p>
         Einmal am Tag gegen 12 Uhr (und auf Knopfdruck) sammelt eine Pipeline Stellenanzeigen mit Psychologie-Bezug ein: von Hochschulen, Kliniken, Forschungsinstituten und Unternehmen. Sie probiert dabei nacheinander strukturierte Daten, Feeds, Bewerbungsportale, Sitemaps, eine KI-Auswertung und zuletzt einen Browser-Agenten. Portale wie die Jobsuche der Bundesagentur für Arbeit dienen als Sicherheitsnetz.

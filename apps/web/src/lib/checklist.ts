@@ -113,14 +113,6 @@ export const CHECK_ITEMS: CheckItem[] = [
     auto: (c) => !(c.home.lat === DEFAULT_HOME.lat && c.home.lon === DEFAULT_HOME.lon),
   },
   {
-    id: 'name',
-    group: 'persoenlich',
-    title: 'Name „Stellenbüchlein“ (Arbeitstitel)',
-    what: 'Der Name steht im Manifest (Name auf dem Handy), im Seitentitel, auf der Anmeldeseite und in Benachrichtigungen.',
-    where: 'apps/web/vite.config.ts (name, short_name), apps/web/index.html (title, apple-mobile-web-app-title), apps/web/src/screens/Login.tsx, apps/web/src/sw.ts; dann neu bauen.',
-    auto: () => null,
-  },
-  {
     id: 'kontakt',
     group: 'persoenlich',
     title: 'Kontaktadresse für Seitenbetreiber und Push',
@@ -242,16 +234,6 @@ export const CHECK_ITEMS: CheckItem[] = [
     where: 'Ich → Quellen & Läufe: Quellen mit „Fehler“, „leer“ oder „Warnung“ ansehen, Adresse oder Linkmuster nachschärfen, Probelauf wiederholen.',
     route: '/ich/quellen',
     auto: (c) => (c.demo ? false : c.sourceSummary && c.runs > 0 ? c.sourceSummary.problems === 0 : null),
-  },
-  {
-    id: 'portale',
-    group: 'quellen',
-    title: 'Abgeschaltete Portale',
-    what: 'EURAXESS, academics.de, die Helmholtz-Stellenbörse und Interamt sind aus, weil Adresse oder Nutzungsbedingungen noch zu klären sind.',
-    where: 'data/seed/portals.json bzw. Ich → Quellen & Läufe: Adresse eintragen und einschalten, wenn geklärt.',
-    route: '/ich/quellen',
-    optional: true,
-    auto: () => null,
   },
 ];
 

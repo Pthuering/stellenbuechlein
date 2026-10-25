@@ -89,41 +89,41 @@
   {
     "id": "euraxess",
     "label": "EURAXESS – Deutschland, Psychological sciences",
-    "url": null,
+    "url": "https://euraxess.ec.europa.eu/jobs/search?f%5B0%5D=job_country%3A794&f%5B1%5D=job_research_field%3A374",
     "adapter": "auto",
     "gate": "psych",
-    "enabled": false,
-    "verified": false,
-    "config": { "note": "Filter-URL für Land Germany + Psychological sciences im Browser ermitteln und hier eintragen." }
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern": "/jobs/\\d+$", "maxPages": 3, "note": "Filter Land Deutschland (794) und Psychological sciences (374), Liste ohne JavaScript. Geprüft am 25.10.2026."}
   },
   {
     "id": "academics",
     "label": "academics.de – Psychologie",
-    "url": null,
+    "url": "https://www.academics.de/stellenanzeigen/branche-psychologie-psychotherapie/GQ==",
     "adapter": "auto",
     "gate": "psych",
-    "enabled": false,
-    "verified": false,
-    "config": { "note": "Liste mit Fachgebiet Psychologie im Browser öffnen und URL hier eintragen; Nutzungsbedingungen prüfen." }
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern": "academics\\.de/jobs/[a-z0-9-]+-\\d+$", "maxPages": 3, "note": "Branche Psychologie & Psychotherapie. academics.de untersagt in der robots.txt automatisierten Zugriff ohne Erlaubnis und behält sich Text- und Data-Mining vor (§ 44b UrhG); auf Wunsch rein privat genutzt, schonend (eine Liste am Tag). Eine Erlaubnis ließe sich über info@academics.de anfragen."}
   },
   {
     "id": "helmholtz",
     "label": "Helmholtz-Gemeinschaft – Stellenportal",
-    "url": "https://www.helmholtz.de/karriere/jobs/",
+    "url": "https://www.helmholtz.de/api/v1/jobs/?search%5Bfilter%5D%5B0%5D=fieldOfWork%3APromotion&search%5Bfilter%5D%5B1%5D=fieldOfWork%3APHD%20Thesis&search%5Bfilter%5D%5B2%5D=fieldOfWork%3AWissenschaft%20%2F%20Postdoc&search%5Bfilter%5D%5B3%5D=fieldOfWork%3AScientific%20%2F%20postdoctoral%20posts&search%5Bfilter%5D%5B4%5D=fieldOfWork%3AProfessorship",
     "adapter": "auto",
     "gate": "psych",
-    "enabled": false,
-    "verified": false,
-    "config": { "render": true, "note": "Liste per JavaScript; robots.txt sperrt URLs mit Parametern (Crawl-delay 30). Erst nach Prüfung aktivieren." }
+    "enabled": true,
+    "verified": true,
+    "config": {"pageParam": "search[page]", "maxPages": 10, "note": "JSON-Schnittstelle der Stellenbörse (die Seite selbst lädt per JavaScript), gefiltert auf Promotion, PhD, Wissenschaft/Postdoc und Professur, 10 je Seite, Crawl-delay 30 s. Die Anzeigen liegen bei den Zentren."}
   },
   {
     "id": "interamt",
     "label": "Interamt – öffentlicher Dienst",
-    "url": null,
+    "url": "https://interamt.de/koop/app/stellensuche",
     "adapter": "auto",
     "gate": "psych",
-    "enabled": false,
-    "verified": false,
-    "config": { "note": "robots.txt sperrt Job-Aggregatoren ausdrücklich – vor einer Anbindung Nutzungsbedingungen prüfen." }
+    "enabled": true,
+    "verified": true,
+    "config": {"ats": "interamt", "queries": ["Psycholog"], "maxPages": 40, "maxDetails": 400, "note": "Eigener Adapter (apps/ingest/src/interamt.ts): Suche nur per Formular mit Sitzungs-Cookie. Die robots.txt sperrt nur einzelne Bots (z. B. Jooble), nicht allgemeine Programme."}
   }
 ]
