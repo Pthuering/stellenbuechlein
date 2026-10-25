@@ -30,13 +30,14 @@ Erledigt am 25. Oktober 2026:
 - [x] **GitHub:** privates Repository `Pthuering/stellenbuechlein` mit den Secrets `API_URL`, `INGEST_KEY`, `VAPID_PUBLIC_KEY` und `VAPID_PRIVATE_KEY`.
 - [x] **Cloudflare:** Datenbank in der EU (Region EEUR) mit allen Tabellen, Worker mit `APP_KEY` und `INGEST_KEY`, öffentlicher Push-Schlüssel und `GITHUB_REPO` in `apps/api/wrangler.toml`.
 - [x] **Lokale Kopie aller Schlüssel** in `.env` im Hauptordner (nicht im Repository). In Cloudflare und GitHub lassen sich Secrets nicht mehr auslesen.
+- [x] **DeepSeek-Schlüssel** (GitHub und Worker) und **GitHub-Token** für „Jetzt einsammeln“, live getestet. Überall das große Modell `deepseek-v4-pro`.
+- [x] **KI-Assistent** (Mini-Harness) unter *Ich → KI-Assistent*, mit Verbrauch und Guthaben, live getestet ([BETRIEB.md](BETRIEB.md), Schritt 5a).
 
 Fehlt noch, mit Anleitung in [BETRIEB.md](BETRIEB.md) und in der Checkliste der App (*Server und Konten*). Die Befehle zum Setzen stehen gesammelt in [SCHLUESSEL.md](SCHLUESSEL.md).
 
-- [ ] **DeepSeek-Schlüssel:** GitHub-Secret `DEEPSEEK_API_KEY`, für Brücken-Vorschläge zusätzlich das Worker-Secret `LLM_API_KEY` (Schritte 4 und 5a).
-- [ ] **GitHub-Token** für „Jetzt einsammeln“ und sofortige Probeläufe (Schritt 5).
 - [ ] **Kontaktadresse** (`CRAWLER_CONTACT`, `VAPID_SUBJECT`): bewusst vorerst leer.
-- [ ] **Erster Lauf** unter *Actions → Einsammeln → Run workflow*, sonst startet er von selbst um 12 Uhr. Danach im Repository unter *Settings → Billing* nachsehen, wie viele der 2.000 Minuten ein Lauf braucht.
+- [ ] **Erster Lauf auswerten** (gestartet am 25. Oktober, noch mit dem kleinen Modell): Laufzeit gegen die 120-Minuten-Grenze des Workflows und die 2.000 Actions-Minuten im Monat, Quellen mit Fehlern, KI-Fehler im Protokoll (die Kosten zählt erst der nächste Lauf). Bricht ein Lauf an der Zeitgrenze ab, fehlen Protokoll und Kosten dieses Laufs; die bis dahin gefundenen Anzeigen bleiben.
+- [ ] **KI-Assistent mit echten Anzeigen ausprobieren**, sobald der erste Lauf Daten gebracht hat.
 - [ ] Optional: **automatisch veröffentlichen** bei jedem Push (Schritt 6).
 
 ## 3. Quellen: Stand der Recherche vom 23. Oktober
