@@ -249,7 +249,7 @@ function Busy({ since, onStop }: { since: number; onStop: () => void }) {
       <IconSpark className="ki-busy__icon" width={20} height={20} />
       <span>
         Die KI recherchiert und denkt gründlich nach … {sec} s
-        {sec > 20 && <small className="hint"> Das dauert oft eine bis zwei Minuten.</small>}
+        {sec > 20 && <small className="hint"> Das dauert oft ein bis drei Minuten, bei großen Recherchen länger.</small>}
       </span>
       <button type="button" className="btn btn--small btn--quiet" onClick={onStop}>
         Stopp
@@ -398,7 +398,7 @@ export function AssistantPage() {
           {!asked && loaded && (
             <>
               <p className="hint">
-                Die KI recherchiert in allen Anzeigen der App, liest Volltexte und kennt dein Suchprofil. Sie nutzt das große Modell mit gründlichem Nachdenken, deshalb dauert eine Antwort meist eine bis zwei Minuten. Ändern kann sie nichts: Was sie vorschlägt, übernimmst du selbst.
+                Die KI recherchiert in allen Anzeigen der App, liest Volltexte und kennt dein Suchprofil. Sie nutzt das große Modell mit gründlichem Nachdenken, deshalb dauert eine Antwort meist ein bis drei Minuten. Ändern kann sie nichts: Was sie vorschlägt, übernimmst du selbst.
               </p>
               <div className="ki-presets">
                 {presets.map((p) => (
