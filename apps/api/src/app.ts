@@ -36,18 +36,28 @@ import {
   type Db,
 } from '@stellen/db';
 import {
+  addUsage,
+  ASSISTANT_TOOLS,
   bigModel,
   bridgeSuggestionMessages,
   canonicalUrl,
+  FINAL_STEP_NOTE,
   INSTITUTION_KINDS,
+  llmCostUsd,
   parseBridgeSuggestions,
   parseProfile,
   siteKeyOf,
   starterProfile,
+  todayBerlin,
   toSuggestedBridges,
   withoutThinking,
+  withThinking,
+  type AssistantStepResult,
   type Institution,
   type InstitutionKind,
+  type KiUsageReport,
+  type KiVerbrauch,
+  type LlmUsage,
   type Source,
   type SourceConfig,
 } from '@stellen/core';
@@ -96,6 +106,54 @@ const markSchema = z.object({
 });
 
 const SETTINGS_KEYS = new Set(['profile', 'filter', 'home', 'reminders', 'gateTerms', 'sort', 'ui', 'notifyHighScore', 'checklist']);
+
+const assistantStepSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['system', 'user', 'assistant', 'tool']),
+        content: z.string().max(400_000).nullable(),
+        reasoning_content: z.string().max(400_000).optional(),
+        tool_calls: z
+          .array(z.object({ id: z.string().max(200), type: z.literal('function'), function: z.object({ name: z.string().max(64), arguments: z.string().max(100_000) }) }))
+          .max(30)
+          .optional(),
+        tool_call_id: z.string().max(200).optional(),
+      }),
+    )
+    .min(2)
+    .max(400),
+  final: z.boolean().optional(),
+});
+
+/** Verständliche Meldung für Fehler der KI-Schnittstelle. */
+function llmErrorText(status: number): string {
+  if (status === 401 || status === 403) return 'Der KI-Schlüssel im Worker stimmt nicht (LLM_API_KEY).';
+  if (status === 402) return 'Das Guthaben bei DeepSeek ist aufgebraucht.';
+  if (status === 429) return 'Die KI ist gerade ausgelastet. Bitte gleich noch einmal versuchen.';
+  if (status === 400 || status === 422) return 'Die KI hat die Anfrage abgelehnt. Ein neues Gespräch hilft meistens.';
+  return `Die KI hat mit Fehler ${status} geantwortet. Bitte später noch einmal versuchen.`;
+}
+
+/** KI-Kosten der Einsammel-Läufe pro Tag (deutsche Zeit) in US-Dollar. */
+async function pipelineUsdByDay(db: Db, runs = 120): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  for (const r of await listRuns(db, runs)) {
+    const usd = r.stats?.kiKostenUsd;
+    if (!usd) continue;
+    const day = todayBerlin(new Date(r.startedAt));
+    out.set(day, (out.get(day) ?? 0) + usd);
+  }
+  return out;
+}
+
+/** Zählt die Kosten eines KI-Aufrufs im Worker und gibt den Verbrauch des Tages zurück (Worker und Läufe). */
+async function recordUsage(db: Db, usd: number): Promise<number> {
+  const today = todayBerlin();
+  const v = addUsage(await getSetting<KiVerbrauch | null>(db, 'ki_verbrauch', null), today, usd);
+  await setSetting(db, 'ki_verbrauch', v);
+  return (v.tage[today]?.usd ?? 0) + ((await pipelineUsdByDay(db, 10)).get(today) ?? 0);
+}
 
 const newInstitutionSchema = z.object({
   name: z.string().min(2).max(200),
@@ -479,13 +537,14 @@ export function createApp(deps: AppDeps): Hono {
     const body = (await c.req.json().catch(() => null)) as { profile?: unknown } | null;
     const profile = parseProfile(body?.profile) ?? parseProfile(await getSetting<unknown>(deps.db(c), 'profile', null)) ?? starterProfile();
     const baseUrl = (env.LLM_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
+    const model = bigModel(env.LLM_MODEL);
     // Zwei Versuche: DeepSeek liefert im JSON-Modus gelegentlich eine leere Antwort.
     for (let attempt = 1; attempt <= 2; attempt++) {
       const res = await fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { authorization: `Bearer ${env.LLM_API_KEY}`, 'content-type': 'application/json' },
         body: JSON.stringify({
-          model: bigModel(env.LLM_MODEL),
+          model,
           ...withoutThinking(baseUrl),
           messages: bridgeSuggestionMessages(profile),
           temperature: 0.7,
@@ -497,7 +556,8 @@ export function createApp(deps: AppDeps): Hono {
         console.warn(`Brücken-Vorschläge: KI antwortet mit ${res?.status ?? 'keiner Verbindung'}`);
         return c.json({ error: 'Die KI hat gerade nicht geantwortet. Bitte später noch einmal versuchen.' }, 502);
       }
-      const data = (await res.json().catch(() => null)) as { choices?: { message?: { content?: string }; finish_reason?: string }[] } | null;
+      const data = (await res.json().catch(() => null)) as { choices?: { message?: { content?: string }; finish_reason?: string }[]; usage?: LlmUsage } | null;
+      await recordUsage(deps.db(c), llmCostUsd(data?.usage, model));
       const choice = data?.choices?.[0];
       const content = (choice?.message?.content ?? '').replace(/^```(?:json)?\s*|```\s*$/g, '').trim();
       let parsed: unknown = null;
@@ -512,6 +572,92 @@ export function createApp(deps: AppDeps): Hono {
       if (bruecken.length) return c.json({ bruecken: toSuggestedBridges(bruecken, profile) });
     }
     return c.json({ error: 'Die Antwort der KI war unbrauchbar. Bitte noch einmal versuchen.' }, 502);
+  });
+
+  // ---------------------------------------------------------------- KI-Gespräch (Mini-Harness)
+
+  /**
+   * Ein Schritt im Gespräch. Die Schleife und die Werkzeuge laufen in der App; hier werden Modell (immer das
+   * große), Denkmodus (höchste Stufe) und Werkzeuge festgelegt und die Kosten gezählt.
+   */
+  app.post('/api/ki/schritt', async (c) => {
+    const env = deps.env(c);
+    if (!env.LLM_API_KEY) return c.json({ error: 'Für Gespräche braucht der Worker einen KI-Schlüssel (LLM_API_KEY).' }, 501);
+    const raw = await c.req.text();
+    if (raw.length > 3_000_000) return c.json({ error: 'Das Gespräch ist zu lang geworden. Bitte ein neues beginnen.' }, 413);
+    let body: unknown = null;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      body = null;
+    }
+    const p = assistantStepSchema.safeParse(body);
+    if (!p.success) return c.json({ error: 'Ungültige Anfrage an die KI.' }, 400);
+    const baseUrl = (env.LLM_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
+    const model = bigModel(env.LLM_MODEL);
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${env.LLM_API_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        // Im letzten Schritt muss die KI antworten; der Hinweis hält sie dabei an die Belege.
+        messages: p.data.final ? [...p.data.messages, { role: 'user', content: FINAL_STEP_NOTE }] : p.data.messages,
+        tools: ASSISTANT_TOOLS,
+        ...(p.data.final ? { tool_choice: 'none' } : {}),
+        ...withThinking(baseUrl, 'max'),
+      }),
+    }).catch(() => null);
+    if (!res) return c.json({ error: 'Die KI ist gerade nicht erreichbar.' }, 502);
+    if (!res.ok) {
+      console.warn(`KI-Schritt: ${res.status} ${(await res.text().catch(() => '')).slice(0, 300)}`);
+      return c.json({ error: llmErrorText(res.status) }, 502);
+    }
+    const data = (await res.json().catch(() => null)) as {
+      choices?: { message?: { content?: string | null; reasoning_content?: string | null; tool_calls?: { id: string; function: { name: string; arguments: string } }[] }; finish_reason?: string }[];
+      usage?: LlmUsage;
+    } | null;
+    const choice = data?.choices?.[0];
+    const usd = llmCostUsd(data?.usage, model);
+    const heuteUsd = await recordUsage(deps.db(c), usd);
+    if (!choice?.message) return c.json({ error: 'Die Antwort der KI war leer. Bitte noch einmal versuchen.' }, 502);
+    const m = choice.message;
+    const out: AssistantStepResult = {
+      message: {
+        role: 'assistant',
+        content: m.content ?? null,
+        ...(m.reasoning_content ? { reasoning_content: m.reasoning_content } : {}),
+        ...(m.tool_calls?.length ? { tool_calls: m.tool_calls.map((t) => ({ id: t.id, type: 'function' as const, function: { name: t.function.name, arguments: t.function.arguments } })) } : {}),
+      },
+      finishReason: choice.finish_reason ?? null,
+      usd,
+      heuteUsd,
+    };
+    return c.json(out);
+  });
+
+  /** Verbrauch der KI (Gespräche, Brücken-Vorschläge, Einsammeln) und das Guthaben bei DeepSeek. */
+  app.get('/api/ki/verbrauch', async (c) => {
+    const env = deps.env(c);
+    const db = deps.db(c);
+    const [v, runs] = await Promise.all([getSetting<KiVerbrauch | null>(db, 'ki_verbrauch', null), pipelineUsdByDay(db)]);
+    const days = new Set([...Object.keys(v?.tage ?? {}), ...runs.keys()]);
+    const tage = [...days]
+      .sort()
+      .reverse()
+      .slice(0, 62)
+      .map((tag) => ({ tag, appUsd: v?.tage[tag]?.usd ?? 0, einsammelnUsd: runs.get(tag) ?? 0 }));
+    const today = todayBerlin();
+    const sum = (list: typeof tage) => list.reduce((s, t) => s + t.appUsd + t.einsammelnUsd, 0);
+    let guthaben: KiUsageReport['guthaben'] = null;
+    const baseUrl = (env.LLM_BASE_URL ?? 'https://api.deepseek.com').replace(/\/$/, '');
+    if (env.LLM_API_KEY && /deepseek\.com/i.test(baseUrl)) {
+      const r = await fetch(`${baseUrl}/user/balance`, { headers: { authorization: `Bearer ${env.LLM_API_KEY}` } }).catch(() => null);
+      const b = r?.ok ? ((await r.json().catch(() => null)) as { is_available?: boolean; balance_infos?: { currency: string; total_balance: string }[] } | null) : null;
+      const info = b?.balance_infos?.find((i) => i.currency === 'USD') ?? b?.balance_infos?.[0];
+      if (info) guthaben = { waehrung: info.currency, betrag: Number(info.total_balance), verfuegbar: b?.is_available !== false };
+    }
+    const out: KiUsageReport = { tage, heuteUsd: sum(tage.filter((t) => t.tag === today)), monatUsd: sum(tage.filter((t) => t.tag.startsWith(today.slice(0, 7)))), guthaben };
+    return c.json(out);
   });
 
   app.get('/api/runs', async (c) => c.json({ runs: await listRuns(deps.db(c), 20) }));

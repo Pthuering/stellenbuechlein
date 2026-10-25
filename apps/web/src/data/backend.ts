@@ -1,6 +1,6 @@
 // Schnittstelle zwischen App und Server – echte API (api.ts) oder Demo (demo.ts).
 
-import type { Bruecke, City, DeadlineCheck, Favorite, FavoriteKind, Institution, InstitutionKind, Job, JobKind, Mark, RunInfo, Source, SourceConfig, SourceStatus, Suchprofil } from '@stellen/core';
+import type { AssistantMessage, AssistantStepResult, Bruecke, City, DeadlineCheck, Favorite, FavoriteKind, Institution, InstitutionKind, Job, JobKind, KiUsageReport, Mark, RunInfo, Source, SourceConfig, SourceStatus, Suchprofil } from '@stellen/core';
 
 export interface SourceSummary {
   total: number;
@@ -172,6 +172,10 @@ export interface Backend {
   pushSubscribe(sub: PushSubscriptionJSON): Promise<void>;
   pushUnsubscribe(endpoint: string): Promise<void>;
   triggerIngest(): Promise<void>;
+  /** Ein Schritt im KI-Gespräch; Modell, Denkmodus und Werkzeuge legt der Worker fest. */
+  assistantStep(messages: AssistantMessage[], final: boolean, signal?: AbortSignal): Promise<AssistantStepResult>;
+  /** Verbrauch der KI und Guthaben bei DeepSeek. */
+  kiUsage(): Promise<KiUsageReport>;
 }
 
 /** Schlüssel falsch oder fehlt. */

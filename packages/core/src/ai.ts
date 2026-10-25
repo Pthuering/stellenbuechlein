@@ -30,6 +30,11 @@ export function withoutThinking(baseUrl: string): { thinking?: { type: 'disabled
   return /deepseek\.com/i.test(baseUrl) ? { thinking: { type: 'disabled' } } : {};
 }
 
+/** Denkmodus mit Stufe, für Aufgaben, bei denen Qualität vor Tempo geht (Gespräche in der App). */
+export function withThinking(baseUrl: string, effort: 'low' | 'high' | 'max'): { thinking?: { type: 'enabled' }; reasoning_effort?: string } {
+  return /deepseek\.com/i.test(baseUrl) ? { thinking: { type: 'enabled' }, reasoning_effort: effort } : {};
+}
+
 /** Suchbegriffe: Liste oder Text mit Kommas, zu kurze und zu lange fallen weg. */
 const terms = (max: number) =>
   z

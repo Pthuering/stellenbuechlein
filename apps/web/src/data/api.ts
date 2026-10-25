@@ -1,6 +1,6 @@
 // Echte API über HTTP (gleiche Herkunft wie die App).
 
-import type { Bruecke, FavoriteKind, Mark, RunInfo, Suchprofil } from '@stellen/core';
+import type { AssistantMessage, AssistantStepResult, Bruecke, FavoriteKind, KiUsageReport, Mark, RunInfo, Suchprofil } from '@stellen/core';
 import {
   AuthError,
   OfflineError,
@@ -126,5 +126,13 @@ export class HttpBackend implements Backend {
 
   async triggerIngest(): Promise<void> {
     await this.call('/api/ingest/trigger', { method: 'POST' });
+  }
+
+  assistantStep(messages: AssistantMessage[], final: boolean, signal?: AbortSignal): Promise<AssistantStepResult> {
+    return this.call('/api/ki/schritt', { method: 'POST', body: JSON.stringify({ messages, final }), signal });
+  }
+
+  kiUsage(): Promise<KiUsageReport> {
+    return this.call('/api/ki/verbrauch');
   }
 }

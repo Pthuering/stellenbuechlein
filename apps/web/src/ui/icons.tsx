@@ -175,6 +175,14 @@ export const IconMail = (p: P) => (
   </Svg>
 );
 
+/** Funken: die KI */
+export const IconSpark = (p: P) => (
+  <Svg {...p}>
+    <path d="M11.2 3.6c.5 3.9 2 5.6 5.9 6.3-3.9.8-5.3 2.5-5.9 6.5-.6-4-2.1-5.7-6-6.4 3.9-.8 5.5-2.5 6-6.4Z" />
+    <path d="M18.3 14.6c.2 1.7.9 2.4 2.5 2.7-1.6.3-2.3 1-2.5 2.7-.3-1.7-1-2.4-2.6-2.7 1.6-.3 2.4-1 2.6-2.7Z" />
+  </Svg>
+);
+
 /** Unsichtbare SVG-Filter für Stempel (raue Kanten). */
 export function SvgDefs() {
   return (

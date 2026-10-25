@@ -1,7 +1,7 @@
 // Kleine Absichten zwischen Seiten, z. B. „öffne den Probelauf für diese Adresse“ aus einer Anzeige heraus.
 // Lebt nur im Speicher, solange die App offen ist.
 
-type IntentKey = 'checkUrl' | 'editBridge';
+type IntentKey = 'checkUrl' | 'editBridge' | 'kiAnzeige' | 'kiThema';
 
 const intents = new Map<IntentKey, string>();
 

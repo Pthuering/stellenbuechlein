@@ -7,6 +7,11 @@ marked.setOptions({ gfm: true, breaks: false });
 
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   if (node.tagName === 'A') {
+    // Verweise innerhalb der App (#/stelle/…, aus Antworten der KI) bleiben im selben Fenster.
+    if ((node.getAttribute('href') ?? '').startsWith('#/')) {
+      node.removeAttribute('target');
+      return;
+    }
     node.setAttribute('target', '_blank');
     node.setAttribute('rel', 'noopener noreferrer');
   }

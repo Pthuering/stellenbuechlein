@@ -11,7 +11,7 @@ import { renderMarkdown } from '../lib/markdown';
 import { Sheet } from '../ui/Sheet';
 import { Polaroid } from '../ui/Polaroid';
 import { Hearts, ScoreRing } from '../ui/bits';
-import { IconCheck, IconDoc, IconExternal, IconHeart, IconMail, IconPin, IconStar, IconX } from '../ui/icons';
+import { IconCheck, IconDoc, IconExternal, IconHeart, IconMail, IconPin, IconSpark, IconStar, IconX } from '../ui/icons';
 
 function Why({ score }: { score: ScoreResult }) {
   const cats = score.categories.filter((c) => c.max > 0);
@@ -242,9 +242,23 @@ export function JobDetail({ id }: { id: string }) {
 
       <h2 className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span>Passt zu {v.score.score} %</span>
-        <button type="button" className="btn btn--quiet btn--small" onClick={() => setShowWhy((x) => !x)} aria-expanded={showWhy}>
-          {showWhy ? 'weniger' : 'warum?'}
-        </button>
+        <span style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="btn btn--quiet btn--small" onClick={() => setShowWhy((x) => !x)} aria-expanded={showWhy}>
+            {showWhy ? 'weniger' : 'warum?'}
+          </button>
+          {s.aiSuggest && !s.demo && (
+            <button
+              type="button"
+              className="btn btn--small"
+              onClick={() => {
+                setIntent('kiAnzeige', job.id);
+                leaveOverlayTo('/ich/ki');
+              }}
+            >
+              <IconSpark width={18} height={18} /> KI fragen
+            </button>
+          )}
+        </span>
       </h2>
       {showWhy && <Why score={v.score} />}
 

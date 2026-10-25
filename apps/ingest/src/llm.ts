@@ -3,7 +3,7 @@
 // Browser-Agent braucht eine Entscheidung, Kurzfassung für die Karte.
 
 import { z } from 'zod';
-import { INSTITUTION_KINDS, withoutThinking } from '@stellen/core';
+import { INSTITUTION_KINDS, llmCostUsd, withoutThinking, type LlmUsage } from '@stellen/core';
 import type { IngestConfig } from './config';
 import type { RunLog } from './log';
 
@@ -25,6 +25,8 @@ const MAX_LOGGED_FAILURES = 10;
 export class Llm {
   calls = 0;
   failures = 0;
+  /** Kosten aller Aufrufe dieses Laufs in US-Dollar (landet in der Laufstatistik). */
+  costUsd = 0;
   /** Schlüssel ungültig oder Guthaben leer: dann für den Rest des Laufs nicht mehr fragen. */
   private disabled = false;
 
@@ -71,7 +73,8 @@ export class Llm {
         }
         return this.fail(`Anfrage fehlgeschlagen (${res.status})`);
       }
-      const data = (await res.json()) as { choices?: { message?: { content?: string }; finish_reason?: string }[] };
+      const data = (await res.json()) as { choices?: { message?: { content?: string }; finish_reason?: string }[]; usage?: LlmUsage };
+      this.costUsd += llmCostUsd(data.usage, this.cfg.model);
       const choice = data.choices?.[0];
       if (choice?.finish_reason === 'length') return this.fail(`Antwort nach ${maxTokens} Tokens abgeschnitten`);
       const parsed = schema.safeParse(JSON.parse((choice?.message?.content ?? '').replace(/^```(?:json)?\s*|```\s*$/g, '')));

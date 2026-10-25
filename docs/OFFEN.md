@@ -70,7 +70,7 @@ Neun parallele Recherchen haben Hochschulen und Kliniken in allen Regionen, auß
 - Mit Dummy-Daten ist die App ohne Schlüssel für alle sichtbar, die die Adresse kennen; mit echten Daten nur mit Schlüssel. Suchmaschinen sind in beiden Fällen ausgesperrt.
 - Die Dummy-Anzeigen sind erfunden; ihre Einrichtungen, Städte und Quellen sind echt. Der Knopf in einer Dummy-Anzeige führt zur echten Stellenliste der Einrichtung.
 - Die Adresssuche schickt die Eingabe an OpenStreetMap (Nominatim); gespeichert wird der Ort auf etwa 100 m gerundet.
-- An die KI gehen Anzeigentexte und Stichworte aus dem Suchprofil, keine Namen oder Kontaktdaten von dir.
+- An die KI gehen beim Einsammeln Anzeigentexte und Stichworte aus dem Suchprofil. Im KI-Assistenten zusätzlich deine Fragen, das ganze Suchprofil, Markierungen und Notizen der Anzeigen, die sie liest, und die Stadt deines Zuhauses (keine Straße). Persönliche Angaben gehören deshalb nicht in Fragen und Notizen.
 - Die Karte ist stilisiert: Einrichtungen ohne eigene Koordinaten liegen am Stadtmittelpunkt.
 - „Neue Website“ heißt: Weder die Website noch der Arbeitgeber standen beim Fund im Register. Bei Jobbörsen und Bewerbermanagement-Systemen mit Firmennamen im Pfad (Lever, Greenhouse, SmartRecruiters, JOIN) zählt der Arbeitgeber.
 - Soll die App später auch anderen zugänglich sein, wäre vorher zu klären, wie Anzeigentexte, Ausnahmen von der robots.txt sowie Impressum und Datenschutzerklärung zu handhaben sind.

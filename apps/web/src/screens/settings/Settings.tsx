@@ -20,6 +20,7 @@ import { SourcesPage } from './SourcesPage';
 import { AboutPage } from './AboutPage';
 import { HorizontPage } from './HorizontPage';
 import { ChecklistPage, useChecklist } from './ChecklistPage';
+import { AssistantPage } from './AssistantPage';
 
 export function SubPage({ title, sub, children, labelId }: { title: string; sub?: ReactNode; children: ReactNode; labelId?: string }) {
   const id = labelId ?? `sub-${title.replace(/\W+/g, '-').toLowerCase()}`;
@@ -231,6 +232,18 @@ function SettingsHome() {
       </div>
 
       <div className="group">
+        <h2 className="section-title">KI</h2>
+        <div className="group__card">
+          <Row
+            label="KI-Assistent"
+            sub="Fragen zu Anzeigen, Profil und Brücken; recherchiert in allen Anzeigen, schlägt Änderungen vor; mit Verbrauch"
+            value={s.demo ? 'Demo' : s.aiSuggest ? undefined : 'nicht eingerichtet'}
+            onClick={() => navigate('/ich/ki')}
+          />
+        </div>
+      </div>
+
+      <div className="group">
         <h2 className="section-title">Einsammeln</h2>
         <div className="group__card">
           <Row
@@ -365,6 +378,8 @@ export function SettingsScreen({ sub }: { sub: string | null }) {
       return <AboutPage />;
     case 'checkliste':
       return <ChecklistPage />;
+    case 'ki':
+      return <AssistantPage />;
     default:
       return <SettingsHome />;
   }

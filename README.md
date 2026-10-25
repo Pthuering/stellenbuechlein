@@ -16,6 +16,7 @@ Private App für die Suche nach Stellen mit Psychologie-Bezug in Deutschland: Un
 - **Alle:** jede offene Anzeige, unabhängig vom Wischen, mit Suche, Filtern und Sortierung.
 - **Ich:** Suchprofil mit Herzchen-Score, Horizont, Steckbrief-Import, Lieblingsorte, Zuhause und Umkreis (Standard: Halle (Saale)), Fristen-Erinnerungen (1 Monat, 1 Woche, 1 Tag vorher, änderbar, auch als Push), Benachrichtigung bei neuen Anzeigen ab 85 % (einmal pro Lauf, Schwelle änderbar), Quellen mit Zustand, Vorschlägen, Aussortiertem und Lauf-Protokollen, Bilder auf den Karten an oder aus, helles und dunkles Notizbuch.
 
+- **KI-Assistent:** Fragen zu Anzeigen, Profil und Brücken („Passt diese Stelle zu mir?“, „Was ist diese Woche Gutes reingekommen?“, „Welche Brücken fehlen mir?“). Die KI recherchiert mit Werkzeugen in allen Anzeigen, liest Volltexte, testet Brücken und schlägt Änderungen vor, die du selbst übernimmst. Immer das große DeepSeek-Modell mit gründlichem Nachdenken; Verbrauch und Guthaben stehen dabei.
 - **Platzhalter-Checkliste:** Knopf oben (und unter *Ich*) mit allem, was noch Dummy, Beispiel oder Standardwert ist: Dummy-Anzeigen, Startprofil, Zuhause, Name, Konten und Schlüssel, Quellen. Was die App selbst erkennt, hakt sie ab.
 
 Gestaltung: Weiß und Beige als Fläche, Rosa als Primärfarbe, Lavendel sparsam für Orientierung, Hellgelb nur für Fristen und Herzensjobs. Die Regeln stehen in [docs/GESTALTUNG.md](docs/GESTALTUNG.md).

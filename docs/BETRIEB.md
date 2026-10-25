@@ -108,16 +108,22 @@ Beide starten einen GitHub-Workflow aus der App heraus.
 
 Ohne Token gibt es den Knopf „Jetzt einsammeln“ nicht, und ein Probelauf für eine neue Website wartet bis zum nächsten täglichen Lauf (er wird am Anfang jedes Laufs abgearbeitet). Der Workflow für Probeläufe heißt `quelle-pruefen.yml` (änderbar über `GITHUB_CHECK_WORKFLOW`) und braucht dieselben Secrets wie das Einsammeln.
 
-## 5a. KI im Worker (optional, für Brücken-Vorschläge)
+## 5a. KI im Worker (optional, für den KI-Assistenten und Brücken-Vorschläge)
 
-Unter *Ich → Horizont → Brücken vorschlagen lassen* schlägt die KI neue Brücken aus Profil und Interessen vor. Dafür braucht der Worker selbst einen Schlüssel:
+Mit einem Schlüssel im Worker gibt es zwei Dinge in der App: den **KI-Assistenten** (*Ich → KI-Assistent*, dazu „KI fragen“ in jeder Anzeige und „Mit der KI besprechen“ im Horizont) und unter *Ich → Horizont → Brücken vorschlagen lassen* neue Brücken aus Profil und Interessen. Dafür braucht der Worker selbst einen Schlüssel:
 
 ```bash
 cd apps/api
 npx wrangler secret put LLM_API_KEY    # derselbe Schlüssel wie DEEPSEEK_API_KEY
 ```
 
-`LLM_BASE_URL` und `LLM_MODEL` stehen in `wrangler.toml` (Standard DeepSeek). An die KI gehen dabei nur Stichworte aus dem Suchprofil (Themen, Methoden, Interessen, Namen der Brücken).
+`LLM_BASE_URL` und `LLM_MODEL` stehen in `wrangler.toml` (Standard DeepSeek, immer das große Modell `deepseek-v4-pro`).
+
+**So arbeitet der KI-Assistent (Mini-Harness):** Das Gespräch läuft in der App, denn dort liegen alle Anzeigen. Die KI bekommt Werkzeuge: Anzeigen suchen und zählen, eine Anzeige vollständig lesen (mit Score-Details), Brücken an allen offenen Anzeigen testen. Ändern kann sie nichts selbst; für Markierungen, Notizen, Brücken, Suchprofil und Filter legt sie Vorschläge an, die du per „Übernehmen“ annimmst. Für möglichst gute Antworten bekommt sie eine feste Grundanweisung mit deinem ganzen Suchprofil und den Regeln der App, zu jeder Frage frischen Kontext (Datum, Datenstand, Markierungen, Filter, Lieblingsorte, die geöffnete Anzeige samt Volltext, deine Entscheidungen über ihre Vorschläge) und eine Arbeitsweise mit Prüfschritt; die Knöpfe zum Start geben zusätzlich passende Arbeitsaufträge mit. Der Worker legt Modell, höchste Denkstufe und Werkzeuge fest; nach höchstens 12 Schritten muss die KI antworten. Grundanweisung, Werkzeuge und Aufträge stehen in `packages/core/src/assistant.ts`.
+
+**Kosten:** Eine Frage kostet je nach Recherche etwa 1 bis 5 Cent. Unter *Ich → KI-Assistent* stehen der Verbrauch von heute und im Monat (Gespräche und Einsammeln zusammen, pro Tag aufklappbar) und das Guthaben bei DeepSeek. Ab 1 € an einem Tag erscheint ein Hinweis; gesperrt wird nichts.
+
+**Was an die KI geht:** bei Brücken-Vorschlägen nur Stichworte aus dem Suchprofil. Im KI-Assistenten zusätzlich deine Fragen, das ganze Suchprofil, Anzeigentexte, deine Markierungen und Notizen zu den Anzeigen, die sie liest, und die nächstgelegene Stadt deines Zuhauses (keine Straße). DeepSeek ist ein Anbieter aus China; persönliche Angaben gehören deshalb nicht in Fragen und Notizen.
 
 ## 6. Automatisch veröffentlichen (optional)
 

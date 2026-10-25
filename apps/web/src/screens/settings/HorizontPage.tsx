@@ -17,8 +17,8 @@ import {
   type HorizontDosis,
 } from '@stellen/core';
 import { useAppState, useStore, useViews } from '../../data/hooks';
-import { takeIntent } from '../../lib/intent';
-import { openJob } from '../../lib/router';
+import { navigate, openJob } from '../../lib/router';
+import { setIntent, takeIntent } from '../../lib/intent';
 import { Sheet } from '../../ui/Sheet';
 import { IconPencil, IconPlus, IconTrash } from '../../ui/icons';
 import { SubPage } from './Settings';
@@ -292,6 +292,18 @@ export function HorizontPage() {
           <button type="button" className="btn btn--small" disabled={asking || !s.aiSuggest} onClick={() => void ask()}>
             {asking ? 'KI denkt nach …' : 'Brücken vorschlagen lassen'}
           </button>
+          {s.aiSuggest && !s.demo && (
+            <button
+              type="button"
+              className="btn btn--small"
+              onClick={() => {
+                setIntent('kiThema', 'horizont');
+                navigate('/ich/ki');
+              }}
+            >
+              Mit der KI besprechen
+            </button>
+          )}
         </div>
         {!s.aiSuggest && <p className="hint">Für Vorschläge braucht der Worker einen KI-Schlüssel (siehe Betriebsanleitung).</p>}
 

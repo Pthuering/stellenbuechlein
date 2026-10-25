@@ -307,6 +307,14 @@ export class DemoBackend implements Backend {
   async triggerIngest(): Promise<void> {
     throw new Error('In der Demo wird nicht eingesammelt.');
   }
+
+  async assistantStep(): Promise<never> {
+    throw new Error('Die KI gibt es nur in der eingerichteten App.');
+  }
+
+  async kiUsage(): Promise<never> {
+    throw new Error('Die KI gibt es nur in der eingerichteten App.');
+  }
 }
 
 /** Nachgestellter Lauf von heute gegen 12 Uhr. */

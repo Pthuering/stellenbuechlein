@@ -2490,3 +2490,252 @@ details.help ul {
   border: 2px dashed var(--secondary-strong);
   border-radius: 50%;
 }
+
+/* ------------------------------------------------------------------ KI-Assistent */
+/* Fragen der Person rosa (Primär: was du tust), Antworten der KI mit lavendelfarbener Linie (Sekundär: Erklärung). */
+
+.ki-usage {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.ki-usage__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  margin: 0;
+}
+
+.ki-usage__days {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ki-usage__days li {
+  display: grid;
+  grid-template-columns: 6.5em 5.5em 1fr;
+  gap: 8px;
+}
+
+.ki-usage .notice {
+  margin-top: 8px;
+  color: var(--text);
+}
+
+.ki-topic {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.ki-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 16px;
+}
+
+.ki-chat {
+  display: grid;
+  gap: 12px;
+  margin: 6px 0 14px;
+}
+
+.ki-q {
+  justify-self: end;
+  max-width: 88%;
+  padding: 8px 12px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--primary-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ki-a {
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--secondary);
+}
+
+.ki-a__head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--secondary-strong);
+}
+
+.ki-a__body {
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ki-a__body > :first-child {
+  margin-top: 0;
+}
+
+.ki-a__body > :last-child {
+  margin-bottom: 0;
+}
+
+.ki-a__body ul,
+.ki-a__body ol {
+  padding-left: 1.3em;
+}
+
+.ki-a__body a {
+  color: var(--primary-strong);
+}
+
+.ki-a__thoughts {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ki-a__thoughts summary {
+  cursor: pointer;
+}
+
+.ki-a__thoughts p {
+  margin: 4px 0 0;
+  max-height: 280px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.ki-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 12px;
+  display: grid;
+  gap: 2px;
+  border-left: 3px dotted color-mix(in srgb, var(--secondary) 60%, transparent);
+  font-size: 13px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.ki-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--text) 30%, transparent);
+  background: var(--surface-raised);
+}
+
+.ki-card--uebernommen {
+  border-style: solid;
+  border-color: var(--primary);
+}
+
+.ki-card--abgelehnt {
+  opacity: 0.62;
+}
+
+.ki-card__kicker {
+  margin: 0;
+  font-size: 13px;
+  color: var(--secondary-strong);
+}
+
+.ki-card__title {
+  margin: 2px 0 4px;
+  font-weight: 650;
+}
+
+.ki-card__line {
+  margin: 2px 0;
+  font-size: 15px;
+}
+
+.ki-card__note {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  font-size: 14px;
+  white-space: pre-wrap;
+}
+
+.ki-card__changes {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  font-size: 14px;
+  display: grid;
+  gap: 2px;
+}
+
+.ki-card__why {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.ki-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ki-card__status {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ki-busy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 10px;
+  font-size: 14px;
+  color: var(--secondary-strong);
+}
+
+.ki-busy small {
+  display: block;
+}
+
+.ki-busy__icon {
+  flex: none;
+  animation: ki-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ki-pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.88);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ki-busy__icon {
+    animation: none;
+  }
+}
+
+.ki-composer {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.ki-composer textarea {
+  min-height: 84px;
+  font-family: var(--hand);
+  font-size: 16px;
+}
+
+.ki-composer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
