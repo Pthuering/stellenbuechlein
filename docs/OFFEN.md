@@ -43,7 +43,7 @@ Fehlt noch, mit Anleitung in [BETRIEB.md](BETRIEB.md) und in der Checkliste der 
 - [x] **KI-Warteschlange aus dem ersten Lauf:** am 26. Oktober in 34 Runden abgearbeitet (3.178 ausgewertet, rund 800 Seiten ohne Anzeige entfernt, 18 nicht beurteilbar).
 - [ ] **Rückstau des Browser-Agenten** (670 Seiten nach dem ersten Lauf): *Actions → Browser-Warteschlange → Run workflow*, etwa zwei- bis dreimal.
 - [x] **Datenqualität:** Regeln vor der KI („einzelne Anzeige?“), unklare Seiten erst nach Claudes Urteil sichtbar, Knopf „Keine Stellenanzeige“, gelernte Adressanfänge ohne Anzeigen (29 gespeichert), Dubletten auch innerhalb einer Quelle, Kennziffern ohne Web-Adressen und Jahreszahlen ([BETRIEB.md](BETRIEB.md), 4b).
-- [ ] **Bestand aufräumen:** `npm run ki -- aufraeumen --los` (Stand 26. Oktober: 275 falsche Kennziffern, 55 Dubletten-Gruppen mit 57 Anzeigen zu viel). Vorher ohne `--los` die Liste ansehen.
+- [x] **Bestand aufgeräumt** am 26. Oktober (`npm run ki -- aufraeumen --los`): 275 falsche Kennziffern gelöscht, 57 Dubletten in 55 Gruppen zusammengeführt.
 - [ ] **Quellen ohne eine einzige Anzeige** (PH Gmünd, Telekom, DHBW, HTW Saar, Uni Ulm, HWG LU, rheingold, HAWK, MPIDR, EvH Bochum, KEH, MHB, SCIoI, ZKFS): Die Stellenseiten stimmen, das Rauschen kam von Nachrichten-Links daneben. Nicht pausieren, nach ein paar Läufen mit den neuen Regeln wieder ansehen (`quellen-muster` zeigt sie).
 - [ ] Optional: **automatisch veröffentlichen** bei jedem Push (Schritt 6).
 
