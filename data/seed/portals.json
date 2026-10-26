@@ -18,7 +18,7 @@
     "enabled": true,
     "verified": false,
     "config": {
-      "queries": ["wissenschaftlicher Mitarbeiter Psychologie", "Doktorand Psychologie", "Promotion Psychologie", "Postdoc Psychologie", "Professur Psychologie", "Psychologe Forschung"],
+      "queries": ["wissenschaftlicher Mitarbeiter Psychologie", "Doktorand Psychologie", "Promotion Psychologie", "Postdoc Psychologie", "Professur Psychologie", "Psychologe Forschung", "PhD psychology", "postdoc psychology", "research associate psychology", "psychologist"],
       "note": "Inoffizielle, öffentliche Schnittstelle (bundesAPI/jobsuche-api), Header X-API-Key: jobboerse-jobsuche. Version und Feldnamen beim ersten Lauf prüfen."
     }
   },

@@ -1,6 +1,7 @@
 // Sprache der Oberfläche: Deutsch, Englisch oder Serbisch (lateinische Schrift).
 // Übersetzt werden nur die festen Texte der App. Anzeigen, Namen von Einrichtungen und Orten sowie
-// eigene Einträge bleiben, wie sie sind. Die Wahl gilt nur auf diesem Gerät (wie Hell/Dunkel).
+// eigene Einträge bleiben, wie sie sind. Die Wahl gilt nur auf diesem Gerät (wie Hell/Dunkel);
+// ohne Wahl startet die App auf Serbisch.
 //
 // Jede Datei legt ihre Texte selbst an, in allen drei Sprachen mit denselben Schlüsseln:
 //   const t = texts({
@@ -29,20 +30,12 @@ function isLang(x: unknown): x is Lang {
   return x === 'de' || x === 'en' || x === 'sr';
 }
 
-/** Sprache des Geräts; Kroatisch, Bosnisch und Montenegrinisch bekommen Serbisch (lateinisch). */
-function fromDevice(): Lang {
-  const list = typeof navigator === 'undefined' ? [] : navigator.languages?.length ? navigator.languages : [navigator.language];
-  for (const tag of list) {
-    const base = (tag ?? '').toLowerCase().split('-')[0];
-    if (base === 'de' || base === 'en') return base;
-    if (base === 'sr' || base === 'hr' || base === 'bs' || base === 'sh' || base === 'cnr') return 'sr';
-  }
-  return 'en';
-}
+/** Ohne gespeicherte Wahl startet die App auf Serbisch; umschalten geht jederzeit oben im Rand. */
+export const DEFAULT_LANG: Lang = 'sr';
 
 let current: Lang = (() => {
   const saved = lsGet<unknown>(KEY, null);
-  return isLang(saved) ? saved : fromDevice();
+  return isLang(saved) ? saved : DEFAULT_LANG;
 })();
 const listeners = new Set<() => void>();
 

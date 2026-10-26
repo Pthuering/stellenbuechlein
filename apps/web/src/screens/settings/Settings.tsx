@@ -26,6 +26,7 @@ import { HorizontPage } from './HorizontPage';
 import { ChecklistPage, useChecklist } from './ChecklistPage';
 import { AssistantPage } from './AssistantPage';
 import { UmfragePage } from './UmfragePage';
+import { ProfilHinweis } from './ProfilHinweis';
 
 const t = texts({
   de: {
@@ -596,6 +597,7 @@ function SettingsHome() {
       </div>
       <ProfileCard />
       <FreigabeBox />
+      <ProfilHinweis />
 
       <div className="group">
         <h2 className="section-title">{t.search}</h2>

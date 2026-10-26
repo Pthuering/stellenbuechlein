@@ -1,6 +1,6 @@
 # Sprachen der App
 
-Die Oberfläche gibt es auf **Deutsch**, **Englisch** und **Serbisch** (lateinische Schrift, ekavisch). Umgeschaltet wird unter *Ich → Aussehen → Sprache* oder beim Anmelden. Die Wahl gilt pro Gerät; ohne Wahl nimmt die App die Sprache des Geräts (Kroatisch, Bosnisch und Montenegrinisch bekommen Serbisch, alles Unbekannte Englisch).
+Die Oberfläche gibt es auf **Deutsch**, **Englisch** und **Serbisch** (lateinische Schrift, ekavisch). Umgeschaltet wird oben im rosa Rand auf jeder Seite (DE / EN / SR), unter *Ich → Aussehen → Sprache* oder beim Anmelden. Die Wahl gilt pro Gerät; ohne Wahl startet die App auf Serbisch. Entwickelt und dokumentiert wird die App weiter auf Deutsch; gespeichert werden Katalog-Einträge immer deutsch.
 
 Übersetzt werden nur die **festen Texte** der App. Unverändert bleiben:
 

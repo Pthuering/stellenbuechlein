@@ -123,3 +123,81 @@ export function toSuggestedBridges(suggestions: BridgeSuggestion[], p: Suchprofi
       herkunft: 'ki' as const,
     }));
 }
+
+// ---------------------------------------------------------------- Umfrage übersetzen
+
+/**
+ * Eigene Eingaben aus der Umfrage (in der Sprache der Oberfläche, meist Serbisch) werden für die Suche
+ * in deutsche und englische Suchbegriffe übersetzt; die Freitexte bekommen eine deutsche Fassung für den
+ * Feinschliff. Die Anzeige in der App behält den eingegebenen Wortlaut.
+ */
+export interface UebersetzungAnfrage {
+  /** Sprache der Eingaben: de, en oder sr */
+  sprache: string;
+  /** Eigene Einträge (Fachgebiete, Themen, Methoden, Lieber nicht, Arbeitsweise, Interessen), wie eingegeben */
+  eintraege: string[];
+  /** Freitexte, zu übersetzen nach Deutsch */
+  texte: Record<string, string>;
+}
+
+export interface UebersetzungErgebnis {
+  /** Je Eintrag: Suchbegriffe (deutsch und englisch), in der Reihenfolge der Anfrage */
+  eintraege: { begriffe: string[]; deutsch: string }[];
+  texte: Record<string, string>;
+}
+
+const SPRACHEN: Record<string, string> = { de: 'Deutsch', en: 'Englisch', sr: 'Serbisch (lateinische Schrift)' };
+
+export function uebersetzungMessages(req: UebersetzungAnfrage): AiMessage[] {
+  const sprache = SPRACHEN[req.sprache] ?? req.sprache;
+  return [
+    {
+      role: 'system',
+      content:
+        'Du hilfst bei einer Jobsuche in Deutschland (Psychologie, Forschung und angrenzende Felder). Die Person hat einen Fragebogen auf ' +
+        sprache +
+        ' ausgefüllt. Die Stellenanzeigen sind deutsch oder englisch, darum braucht die Suche deutsche und englische Suchbegriffe. ' +
+        'Aufgabe 1, "eintraege": Zu jedem Eintrag 2 bis 6 Suchbegriffe, die in Anzeigen so vorkommen: deutsch und englisch, kleingeschrieben, ' +
+        'gern Wortanfänge (z. B. "kognit" trifft kognitiv und Kognition, "emotion regulation"), keine Allerweltswörter, keine Dopplungen. ' +
+        'Dazu "deutsch": die Bezeichnung des Eintrags auf Deutsch (kurz, wie eine Überschrift). Fachbegriffe wie EEG, SPSS oder R unverändert lassen. ' +
+        'Aufgabe 2, "texte": Jeden Text sinngetreu nach Deutsch übersetzen, du-Form, nichts hinzufügen oder weglassen; deutsche Texte unverändert zurückgeben. ' +
+        'Antworte nur mit JSON in genau diesem Format, Schlüssel ohne Umlaute: ' +
+        '{"eintraege": [{"begriffe": ["begriff", "begriff"], "deutsch": "…"}], "texte": {"schluessel": "…"}}',
+    },
+    { role: 'user', content: JSON.stringify({ eintraege: req.eintraege, texte: req.texte }) },
+  ];
+}
+
+const UebersetzungSchema = z.object({
+  eintraege: z
+    .array(
+      z.object({
+        begriffe: terms(8).catch([]),
+        deutsch: z
+          .string()
+          .nullish()
+          .transform((s) => (s ?? '').trim().slice(0, 120)),
+      }),
+    )
+    .catch([]),
+  texte: z.record(z.string(), z.string().catch('')).catch({}),
+});
+
+/**
+ * Liest die Übersetzung aus der KI-Antwort. Fehlt für einen Eintrag etwas, bleiben seine Begriffe leer
+ * (die App behält dann die eingegebenen Wörter); fehlende Texte bleiben weg.
+ */
+export function parseUebersetzung(raw: unknown, req: UebersetzungAnfrage): UebersetzungErgebnis {
+  const r = UebersetzungSchema.safeParse(raw);
+  const data = r.success ? r.data : { eintraege: [], texte: {} };
+  const eintraege = req.eintraege.map((_, i) => {
+    const e = data.eintraege[i];
+    return { begriffe: (e?.begriffe ?? []).map((t) => t.toLowerCase()), deutsch: e?.deutsch ?? '' };
+  });
+  const texte: Record<string, string> = {};
+  for (const key of Object.keys(req.texte)) {
+    const v = data.texte[key]?.trim();
+    if (v) texte[key] = v.slice(0, 4000);
+  }
+  return { eintraege, texte };
+}

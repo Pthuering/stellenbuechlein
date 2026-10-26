@@ -25,6 +25,7 @@ import {
   THEMEN,
   UMFANG_STUFEN,
   eigeneAuswahl,
+  freigeben,
   importSteckbrief,
   isOpen,
   neueUmfrage,
@@ -243,6 +244,7 @@ const t = texts({
       doneTitle: 'Geschafft!',
       doneSub: 'Aus deinen Antworten ist dieses Profil entstanden. Schau es dir an und übernimm es, wenn es passt.',
       applied: (n: number) => `Profil übernommen${n ? `, ${n} Lieblingsort${n === 1 ? '' : 'e'} dazu` : ''}. Die Anzeigen sind neu sortiert.`,
+      appliedAndRun: (n: number) => `Profil übernommen${n ? `, ${n} Lieblingsort${n === 1 ? '' : 'e'} dazu` : ''}. Der große Durchlauf läuft jetzt an: Er liest alle Quellen nach deinem Profil und kann einige Stunden dauern; neue Anzeigen erscheinen nach und nach.`,
       undoProfile: 'Profil zurück',
       deleted: 'Antworten gelöscht.',
       undo: 'Rückgängig',
@@ -430,6 +432,7 @@ const t = texts({
       doneTitle: 'All done!',
       doneSub: 'Your answers turned into this profile. Take a look, and apply it if it fits.',
       applied: (n) => `Profile applied${n ? `, ${n} favorite ${n === 1 ? 'place' : 'places'} added` : ''}. Postings have been re-sorted.`,
+      appliedAndRun: (n) => `Profile applied${n ? `, ${n} favorite ${n === 1 ? 'place' : 'places'} added` : ''}. The full run is starting now: it reads all sources by your profile and can take a few hours; new postings will show up gradually.`,
       undoProfile: 'Restore profile',
       deleted: 'Answers deleted.',
       undo: 'Undo',
@@ -617,6 +620,7 @@ const t = texts({
       doneTitle: 'Gotovo!',
       doneSub: 'Od tvojih odgovora nastao je ovaj profil. Pogledaj ga i primeni ako ti odgovara.',
       applied: (n) => `Profil je primenjen${n ? `, uz ${n} ${srForm(n, 'novo omiljeno mesto', 'nova omiljena mesta', 'novih omiljenih mesta')}` : ''}. Oglasi su ponovo sortirani.`,
+      appliedAndRun: (n) => `Profil je primenjen${n ? `, uz ${n} ${srForm(n, 'novo omiljeno mesto', 'nova omiljena mesta', 'novih omiljenih mesta')}` : ''}. Veliki prolaz upravo kreće: čita sve izvore prema tvom profilu i može da potraje nekoliko sati; novi oglasi stižu postepeno.`,
       undoProfile: 'Vrati profil',
       deleted: 'Odgovori su obrisani.',
       undo: 'Opozovi',
@@ -1499,10 +1503,11 @@ export function UmfragePage() {
     heading.current?.focus({ preventScroll: true });
   }, [seite]);
 
-  const apply = (profile: Suchprofil, favs: { kind: 'state' | 'city' | 'institution'; ref: string }[]) => {
+  const apply = async (profile: Suchprofil, favs: { kind: 'state' | 'city' | 'institution'; ref: string }[]) => {
     const prev = s.settings.profile;
     const now = new Date().toISOString();
-    store.updateSettings('profile', { ...profile, updatedAt: now });
+    const applied = { ...profile, updatedAt: now };
+    store.updateSettings('profile', applied);
     let n = 0;
     for (const f of favs) {
       if (!store.isFavorite(f.kind, f.ref)) {
@@ -1515,8 +1520,20 @@ export function UmfragePage() {
     dirty.current = false;
     setStand(done);
     store.updateSettings('umfrage', done);
-    store.toast(t.page.applied(n), { label: t.page.undoProfile, run: () => store.updateSettings('profile', prev) }, 8000);
     navigate('/ich');
+    // Der große Durchlauf startet gleich mit, ohne eigenen Freigabe-Schritt, wenn der Worker ihn anstoßen kann.
+    // Sonst bleibt der Kasten „Profil prüfen und freigeben“ unter „Ich“ zuständig.
+    if (!s.demo && s.ingestTrigger) {
+      try {
+        await store.api.triggerIngest(true);
+        store.updateSettings('freigabe', freigeben(applied, s.settings.freigabe));
+        store.toast(t.page.appliedAndRun(n), undefined, 10_000);
+        return;
+      } catch (e) {
+        store.toast(e instanceof Error ? e.message : String(e));
+      }
+    }
+    store.toast(t.page.applied(n), { label: t.page.undoProfile, run: () => store.updateSettings('profile', prev) }, 8000);
   };
 
   const reset = () => {
@@ -1595,7 +1612,7 @@ export function UmfragePage() {
             {t.page.doneTitle}
           </h1>
           <p className="survey-sub">{t.page.doneSub}</p>
-          <Ergebnis stand={stand} onApply={apply} onEdit={() => goto(1)} />
+          <Ergebnis stand={stand} onApply={(p, f) => void apply(p, f)} onEdit={() => goto(1)} />
         </>
       )}
     </section>

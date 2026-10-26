@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bigModel, parseBridgeSuggestions, toSuggestedBridges, withoutThinking } from '../src/ai';
+import { bigModel, parseBridgeSuggestions, parseUebersetzung, toSuggestedBridges, uebersetzungMessages, withoutThinking } from '../src/ai';
 import { starterProfile } from '../src/profile';
 
 describe('Modellwahl', () => {
@@ -56,5 +56,33 @@ describe('Brücken-Vorschläge der KI', () => {
     const out = toSuggestedBridges(bruecken, p);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ name: 'Neu hier', herkunft: 'ki', aktiv: true });
+  });
+});
+
+describe('Umfrage übersetzen', () => {
+  const req = { sprache: 'sr', eintraege: ['regulacija emocija', 'EEG'], texte: { traumstelle: 'Istraživanje u klinici', sonstiges: '' } };
+
+  it('nennt die Sprache und schickt Einträge und Texte als JSON', () => {
+    const m = uebersetzungMessages(req);
+    expect(m[0].content).toContain('Serbisch');
+    expect(JSON.parse(m[1].content)).toEqual({ eintraege: req.eintraege, texte: req.texte });
+  });
+
+  it('ordnet Begriffe und Texte der Anfrage zu; Fehlendes bleibt leer', () => {
+    const r = parseUebersetzung(
+      { eintraege: [{ begriffe: ['Emotionsregulation', 'emotion regulation', 'Emotionsregulation'], deutsch: 'Emotionsregulation' }], texte: { traumstelle: 'Forschung in der Klinik', fremd: 'x' } },
+      req,
+    );
+    expect(r.eintraege).toEqual([
+      { begriffe: ['emotionsregulation', 'emotion regulation'], deutsch: 'Emotionsregulation' },
+      { begriffe: [], deutsch: '' },
+    ]);
+    expect(r.texte).toEqual({ traumstelle: 'Forschung in der Klinik' });
+  });
+
+  it('übersteht eine unbrauchbare Antwort', () => {
+    const r = parseUebersetzung('kaputt', req);
+    expect(r.eintraege).toHaveLength(2);
+    expect(r.texte).toEqual({});
   });
 });

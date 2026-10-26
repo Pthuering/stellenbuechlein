@@ -25,7 +25,18 @@ export const CORE_EXPLORE_QUERIES = [
   'wissenschaftliche Mitarbeiterin Verhaltenswissenschaft',
   'Research Associate Psychology',
   'Evaluation Sozialforschung',
+  ...[
+    'PhD position psychology',
+    'postdoctoral researcher psychology',
+    'cognitive neuroscience research position',
+    'behavioural science researcher',
+    'research assistant psychology Germany',
+    'user research psychologist',
+  ],
 ];
+
+/** Englische Suchwörter: Die Websuche fragt dann auf Englisch und nach „job vacancy“ statt „Stellenausschreibung“. */
+const ENGLISH_QUERY = /^(phd|postdoc|cognitive|behaviou?ral|research|user|human factors)/i;
 
 /**
  * Suchwörter für diesen Lauf: abwechselnd Kern und Brücken, täglich weiterrotierend, damit über
@@ -64,8 +75,9 @@ interface BraveResult {
 export async function exploreWeb(ctx: DiscoverContext, query: string): Promise<Candidate[]> {
   const key = ctx.cfg.search.braveKey;
   if (!key) return [];
-  const q = `${query} Stellenausschreibung`;
-  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&country=DE&search_lang=de&freshness=pm&count=20`;
+  const english = ENGLISH_QUERY.test(query);
+  const q = english ? `${query} job vacancy` : `${query} Stellenausschreibung`;
+  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(q)}&country=DE&search_lang=${english ? 'en' : 'de'}&freshness=pm&count=20`;
   const r = await ctx.http.get(url, { headers: { 'X-Subscription-Token': key, accept: 'application/json' }, accept: 'application/json', ignoreRobots: true, noCache: true });
   if (!r.ok) {
     ctx.log.warn(`Websuche „${query}“ fehlgeschlagen (${r.status || r.error})`);

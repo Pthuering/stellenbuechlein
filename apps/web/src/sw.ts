@@ -28,9 +28,9 @@ interface PushPayload {
 /** Sprache der App auf diesem Gerät (legt die App in IndexedDB ab, siehe i18n/index.ts). */
 async function deviceLang(): Promise<string> {
   try {
-    return (await get<string>('lang', createStore('stellenbuechlein', 'kv'))) ?? 'de';
+    return (await get<string>('lang', createStore('stellenbuechlein', 'kv'))) ?? 'sr';
   } catch {
-    return 'de';
+    return 'sr';
   }
 }
 

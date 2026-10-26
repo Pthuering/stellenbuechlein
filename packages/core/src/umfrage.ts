@@ -295,6 +295,8 @@ export interface Auswahl {
   herzen: Hearts;
   /** Nur bei eigenen Einträgen. */
   begriffe?: string[];
+  /** Nur bei eigenen Einträgen, die übersetzt wurden: der Wortlaut, wie er eingegeben wurde. */
+  eingabe?: string;
 }
 
 export interface UmfrageOrt {
@@ -348,6 +350,21 @@ export interface UmfrageStand {
   geaendert: string;
   /** Wann das Ergebnis ins Suchprofil übernommen wurde */
   uebernommen: string | null;
+  /** Deutsche Fassung der Freitexte, wenn die Umfrage in einer anderen Sprache ausgefüllt wurde (für den Feinschliff mit Claude). */
+  uebersetzung?: UmfrageUebersetzung | null;
+}
+
+export interface UmfrageUebersetzung {
+  /** Sprache der Eingaben (de, en, sr) */
+  sprache: string;
+  /** Stand (geaendert) der Antworten, zu dem die Übersetzung gehört */
+  stand: string;
+  abschluss: string;
+  abschlussarbeit: string;
+  traumstelle: string;
+  sonstiges: string;
+  /** Eigene Interessen auf Deutsch, in der Reihenfolge der Eingaben */
+  interessen: string[];
 }
 
 export function leereAntworten(): UmfrageAntworten {
@@ -388,7 +405,13 @@ export function neueUmfrage(now = new Date().toISOString()): UmfrageStand {
 
 const herz = z.union([z.literal(1), z.literal(2), z.literal(3)]);
 const kurz = (max: number) => z.string().max(max).catch('');
-const auswahl = z.object({ id: z.string().min(1).max(120), label: z.string().min(1).max(120), herzen: herz.catch(2), begriffe: z.array(z.string().min(1).max(80)).max(20).optional() });
+const auswahl = z.object({
+  id: z.string().min(1).max(120),
+  label: z.string().min(1).max(120),
+  herzen: herz.catch(2),
+  begriffe: z.array(z.string().min(1).max(80)).max(20).optional(),
+  eingabe: z.string().min(1).max(200).optional(),
+});
 const liste = <T extends z.ZodTypeAny>(item: T, max: number) =>
   z
     .array(z.unknown())
@@ -437,6 +460,19 @@ const StandSchema = z.object({
   begonnen: z.string(),
   geaendert: z.string(),
   uebernommen: z.string().nullable().catch(null),
+  uebersetzung: z
+    .object({
+      sprache: z.string().max(10),
+      stand: z.string(),
+      abschluss: kurz(160),
+      abschlussarbeit: kurz(2000),
+      traumstelle: kurz(2000),
+      sonstiges: kurz(2000),
+      interessen: liste(z.string().min(1).max(80), 30),
+    })
+    .nullable()
+    .optional()
+    .catch(null),
 });
 
 export function parseUmfrage(value: unknown): UmfrageStand | null {
@@ -555,11 +591,19 @@ export function umfrageAlsText(stand: UmfrageStand): string {
   const add = (label: string, value: string | null | undefined) => {
     if (value && value.trim()) lines.push(`- **${label}:** ${value.trim()}`);
   };
-  const auswahlText = (list: Auswahl[]) => list.map((x) => `${x.label} ${herzText(x.herzen)}${x.begriffe ? ` (eigene: ${x.begriffe.join(', ')})` : ''}`).join('; ');
+  const auswahlText = (list: Auswahl[]) =>
+    list.map((x) => `${x.label} ${herzText(x.herzen)}${x.begriffe ? ` (eigene: ${x.begriffe.join(', ')}${x.eingabe ? `; eingegeben als „${x.eingabe}“` : ''})` : ''}`).join('; ');
+  const u = stand.uebersetzung;
+  /** Freitext, bei fremdsprachiger Eingabe mit deutscher Fassung dahinter */
+  const frei = (key: 'abschluss' | 'abschlussarbeit' | 'traumstelle' | 'sonstiges') => {
+    const orig = a[key].trim();
+    const de = u?.[key]?.trim();
+    return orig && de && de !== orig ? `${orig} [deutsch: ${de}]` : orig;
+  };
   lines.push('## Über mich');
   add('Stand', optionLabel(STAND_OPTIONEN, a.stand));
-  add('Abschluss', a.abschluss);
-  add('Abschlussarbeit', a.abschlussarbeit);
+  add('Abschluss', frei('abschluss'));
+  add('Abschlussarbeit', frei('abschlussarbeit'));
   add('Start', optionLabel(START_OPTIONEN, a.start));
   lines.push('', '## Inhalte');
   add('Fachgebiete', auswahlText(a.fachgebiete));
@@ -584,12 +628,12 @@ export function umfrageAlsText(stand: UmfrageStand): string {
   lines.push('', '## Horizont');
   const start = starterHorizont();
   add('Felder', a.bruecken.map((id) => start.bruecken.find((b) => b.id === id)?.name ?? id).join(', '));
-  add('Interessen', a.interessen.join(', '));
+  add('Interessen', a.interessen.map((x, i) => (u?.interessen[i] && u.interessen[i] !== x ? `${x} [deutsch: ${u.interessen[i]}]` : x)).join(', '));
   add('Wie oft im Stapel', a.dosis ? DOSIS_OPTIONEN.find((d) => d.id === a.dosis)?.label ?? a.dosis : null);
   add('KI darf weiter suchen (Weite)', a.weite ? 'ja' : 'nein');
   lines.push('', '## Zum Schluss');
   add('Wichtigkeit', `Thema ${herzText(a.gewichte.thema)}, Stellenart ${herzText(a.gewichte.stelle)}, Methoden ${herzText(a.gewichte.methoden)}, Rahmen ${herzText(a.gewichte.rahmen)}`);
-  add('Traumstelle', a.traumstelle);
-  add('Sonstiges', a.sonstiges);
+  add('Traumstelle', frei('traumstelle'));
+  add('Sonstiges', frei('sonstiges'));
   return lines.join('\n');
 }
