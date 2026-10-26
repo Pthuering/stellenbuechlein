@@ -137,6 +137,16 @@ describe('KI-Warteschlange für Claude', () => {
     expect(jobs.find((j) => j.id === f.id)?.title).toBe('Wissenschaftliche Mitarbeit im DFG-Projekt PALMWORK');
   });
 
+  it('übernimmt den Titel aus dem Text, wenn die KI den mitgelieferten als falsch meldet', async () => {
+    const g = job('g', { title: '[ mehr ... ]' });
+    await db.batch([upsertJobStmt(g), enqueueAiTaskStmt('auswerten', g.id, null, NOW)]);
+    const task = (await exportAiTasks(db, { max: 10 })).aufgaben.find((t) => t.titel === '[ mehr ... ]')!;
+    expect(task.titel_fehlt).toBe(false);
+    await importAiResults(db, [{ id: task.id, ergebnis: { is_job_posting: true, title: 'Doctoral Researcher (m/f/d)', title_falsch: true } }], NOW);
+    const { jobs } = await syncJobs(db, '', 50);
+    expect(jobs.find((j) => j.id === g.id)?.title).toBe('Doctoral Researcher (m/f/d)');
+  });
+
   it('lässt fehlerhafte Ergebnisse offen und meldet sie', async () => {
     const id = await ids();
     const r = await importAiResults(db, [{ id: id['UX Researcher'], ergebnis: { verdict: 'vielleicht' } }, { id: 999, ergebnis: {} }], NOW);

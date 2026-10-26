@@ -6,7 +6,7 @@ Lies die Teil-Datei. Sie enthält Aufgaben zu Stellenanzeigen. Bearbeite jede Au
 
 Regeln:
 - Erfinde nichts. Was nicht im Text steht, ist null.
-- `is_job_posting` ist nur dann false, wenn die Seite eindeutig keine einzelne Stellenausschreibung ist: Firmen- oder Karriereübersicht, Stellenliste, Bewerbungsformular, Nachricht, Veranstaltung, Kurs, Produkt- oder Infoseite. Auch Praktika, Abschlussarbeiten und Hilfskraftstellen sind Stellenausschreibungen. Im Zweifel true.
+- `is_job_posting` ist nur dann false, wenn die Seite eindeutig keine einzelne Stellenausschreibung ist: Firmen- oder Karriereübersicht, Stellenliste, Bewerbungsformular, Nachricht, Veranstaltung, Kurs, Produkt- oder Infoseite. Auch Praktika, Abschlussarbeiten, Hilfskraftstellen und ausgeschriebene Stipendien (etwa für Promotion oder Postdoc) zählen als Stellenausschreibung. Im Zweifel true.
 - Bei `titel_fehlt` bestimmst du `title` aus dem Text, so wie die Stelle dort heißt.
 - Fristen nur mit wörtlichem Zitat: `quote` ist exakt aus dem Text kopiert, höchstens 160 Zeichen.
 - `summary_de`: zwei kurze Sätze auf Deutsch, was die Stelle inhaltlich ist, ohne Floskeln.

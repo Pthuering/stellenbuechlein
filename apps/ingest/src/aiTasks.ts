@@ -67,7 +67,8 @@ export interface AiPackage {
 }
 
 function looksBroken(title: string): boolean {
-  return !title || title.length < 6 || GENERIC_TITLE.test(title) || /^\(?[mwdfx](?:\s*\/\s*[mwdfx]){1,3}\)?$/i.test(title.trim());
+  const t = title?.trim() ?? '';
+  return !t || t.length < 6 || GENERIC_TITLE.test(t) || /^\(?[mwdfx](?:\s*\/\s*[mwdfx]){1,3}\)?$/i.test(t) || /^\d{1,2}\.\d{1,2}\.\d{2,4}$/.test(t);
 }
 
 /**
@@ -163,7 +164,12 @@ export async function exportAiTasks(db: Db, opts: { max?: number; arten?: AiTask
     heute,
     profil: profileSummary(profile),
     anleitung: {
-      auswerten: { anweisung: `${EXTRACT_PROMPT} Ist titel_fehlt gesetzt, bestimme title aus dem Text (Stellenbezeichnung wie in der Anzeige).`, antwort: EXTRACT_FIELDS },
+      auswerten: {
+        anweisung:
+          `${EXTRACT_PROMPT} Ist titel_fehlt gesetzt, bestimme title aus dem Text (Stellenbezeichnung wie in der Anzeige). ` +
+          'Ist der mitgelieferte titel keine Stellenbezeichnung (etwa ein Seiten- oder Firmenname, ein Satzfragment oder „[mehr …]“), setze title_falsch: true und bestimme title ebenfalls aus dem Text.',
+        antwort: `${EXTRACT_FIELDS.replace(/\.$/, '')}, title_falsch (true oder null).`,
+      },
       frist: { anweisung: deadlinePrompt(heute), antwort: 'deadline (YYYY-MM-DD oder null), quote (wörtliche Textstelle oder null), still_open (bool oder null)' },
       horizont: { anweisung: `${HORIZON_PROMPT} Die Anzeige kam über die genannte Brücke herein.`, antwort: 'verdict (passt | eher | nein), reason_de, label' },
       weite: { anweisung: `${HORIZON_PROMPT} Die Anzeige trifft keine Brücke; prüfe, ob die Fähigkeiten der Person dort tragen.`, antwort: 'verdict (passt | eher | nein), reason_de, label' },
@@ -263,7 +269,7 @@ export async function importAiResults(
             report.entfernt++;
           }
         } else {
-          const title = (payload.titelFehlt === true || titleNeedsAi(job)) && r.title ? cleanTitle(r.title) : job.title;
+          const title = (payload.titelFehlt === true || titleNeedsAi(job) || r.title_falsch === true) && r.title ? cleanTitle(r.title) : job.title;
           const payGrade = job.pay_grade ?? r.pay_grade;
           const payLevel = job.pay_level ?? (payGrade ? Number(/(\d{1,2})/.exec(payGrade)?.[1] ?? NaN) || null : null);
           const workload = job.workload_pct ?? (r.workload_pct && r.workload_pct <= 100 ? Math.round(r.workload_pct) : null);
