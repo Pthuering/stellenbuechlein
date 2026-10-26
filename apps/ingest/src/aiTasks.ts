@@ -8,6 +8,7 @@ import {
   canonicalUrl,
   classifyKind,
   DEFAULT_GATE_TERMS,
+  normalizeText,
   parseProfile,
   profileSummary,
   starterProfile,
@@ -69,6 +70,13 @@ function looksBroken(title: string): boolean {
   return !title || title.length < 6 || GENERIC_TITLE.test(title) || /^\(?[mwdfx](?:\s*\/\s*[mwdfx]){1,3}\)?$/i.test(title.trim());
 }
 
+/** Titel fehlt oder ist nur der Name der Einrichtung bzw. des Arbeitgebers (Seitenname statt Stellenbezeichnung). */
+function titleNeedsAi(job: Pick<JobRow, 'title' | 'employer' | 'institution_name'>): boolean {
+  if (looksBroken(job.title)) return true;
+  const t = normalizeText(job.title);
+  return [job.employer, job.institution_name].some((n) => !!n && normalizeText(n) === t);
+}
+
 async function loadProfileAndGate(db: Db) {
   const profile = parseProfile(await getSetting<unknown>(db, 'profile', null)) ?? starterProfile();
   const gateTerms = (await getSetting<string[] | null>(db, 'gateTerms', null)) ?? DEFAULT_GATE_TERMS;
@@ -84,6 +92,7 @@ interface JobRow {
   description_md: string;
   employer: string | null;
   institution_id: string | null;
+  institution_name: string | null;
   posted_at: string | null;
   pay_grade: string | null;
   pay_level: number | null;
@@ -108,8 +117,9 @@ async function allIn<T>(db: Db, sql: (marks: string) => string, ids: readonly (s
 async function loadJobs(db: Db, ids: string[]): Promise<Map<string, JobRow>> {
   const rows = await allIn<JobRow>(
     db,
-    (marks) => `SELECT id, title, url, canonical_url, description_md, employer, institution_id, posted_at, pay_grade, pay_level, workload_pct, fixed_term, start_text, department, horizon, lane
-     FROM jobs WHERE id IN (${marks})`,
+    (marks) => `SELECT j.id, j.title, j.url, j.canonical_url, j.description_md, j.employer, j.institution_id, i.name AS institution_name, j.posted_at, j.pay_grade, j.pay_level,
+            j.workload_pct, j.fixed_term, j.start_text, j.department, j.horizon, j.lane
+     FROM jobs j LEFT JOIN institutions i ON i.id = j.institution_id WHERE j.id IN (${marks})`,
     ids,
   );
   return new Map(rows.map((r) => [r.id, r]));
@@ -139,7 +149,7 @@ export async function exportAiTasks(db: Db, opts: { max?: number; arten?: AiTask
       continue;
     }
     const base = { id: t.id, art: t.art, titel: job.title, url: job.url, arbeitgeber: job.employer, text: stripMarkdown(job.description_md).slice(0, TEXT_MAX[t.art]) };
-    if (t.art === 'auswerten') aufgaben.push({ ...base, titel_fehlt: p.titelFehlt === true || looksBroken(job.title) });
+    if (t.art === 'auswerten') aufgaben.push({ ...base, titel_fehlt: p.titelFehlt === true || titleNeedsAi(job) });
     else if (t.art === 'frist') aufgaben.push({ ...base, bisher_erkannt: (p.gefunden as string | null) ?? null });
     else aufgaben.push({ ...base, bruecke: p.bruecke ? { name: String(p.bruecke), warum: (p.warum as string | null) ?? null } : null });
   }
@@ -250,7 +260,7 @@ export async function importAiResults(
             report.entfernt++;
           }
         } else {
-          const title = (payload.titelFehlt === true || looksBroken(job.title)) && r.title ? cleanTitle(r.title) : job.title;
+          const title = (payload.titelFehlt === true || titleNeedsAi(job)) && r.title ? cleanTitle(r.title) : job.title;
           const payGrade = job.pay_grade ?? r.pay_grade;
           const payLevel = job.pay_level ?? (payGrade ? Number(/(\d{1,2})/.exec(payGrade)?.[1] ?? NaN) || null : null);
           const workload = job.workload_pct ?? (r.workload_pct && r.workload_pct <= 100 ? Math.round(r.workload_pct) : null);

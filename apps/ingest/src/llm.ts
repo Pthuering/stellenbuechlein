@@ -43,7 +43,9 @@ export const EXTRACT_PROMPT =
 
 export const EXTRACT_FIELDS =
   'is_job_posting, title (Stellenbezeichnung wie in der Anzeige), institution, department, location (Ort), ' +
-  'deadline (Bewerbungsfrist), pay_grade (z. B. "E 13 TV-L"), workload_pct (Zahl), fixed_term (z. B. "befristet, 3 Jahre"), start, summary_de.';
+  'deadline (Bewerbungsfrist), pay_grade (z. B. "E 13 TV-L"), ' +
+  'workload_pct (Zahl, Prozent einer Vollzeitstelle; steht nur die Wochenstundenzahl da, umrechnen: Vollzeit sind im TV-L 39,8 Stunden, im TVöD 39, sonst 40), ' +
+  'fixed_term (z. B. "befristet, 3 Jahre"), start (Beginn als kurzer Text wie in der Anzeige, z. B. "zum nächstmöglichen Zeitpunkt" oder "01.04.2027"; kein Datumsformat nötig), summary_de.';
 
 export const DEADLINE_SCHEMA = z.object({
   deadline: optText,
