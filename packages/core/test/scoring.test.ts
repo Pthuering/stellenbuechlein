@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  deckTier,
+  parseDeckOrder,
   checkGate,
   classifyKind,
   compileTerm,
@@ -149,5 +151,27 @@ describe('Kurzfassung', () => {
   it('nimmt den Aufgaben-Abschnitt', () => {
     const md = 'Die Universität ist eine der ältesten Hochschulen.\n\n## Ihre Aufgaben\n\n- Planung von EEG-Studien\n- Auswertung der Daten\n- Mitarbeit in der Lehre\n- Publikationen\n\n## Ihr Profil\n\n- Master';
     expect(heuristicSummary(md)).toBe('Planung von EEG-Studien; Auswertung der Daten; Mitarbeit in der Lehre');
+  });
+});
+
+describe('Reihenfolge im Stapel', () => {
+  const today = '2026-10-26';
+  const tier = (score: number, deadline: string | null, o: Parameters<typeof parseDeckOrder>[0]) => deckTier({ score, deadline }, parseDeckOrder(o), today);
+  it('ohne Einstellung ist alles ein Teil', () => {
+    expect(new Set([tier(90, '2026-11-01', null), tier(10, null, null)]).size).toBe(1);
+  });
+  it('erst ab der Schwelle, dann der Rest', () => {
+    expect(tier(75, null, { minScore: 70 })).toBeLessThan(tier(69, '2026-10-30', { minScore: 70 }));
+  });
+  it('nahe Fristen zuerst, innerhalb der gut passenden und innerhalb des Rests', () => {
+    const o = { minScore: 70, urgentFirst: true, urgentDays: 30 };
+    const order = [tier(80, '2026-11-20', o), tier(95, '2026-12-31', o), tier(40, '2026-11-01', o), tier(50, null, o)];
+    expect(order).toEqual([0, 1, 2, 3]);
+    // Frist schon vorbei oder weiter als die gewählten Tage: nicht nah
+    expect(tier(80, '2026-10-20', o)).toBe(1);
+    expect(tier(80, '2026-11-20', { ...o, urgentDays: 14 })).toBe(1);
+  });
+  it('liest nur sinnvolle Werte', () => {
+    expect(parseDeckOrder({ minScore: 150, urgentDays: -3, urgentFirst: 'ja' })).toEqual({ minScore: null, urgentFirst: false, urgentDays: 30 });
   });
 });

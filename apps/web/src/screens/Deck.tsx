@@ -1,7 +1,7 @@
 // Der Stapel: Karteikarten zum Wischen. Rechts = merken, links = weglegen, hoch/tippen = alles lesen.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { countActiveFilters, topReasons } from '@stellen/core';
+import { countActiveFilters, deckTier, todayBerlin, topReasons } from '@stellen/core';
 import { useAppState, useDeck, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
 import { deadlineOf, employerName, factChips, jobImage, laneLabel, placeLabel } from '../lib/format';
@@ -12,7 +12,7 @@ import { IconArrowUp, IconFilter, IconHeart, IconHistory, IconPin, IconStar, Ico
 import { FilterSheet } from './FilterSheet';
 import { HistorySheet } from './HistorySheet';
 import { bridgeText } from './JobDetail';
-import { srForm, texts } from '../i18n';
+import { fmtPct, srForm, texts } from '../i18n';
 import { profileLabel } from '../i18n/katalog';
 
 const t = texts({
@@ -39,6 +39,8 @@ const t = texts({
     title: 'Stapel',
     allSeen: 'Alles durchgeschaut',
     waiting: (n: number) => (n === 1 ? '1 Anzeige wartet' : `${n} Anzeigen warten`),
+    waitingSplit: (above: number, rest: number, pct: string) => `${above} ab ${pct}, danach ${rest} weitere`,
+    restOnly: (rest: number, pct: string) => `Alle ab ${pct} durch, noch ${rest} weitere`,
     filterLabel: (n: number) => `Filter${n ? ` (${n} aktiv)` : ''}`,
     historyLabel: 'Verlauf: gemerkte und weggelegte Anzeigen',
     loading: 'Anzeigen werden geladen …',
@@ -76,6 +78,8 @@ const t = texts({
     title: 'Stack',
     allSeen: 'All caught up',
     waiting: (n) => (n === 1 ? '1 posting waiting' : `${n} postings waiting`),
+    waitingSplit: (above, rest, pct) => `${above} from ${pct}, then ${rest} more`,
+    restOnly: (rest, pct) => `All from ${pct} done, ${rest} more`,
     filterLabel: (n) => (n ? `Filters (${n} active)` : 'Filters'),
     historyLabel: 'History: saved and passed postings',
     loading: 'Loading postings…',
@@ -113,6 +117,8 @@ const t = texts({
     title: 'Špil',
     allSeen: 'Sve je pregledano',
     waiting: (n) => `${n} ${srForm(n, 'oglas čeka', 'oglasa čekaju', 'oglasa čeka')}`,
+    waitingSplit: (above, rest, pct) => `${above} od ${pct}, zatim još ${rest}`,
+    restOnly: (rest, pct) => `Sve od ${pct} pregledano, još ${rest}`,
     filterLabel: (n) => (n ? `Filteri (aktivno: ${n})` : 'Filteri'),
     historyLabel: 'Istorija: sačuvani i preskočeni oglasi',
     loading: 'Učitavam oglase…',
@@ -430,6 +436,21 @@ export function DeckScreen() {
   }, [top, sheet, undo]);
 
   const waiting = deck.length;
+  // Mit Schwelle: wie viele gut passende noch vor dem Rest liegen
+  const order = s.settings.deck;
+  const above = useMemo(() => {
+    if (order.minScore == null) return 0;
+    const today = todayBerlin();
+    return deck.filter((v) => deckTier({ score: v.score.score, deadline: v.job.deadline }, order, today) < 2).length;
+  }, [deck, order]);
+  const sub =
+    waiting === 0
+      ? t.allSeen
+      : order.minScore == null || above === waiting
+        ? t.waiting(waiting)
+        : above > 0
+          ? t.waitingSplit(above, waiting - above, fmtPct(order.minScore))
+          : t.restOnly(waiting, fmtPct(order.minScore));
   return (
     <section className="screen screen--deck paper" aria-labelledby="deck-title">
       <div className="page-head">
@@ -437,7 +458,7 @@ export function DeckScreen() {
           <h1 className="page-title" id="deck-title">
             {t.title}
           </h1>
-          <p className="page-sub">{waiting === 0 ? t.allSeen : t.waiting(waiting)}</p>
+          <p className="page-sub">{sub}</p>
         </div>
         <div style={{ display: 'flex', gap: 2 }}>
           <button type="button" className="icon-btn" onClick={() => setSheet('filter')} aria-label={t.filterLabel(activeFilters)}>
@@ -491,7 +512,7 @@ export function DeckScreen() {
         </button>
       </div>
 
-      {sheet === 'filter' && <FilterSheet onClose={() => setSheet(null)} />}
+      {sheet === 'filter' && <FilterSheet deck onClose={() => setSheet(null)} />}
       {sheet === 'verlauf' && <HistorySheet onClose={() => setSheet(null)} onUndo={(id) => setPinned(id)} />}
     </section>
   );

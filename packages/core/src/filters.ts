@@ -172,3 +172,38 @@ export function compareJobs(a: SortableJob, b: SortableJob, key: SortKey): numbe
     }
   }
 }
+
+/**
+ * Reihenfolge im Stapel (vom Nutzer gesetzt): Sortiert wird immer nach Passung, die beste Karte zuerst. Mit minScore
+ * kommen erst alle Karten ab dieser Passung, danach der Rest. Mit urgentFirst kommen in beiden Teilen die Karten mit
+ * naher Frist (höchstens urgentDays Tage) vor den anderen.
+ */
+export interface DeckOrder {
+  /** Passung in Prozent; null = keine Schwelle */
+  minScore: number | null;
+  urgentFirst: boolean;
+  urgentDays: number;
+}
+
+export const DEFAULT_DECK_ORDER: DeckOrder = { minScore: null, urgentFirst: false, urgentDays: 30 };
+
+export function parseDeckOrder(raw: unknown): DeckOrder {
+  if (!raw || typeof raw !== 'object') return DEFAULT_DECK_ORDER;
+  const r = raw as Partial<DeckOrder>;
+  const score = typeof r.minScore === 'number' && r.minScore > 0 && r.minScore <= 100 ? Math.round(r.minScore) : null;
+  const days = typeof r.urgentDays === 'number' && r.urgentDays >= 1 && r.urgentDays <= 365 ? Math.round(r.urgentDays) : DEFAULT_DECK_ORDER.urgentDays;
+  return { minScore: score, urgentFirst: r.urgentFirst === true, urgentDays: days };
+}
+
+/** Ist die Frist nah (heute bis in urgentDays Tagen)? Ohne Frist: nein. */
+export function isUrgent(deadline: string | null | undefined, days: number, today: string): boolean {
+  const left = daysUntil(deadline, today);
+  return left != null && left >= 0 && left <= days;
+}
+
+/** Teil des Stapels, in den eine Karte gehört; 0 kommt zuerst (gut passend und Frist nah, gut passend, Rest mit naher Frist, Rest). */
+export function deckTier(p: { score: number; deadline: string | null | undefined }, o: DeckOrder, today: string): number {
+  const high = o.minScore == null || p.score >= o.minScore;
+  const urgent = o.urgentFirst && isUrgent(p.deadline, o.urgentDays, today);
+  return (high ? 0 : 2) + (urgent ? 0 : 1);
+}

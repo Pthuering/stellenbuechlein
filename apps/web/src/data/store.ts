@@ -3,6 +3,7 @@
 // an den Server, sobald er erreichbar ist.
 
 import {
+  DEFAULT_DECK_ORDER,
   DEFAULT_FILTER,
   DEFAULT_FREIGABE,
   DEFAULT_HOME,
@@ -10,11 +11,13 @@ import {
   DEFAULT_HIGH_SCORE_ALERT,
   DEFAULT_REMINDER_DAYS,
   parseFreigabe,
+  parseDeckOrder,
   parseHighScoreAlert,
   parseProfile,
   parseUmfrage,
   starterProfile,
   type City,
+  type DeckOrder,
   type Decision,
   type Favorite,
   type FavoriteKind,
@@ -60,6 +63,8 @@ export interface Settings {
   notifyHighScore: HighScoreAlert;
   gateTerms: string[];
   sort: { all: SortKey; saved: SavedSort };
+  /** Reihenfolge im Stapel: gut passende zuerst, nahe Fristen zuerst */
+  deck: DeckOrder;
   /** cardImages: Fotos bzw. Skizze auf den Karten im Stapel zeigen */
   ui: { mapMode: 'gemerkt' | 'alle'; cardImages: boolean };
   /** Platzhalter-Checkliste: von Hand abgehakte Punkte, Leiste oben ausgeblendet */
@@ -79,6 +84,7 @@ export function defaultSettings(): Settings {
     notifyHighScore: DEFAULT_HIGH_SCORE_ALERT,
     gateTerms: DEFAULT_GATE_TERMS,
     sort: { all: 'empfohlen', saved: 'frist' },
+    deck: DEFAULT_DECK_ORDER,
     ui: { mapMode: 'gemerkt', cardImages: true },
     checklist: { done: [], hideBanner: false },
     umfrage: null,
@@ -97,6 +103,7 @@ function settingsFrom(raw: Record<string, unknown>, base = defaultSettings()): S
   if (Array.isArray(raw.gateTerms) && raw.gateTerms.length) s.gateTerms = raw.gateTerms as string[];
   if (raw.sort && typeof raw.sort === 'object') s.sort = { ...s.sort, ...(raw.sort as Settings['sort']) };
   if (raw.ui && typeof raw.ui === 'object') s.ui = { ...s.ui, ...(raw.ui as Settings['ui']) };
+  if (raw.deck !== undefined) s.deck = parseDeckOrder(raw.deck);
   if (raw.checklist && typeof raw.checklist === 'object') {
     const c = raw.checklist as Partial<Settings['checklist']>;
     s.checklist = { done: Array.isArray(c.done) ? c.done.filter((x): x is string => typeof x === 'string') : [], hideBanner: c.hideBanner === true };

@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, useSyncExternalStore } from 'react'
 import {
   compareHorizon,
   compareJobs,
+  deckTier,
   favoriteKeySet,
   horizontOf,
   interleave,
@@ -147,6 +148,8 @@ export function openViews(views: Map<string, JobView>, today = todayBerlin()): J
 /**
  * Der Stapel: offene, noch nicht entschiedene Anzeigen, die zu den Filtern passen.
  * Kern-Karten nach Lieblingsorten und Score, dazwischen etwa jede 3. bis 5. Karte eine Horizont-Karte.
+ * Mit der Reihenfolge aus den Einstellungen (deckTier) kommt der Stapel in Teilen: erst die gut passenden
+ * (ab der Schwelle), dann der Rest, in beiden Teilen auf Wunsch die mit naher Frist zuerst.
  * Gemischt wird über alle offenen Anzeigen (auch schon entschiedene) und erst danach gefiltert, damit sich
  * die Reihenfolge beim Wischen nicht verschiebt.
  */
@@ -158,10 +161,21 @@ export function useDeck(): JobView[] {
     const today = todayBerlin();
     const h = horizontOf(s.settings.profile);
     const all = filterViews(openViews(views, today), s.settings.filter, geo, today);
-    const core = sortViews(all.filter((v) => !v.lane.promoted), 'empfohlen');
-    const extra = all.filter((v) => v.lane.promoted).sort((a, b) => compareHorizon({ lane: a.lane, score: a.score.score }, { lane: b.lane, score: b.score.score }));
-    return interleave(core, extra, `horizont:${today}`, h.dosis).filter((v) => !v.mark?.decision);
-  }, [views, s.settings.filter, s.settings.profile, geo]);
+    const tiers = new Map<number, JobView[]>();
+    for (const v of all) {
+      const k = deckTier({ score: v.score.score, deadline: v.job.deadline }, s.settings.deck, today);
+      tiers.set(k, [...(tiers.get(k) ?? []), v]);
+    }
+    return [...tiers.keys()]
+      .sort((a, b) => a - b)
+      .flatMap((k) => {
+        const part = tiers.get(k)!;
+        const core = sortViews(part.filter((v) => !v.lane.promoted), 'empfohlen');
+        const extra = part.filter((v) => v.lane.promoted).sort((a, b) => compareHorizon({ lane: a.lane, score: a.score.score }, { lane: b.lane, score: b.score.score }));
+        return interleave(core, extra, `horizont:${today}:${k}`, h.dosis);
+      })
+      .filter((v) => !v.mark?.decision);
+  }, [views, s.settings.filter, s.settings.profile, s.settings.deck, geo]);
 }
 
 export function useSaved(): JobView[] {

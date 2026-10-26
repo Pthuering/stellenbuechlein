@@ -76,6 +76,29 @@ try {
   await page.click('text=Alle Filter zurücksetzen');
   await page.click('text=Fertig');
 
+  // Reihenfolge: erst die gut passenden, dann der Rest; nahe Fristen zuerst
+  const scoreOfTop = async () => Number(((await page.locator('.card--top .score__num').first().textContent()) ?? '').replace(/\D/g, ''));
+  const deckBefore = await waiting(page);
+  await page.click('[aria-label^="Filter"]');
+  await page.click('.sheet >> text=ab 50 %');
+  await page.click('.sheet >> text=Nahe Fristen zuerst');
+  await page.waitForSelector('.sheet >> text=1 Monat');
+  await page.click('text=Fertig');
+  await page.waitForTimeout(300);
+  const sub = (await page.locator('.page-sub').first().textContent()) ?? '';
+  // „12 ab 50 %, danach 30 weitere“ | „Alle ab 50 % durch, noch 42 weitere“ | „42 Anzeigen warten“
+  const split = sub.match(/^(\d+) ab 50 %, danach (\d+)/);
+  const restOnly = sub.match(/noch (\d+) weitere/);
+  const total = split ? Number(split[1]) + Number(split[2]) : restOnly ? Number(restOnly[1]) : await waiting(page);
+  assert.equal(total, deckBefore, `Schwelle blendet Karten aus, statt sie nach hinten zu stellen: ${sub}`);
+  if (split) assert.ok((await scoreOfTop()) >= 50, 'oberste Karte liegt unter der Schwelle');
+  await page.click('[aria-label^="Filter"]');
+  await page.click('.sheet .chips >> text=aus');
+  await page.click('.sheet >> text=Nahe Fristen zuerst');
+  await page.click('text=Fertig');
+  await page.waitForTimeout(300);
+  assert.equal(await waiting(page), deckBefore);
+
   // Gemerkt: Herzensjob ist da
   await page.click('.tab:nth-child(3)');
   await page.waitForSelector('#saved-title, .screen [id$="title"]');
