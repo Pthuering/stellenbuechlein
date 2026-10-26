@@ -21,6 +21,11 @@ import type { JobView } from '../src/data/hooks';
 import { applyProposal, createToolbox, homeForAi, proposalTitle, readJob, turnContext, type ChatEntry, type Snapshot } from '../src/lib/assistant';
 import { setLang } from '../src/i18n';
 
+// Die Erwartungen sind deutsch. Ohne Festlegung nähme die App die Sprache des Rechners (auf GitHub Englisch).
+vi.stubGlobal('document', { documentElement: {} });
+setLang('de');
+vi.unstubAllGlobals();
+
 // Dummy-Anzeigen mit Fristen ab heute, damit sie „offen“ sind
 const today = todayBerlin();
 const jobs = (data.jobs as unknown as Job[]).map((j, i) => ({
