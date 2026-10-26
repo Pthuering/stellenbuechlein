@@ -26,6 +26,7 @@ import {
   getSetting,
   listOpenAiTasks,
   NOT_A_POSTING,
+  releaseCheckedJobs,
   removeJobIfUnmarked,
   touchJobSourceStmt,
   upsertJobStmt,
@@ -106,6 +107,8 @@ interface JobRow {
   department: string | null;
   horizon: string | null;
   lane: string | null;
+  /** Quelle, über die die Anzeige zuerst gefunden wurde (für die Lernliste „keine Anzeige“ je Quelle) */
+  source_id: string | null;
 }
 
 /** Abfrage mit `IN (…)` in Stücken: D1 erlaubt höchstens 100 gebundene Parameter pro Abfrage. */
@@ -122,7 +125,8 @@ async function loadJobs(db: Db, ids: string[]): Promise<Map<string, JobRow>> {
   const rows = await allIn<JobRow>(
     db,
     (marks) => `SELECT j.id, j.title, j.url, j.canonical_url, j.description_md, j.employer, j.institution_id, i.name AS institution_name, j.posted_at, j.pay_grade, j.pay_level,
-            j.workload_pct, j.fixed_term, j.start_text, j.department, j.horizon, j.lane
+            j.workload_pct, j.fixed_term, j.start_text, j.department, j.horizon, j.lane,
+            (SELECT js.source_id FROM job_sources js WHERE js.job_id = j.id ORDER BY js.first_seen_at LIMIT 1) AS source_id
      FROM jobs j LEFT JOIN institutions i ON i.id = j.institution_id WHERE j.id IN (${marks})`,
     ids,
   );
@@ -221,7 +225,10 @@ export async function importAiResults(
   const unanswered = await allIn<{ id: number }>(db, (marks) => `SELECT id FROM ki_aufgaben WHERE status = 'offen' AND id IN (${marks})`, missing);
   await db.batch(unanswered.map((r) => aiTaskFailedStmt(r.id, 'nicht beantwortet', now)));
   report.unbeantwortet = unanswered.length;
-  if (!ids.length) return report;
+  if (!ids.length) {
+    await releaseCheckedJobs(db, todayBerlin(), now);
+    return report;
+  }
   const rows = await allIn<{ id: number; art: AiTaskKind; job_id: string; payload: string | null }>(
     db,
     (marks) => `SELECT id, art, job_id, payload FROM ki_aufgaben WHERE status = 'offen' AND id IN (${marks})`,
@@ -265,7 +272,7 @@ export async function importAiResults(
         const r = parsed.data as z.infer<typeof EXTRACT_SCHEMA>;
         if (!r.is_job_posting) {
           if (await removeJobIfUnmarked(db, job.id, now)) {
-            stmts.push(gateSkipStmt({ url: job.canonical_url, sourceId: 'ki', institutionId: job.institution_id, title: job.title.slice(0, 200), textHash: NOT_A_POSTING, reason: NOT_A_POSTING, note: null }, now));
+            stmts.push(gateSkipStmt({ url: job.canonical_url, sourceId: job.source_id ?? 'ki', institutionId: job.institution_id, title: job.title.slice(0, 200), textHash: NOT_A_POSTING, reason: NOT_A_POSTING, note: null }, now));
             report.entfernt++;
           }
         } else {
@@ -295,7 +302,7 @@ export async function importAiResults(
         if (r.verdict === 'nein' && payload.aussen === true) {
           // Anzeige ohne Psychologie-Bezug, die nur über die Brücke kam: wie bei der KI im Lauf aussortieren
           if (await removeJobIfUnmarked(db, job.id, now)) {
-            stmts.push(gateSkipStmt({ url: job.canonical_url, sourceId: 'ki', institutionId: job.institution_id, title: job.title.slice(0, 200), textHash: gateHash, reason: 'ki-nein', note: r.reason_de || null }, now));
+            stmts.push(gateSkipStmt({ url: job.canonical_url, sourceId: job.source_id ?? 'ki', institutionId: job.institution_id, title: job.title.slice(0, 200), textHash: gateHash, reason: 'ki-nein', note: r.reason_de || null }, now));
             report.entfernt++;
           }
         } else {
@@ -309,6 +316,8 @@ export async function importAiResults(
     await db.batch(stmts);
     report.erledigt++;
   }
+  // Anzeigen in Prüfung, die Claude bestätigt hat (oder nicht beurteilen konnte), erscheinen jetzt in der App
+  await releaseCheckedJobs(db, today, now);
   const open = await countOpenAiTasks(db);
   report.offen = Object.values(open).reduce((s, n) => s + n, 0);
   return report;

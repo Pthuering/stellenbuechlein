@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractFields, findDates } from '../src';
+import { extractFields, findDates, plausibleReference } from '../src';
 
 const TODAY = '2026-10-10';
 
@@ -98,5 +98,12 @@ describe('extractFields – Umfang, Befristung, Beginn, Kennziffer', () => {
     const f = extractFields('Kennziffer: 2026/123. Fragen beantwortet Frau Muster (anna.muster@uni-halle.de).', { today: TODAY });
     expect(f.referenceNo).toBe('2026/123');
     expect(f.contact).toBe('anna.muster@uni-halle.de');
+  });
+  it('Kennziffer: keine Web-Adresse, keine bloße Jahreszahl, kein Kurzkürzel', () => {
+    expect(plausibleReference('https://heiligenfeld.softgarden.io')).toBeNull();
+    expect(plausibleReference('2026')).toBeNull();
+    expect(plausibleReference('PS1')).toBeNull();
+    expect(plausibleReference('W 2026/17.')).toBe('W 2026/17');
+    expect(extractFields('Ausschreibung 2026. Kennziffer: 2026 – bitte angeben. Referenznummer: PSY-2026/17', { today: TODAY }).referenceNo).toBe('PSY-2026/17');
   });
 });

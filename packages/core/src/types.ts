@@ -235,7 +235,8 @@ export interface Job {
   firstSeenAt: string;
   lastSeenAt: string;
   updatedAt: string;
-  status: 'aktiv' | 'abgelaufen';
+  /** pruefung: noch nicht sicher eine Anzeige, die App zeigt sie erst nach Claudes Auswertung */
+  status: 'aktiv' | 'abgelaufen' | 'pruefung';
   completeness: 'ok' | 'teilweise';
   method?: string | null;
   psychTerms?: string[];

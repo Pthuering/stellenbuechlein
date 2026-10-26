@@ -13,6 +13,7 @@ import {
   STECKBRIEF_EXAMPLE,
   canonicalUrl,
   fuzzyKey,
+  textSimilarity,
   jobIdForUrl,
   type Suchprofil,
 } from '../src';
@@ -123,6 +124,12 @@ describe('Dubletten', () => {
     const a = fuzzyKey({ institutionId: 'uni', title: 'Wissenschaftliche Mitarbeiterin (m/w/d) Psychologie', deadline: '2026-11-15' });
     const b = fuzzyKey({ institutionId: 'uni', title: 'Wissenschaftliche Mitarbeiterin (w/m/d) – Psychologie', deadline: '2026-11-15' });
     expect(a).toBe(b);
+  });
+  it('Textähnlichkeit: dieselbe Anzeige mit anderem Datum nahe 1, anderes Projekt weit darunter', () => {
+    const body = 'Im Projekt KIDS untersuchen wir die Sprachentwicklung von Kleinkindern. Ihre Aufgaben sind die Planung und Durchführung von Studien, die Auswertung mit R und die Mitarbeit in der Lehre. Wir bieten eine Stelle nach E 13 TV-L mit 65 Prozent.';
+    const other = 'Im Projekt MOVE untersuchen wir Bewegung im Alter mit Sensoren. Ihre Aufgaben sind die Rekrutierung älterer Teilnehmender, die Datenerhebung im Feld und die Auswertung mit Python. Wir bieten eine Stelle nach E 13 TV-L mit 65 Prozent.';
+    expect(textSimilarity(`Veröffentlicht am 15.10.2026. ${body}`, `Veröffentlicht am 16.10.2026. ${body}`)).toBeGreaterThan(0.85);
+    expect(textSimilarity(body, other)).toBeLessThan(0.3);
   });
 });
 

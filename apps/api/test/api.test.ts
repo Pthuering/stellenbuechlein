@@ -107,6 +107,19 @@ describe('API', () => {
     const r = await app.request('/api/ingest/sql', { method: 'POST', headers: { authorization: `Bearer ${env.INGEST_KEY}`, 'content-type': 'application/json' }, body });
     expect(((await r.json()) as { row: { n: number } }).row.n).toBe(25);
   });
+
+  it('meldet eine Seite als „keine Stellenanzeige“ und zeigt Anzeigen in Prüfung nicht', async () => {
+    const id = jobIdForUrl('https://uni.example/jobs/24');
+    expect((await app.request(`/api/jobs/${id}/keine-anzeige`, { method: 'POST', headers: auth })).status).toBe(200);
+    expect(await db.first('SELECT id FROM jobs WHERE id = ?', [id])).toBeFalsy();
+    expect((await db.first<{ reason: string }>('SELECT reason FROM gate_skips WHERE url = ?', [canonicalUrl('https://uni.example/jobs/24')]))?.reason).toBe('keine-anzeige');
+    expect((await app.request(`/api/jobs/${id}/keine-anzeige`, { method: 'POST', headers: auth })).status).toBe(404);
+
+    await db.batch([upsertJobStmt({ ...job(30, '2026-10-11T07:00:00.000Z'), status: 'pruefung' })]);
+    const b = (await (await app.request('/api/sync?limit=100', { headers: auth })).json()) as { jobs: { id: string }[] };
+    expect(b.jobs.map((j) => j.id)).not.toContain(jobIdForUrl('https://uni.example/jobs/30'));
+    expect(b.jobs).toHaveLength(24);
+  });
 });
 
 describe('Probelauf, Funde und Horizont', () => {

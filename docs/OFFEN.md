@@ -40,9 +40,11 @@ Fehlt noch, mit Anleitung in [BETRIEB.md](BETRIEB.md) und in der Checkliste der 
 - [ ] **Zweiten Lauf auswerten:** Laufzeit gegen die 2.000 Actions-Minuten im Monat, Quellen mit Fehlern, KI-Kosten.
 - [ ] **Großer Durchlauf nach der Profil-Freigabe** (unter *Ich*, sobald das Profil aus der Umfrage steht). Er arbeitet ohne KI; die KI-Arbeit erledigen wir danach hier gemeinsam mit Claude (`/ki-aufgaben`: ein Orchestrator verteilt, Haiku-Subagenten bereiten auf). Ist es zu viel auf einmal, verteilen wir sie über die Woche.
 - [ ] **Claude-Cloud-Aufgabe einrichten** ([BETRIEB.md](BETRIEB.md), Schritt 4b): Umgebung mit Netzwerk-Secret, geplante Aufgabe mit Opus als Orchestrator, API-Auslöser als GitHub-Secrets `CLAUDE_TASK_URL` und `CLAUDE_TASK_TOKEN`.
-- [ ] **KI-Warteschlange aus dem ersten Lauf:** rund 3.100 Aufgaben (Anzeigen ohne KI-Auswertung, unsichere Fristen), angelegt mit `ki-nachholen`. Gemeinsam hier abarbeiten.
+- [x] **KI-Warteschlange aus dem ersten Lauf:** am 26. Oktober in 34 Runden abgearbeitet (3.178 ausgewertet, rund 800 Seiten ohne Anzeige entfernt, 18 nicht beurteilbar).
 - [ ] **Rückstau des Browser-Agenten** (670 Seiten nach dem ersten Lauf): *Actions → Browser-Warteschlange → Run workflow*, etwa zwei- bis dreimal.
-- [ ] **Datenqualität:** In einer Stichprobe war etwa ein Drittel der Einträge keine Stellenanzeige (Pressemitteilungen, Blogartikel, Kurse, Veranstaltungen), dazu fachfremde Klinik-Stellen (Pflege, Reinigung). Vorschlag: KI-Urteil „keine Stellenanzeige“ ernst nehmen, Nachrichten- und Blog-Adressen ausschließen, Klinik-Quellen mit Grobfilter, einmal aufräumen.
+- [x] **Datenqualität:** Regeln vor der KI („einzelne Anzeige?“), unklare Seiten erst nach Claudes Urteil sichtbar, Knopf „Keine Stellenanzeige“, gelernte Adressanfänge ohne Anzeigen (29 gespeichert), Dubletten auch innerhalb einer Quelle, Kennziffern ohne Web-Adressen und Jahreszahlen ([BETRIEB.md](BETRIEB.md), 4b).
+- [ ] **Bestand aufräumen:** `npm run ki -- aufraeumen --los` (Stand 26. Oktober: 275 falsche Kennziffern, 55 Dubletten-Gruppen mit 57 Anzeigen zu viel). Vorher ohne `--los` die Liste ansehen.
+- [ ] **Quellen ohne eine einzige Anzeige** (PH Gmünd, Telekom, DHBW, HTW Saar, Uni Ulm, HWG LU, rheingold, HAWK, MPIDR, EvH Bochum, KEH, MHB, SCIoI, ZKFS): Die Stellenseiten stimmen, das Rauschen kam von Nachrichten-Links daneben. Nicht pausieren, nach ein paar Läufen mit den neuen Regeln wieder ansehen (`quellen-muster` zeigt sie).
 - [ ] Optional: **automatisch veröffentlichen** bei jedem Push (Schritt 6).
 
 ## 3. Quellen: Stand der Recherche vom 23. Oktober

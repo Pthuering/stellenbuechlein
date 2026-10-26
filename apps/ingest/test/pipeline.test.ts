@@ -14,6 +14,7 @@ import { BrowserPool } from '../src/browser';
 import { agentReadPosting } from '../src/agent';
 import { parseRobots, isAllowed } from '../src/robots';
 import { startFixtureServer, type FixtureServer } from './fixtures/server';
+import { exportAiTasks, importAiResults } from '../src/aiTasks';
 
 let srv: FixtureServer;
 let cfg: IngestConfig;
@@ -183,6 +184,38 @@ describe('Kompletter Lauf', () => {
     expect(after).toBe(before);
     expect(stats.neu ?? 0).toBe(0);
     expect(stats.gesehen).toBeGreaterThan(3);
+  });
+});
+
+describe('Dubletten und Seiten, die keine Anzeige sind', () => {
+  it('legt dieselbe Stelle unter zwei Adressen einmal an, sortiert eine Nachricht aus und hält eine unklare Seite zurück', async () => {
+    const db = new SqliteDb(':memory:');
+    migrateSqlite(db);
+    await db.batch([
+      upsertCityStmt({ id: 'halle-saale', name: 'Halle (Saale)', state: 'ST', lat: 51.48, lon: 11.97 }),
+      upsertInstitutionStmt({ id: 'test-uni', name: 'Testuniversität', kind: 'universitaet', cityId: 'halle-saale', website: srv.url, active: true, origin: 'seed' }),
+      upsertSourceStmt(source({ id: 'test-doppelt', url: `${srv.url}/doppelt/`, config: { linkPattern: '/doppelt/' } })),
+    ]);
+    const opts = { browser: false, images: false, discovery: false, reminders: false, explore: false };
+    const stats = await new Pipeline(db, cfg, opts, new RunLog(false)).run();
+    expect(stats.dubletten).toBe(1);
+    expect(stats.keineAnzeigeRegel).toBe(1);
+    expect(stats.inPruefung).toBe(1);
+    expect((await listGateSkips(db)).find((s) => s.reason === 'regel-keine-anzeige')?.title).toBe('Neuer Rektor gewählt');
+    // die App sieht nur die Stelle; die Projektseite wartet auf Claude
+    expect((await syncJobs(db, '', 100)).jobs.map((j) => j.title)).toEqual(['Wissenschaftliche Mitarbeiterin (m/w/d) Lernmotivation']);
+    expect((await db.first<{ status: string }>("SELECT status FROM jobs WHERE title = 'Projekt Lernmotivation'"))?.status).toBe('pruefung');
+
+    // zweiter Lauf: die Kopie ist über die gemerkte Adresse bekannt, nichts kommt neu dazu
+    const second = await new Pipeline(db, cfg, opts, new RunLog(false)).run();
+    expect(second.neu ?? 0).toBe(0);
+    expect(second.dubletten ?? 0).toBe(0);
+    expect(second.gesehen).toBeGreaterThanOrEqual(3);
+
+    // Claude bestätigt die Projektseite als Anzeige → sie erscheint in der App
+    const task = (await exportAiTasks(db, { max: 10 })).aufgaben.find((t) => t.titel === 'Projekt Lernmotivation')!;
+    await importAiResults(db, [{ id: task.id, ergebnis: { is_job_posting: true } }]);
+    expect((await syncJobs(db, '', 100)).jobs.map((j) => j.title)).toContain('Projekt Lernmotivation');
   });
 });
 

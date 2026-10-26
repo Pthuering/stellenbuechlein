@@ -92,6 +92,12 @@ const t = texts({
     foundVia: 'Gefunden über',
     source: 'Quelle',
     discovered: 'Entdeckt',
+    notPosting: 'Keine Stellenanzeige',
+    notPostingAsk: 'Ist das gar keine einzelne Anzeige, sondern eine Übersicht, Nachricht oder ein Formular? Dann verschwindet die Seite und wird nicht wieder eingesammelt.',
+    notPostingYes: 'Ja, keine Stellenanzeige',
+    notPostingDone: 'Gemeldet. Die Seite kommt nicht wieder.',
+    notPostingFailed: 'Das hat nicht geklappt. Bist du online?',
+    cancel: 'Abbrechen',
   },
   en: {
     profileEmpty: 'Your search profile is still empty.',
@@ -168,6 +174,12 @@ const t = texts({
     foundVia: 'Found via',
     source: 'Source',
     discovered: 'Discovered',
+    notPosting: 'Not a job posting',
+    notPostingAsk: 'Not a single posting at all, but an overview, news item or form? Then the page disappears and won’t be collected again.',
+    notPostingYes: 'Yes, not a job posting',
+    notPostingDone: 'Reported. This page won’t come back.',
+    notPostingFailed: 'That didn’t work. Are you online?',
+    cancel: 'Cancel',
   },
   sr: {
     profileEmpty: 'U profilu pretrage još ništa nije uneto.',
@@ -244,6 +256,12 @@ const t = texts({
     foundVia: 'Pronađeno preko',
     source: 'Izvor',
     discovered: 'Otkriveno',
+    notPosting: 'Nije oglas za posao',
+    notPostingAsk: 'Ovo uopšte nije pojedinačan oglas, nego pregled, vest ili formular? Onda stranica nestaje i više se neće prikupljati.',
+    notPostingYes: 'Da, nije oglas za posao',
+    notPostingDone: 'Označeno. Ova stranica se više neće pojaviti.',
+    notPostingFailed: 'Nije uspelo. Da li si na mreži?',
+    cancel: 'Otkaži',
   },
 });
 
@@ -375,6 +393,7 @@ export function JobDetail({ id }: { id: string }) {
   const testPhotos = useTestPhotos();
   const v = views.get(id);
   const [showWhy, setShowWhy] = useState(false);
+  const [askNotPosting, setAskNotPosting] = useState(false);
   const [note, setNote] = useState(v?.mark?.note ?? '');
   useEffect(() => setNote(v?.mark?.note ?? ''), [id, v?.mark?.note]);
   const html = useMemo(() => (v ? renderMarkdown(v.job.descriptionMd) : ''), [v?.job.descriptionMd]);
@@ -599,6 +618,39 @@ export function JobDetail({ id }: { id: string }) {
           <span className="facts__v">{fmtDate(job.firstSeenAt)}</span>
         </li>
       </ul>
+      {!job.dummy && !s.demo && (
+        <div style={{ margin: '14px 0 4px' }}>
+          {!askNotPosting ? (
+            <button type="button" className="btn btn--quiet btn--small" onClick={() => setAskNotPosting(true)}>
+              <IconX width={16} height={16} /> {t.notPosting}
+            </button>
+          ) : (
+            <div className="notice">
+              <p style={{ margin: '0 0 8px' }}>{t.notPostingAsk}</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="btn btn--small"
+                  onClick={async () => {
+                    try {
+                      await store.reportNotPosting(job.id);
+                      store.toast(t.notPostingDone);
+                      closeOverlay();
+                    } catch {
+                      store.toast(t.notPostingFailed);
+                    }
+                  }}
+                >
+                  {t.notPostingYes}
+                </button>
+                <button type="button" className="btn btn--quiet btn--small" onClick={() => setAskNotPosting(false)}>
+                  {t.cancel}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </Sheet>
   );
 }

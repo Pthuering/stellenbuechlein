@@ -328,6 +328,10 @@ export class DemoBackend implements Backend {
     this.save();
   }
 
+  async reportNotPosting(): Promise<void> {
+    // Demo: nur in der App ausblenden (die Dummy-Anzeigen kommen beim nächsten Laden wieder)
+  }
+
   async suggestBridges(profile: Suchprofil): Promise<Bruecke[]> {
     await wait(900);
     const have = new Set(horizontOf(profile).bruecken.map((b) => b.name.toLowerCase()));

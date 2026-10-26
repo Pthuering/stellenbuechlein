@@ -278,13 +278,25 @@ function extractStart(text: string): string | null {
 
 // ---------------------------------------------------------------- Kennziffer, Kontakt
 
+/**
+ * Taugt ein Wert als Kennziffer? Nicht: Web-Adressen (softgarden liefert die eigene Adresse als „identifier“),
+ * eine bloße Jahreszahl, sehr kurze Kürzel wie „PS1“ oder Werte ohne Ziffer.
+ */
+export function plausibleReference(v: string | null | undefined): string | null {
+  const t = v?.trim().replace(/[.,;:]+$/, '') ?? '';
+  if (t.length < 4 || t.length > 40 || !/\d/.test(t)) return null;
+  if (/:\/\/|^www\.|\.(?:de|com|io|org|net|eu)(?:\/|$)|@/i.test(t)) return null;
+  if (/^(?:19|20)\d{2}$/.test(t)) return null;
+  return t;
+}
+
 function extractReference(text: string): string | null {
   const re =
     /(?:Kennziffer|Kennzahl|Kenn-?Nr\.?|Kennnummer|Ausschreibungs-?(?:nummer|kennziffer|kennzahl|-?nr\.?)|Referenz(?:nummer|-?nr\.?)?|Ref\.?-?\s?Nr\.?|Reg\.?-?\s?Nr\.?|Registriernummer|Stellen-?(?:nummer|ID|kennziffer)|Job-?ID|Job-?Nr\.?|Ausschreibung\s+Nr\.?|reference(?: number| no\.?| code)?)\s*[:#.]?\s*([A-Za-z0-9][A-Za-z0-9\-\/_.]{0,30})/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
-    const token = m[1].replace(/[.,;:]+$/, '');
-    if (/\d/.test(token) && token.length >= 2) return token;
+    const token = plausibleReference(m[1]);
+    if (token) return token;
   }
   return null;
 }

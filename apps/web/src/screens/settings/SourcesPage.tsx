@@ -39,6 +39,9 @@ const STAT_KEYS = [
   'fristUnsicher',
   'probelaeufe',
   'dubletten',
+  'keineAnzeigeRegel',
+  'musterAusgelassen',
+  'inPruefung',
   'browserNeu',
   'browserVervollstaendigt',
   'fehlerDetail',
@@ -79,6 +82,9 @@ const t = texts({
       fristUnsicher: 'Fristen unsicher',
       probelaeufe: 'Probeläufe für neue Quellen',
       dubletten: 'Dubletten zusammengeführt',
+      keineAnzeigeRegel: 'keine Stellenanzeige (nach Regeln)',
+      musterAusgelassen: 'Adressen ohne Anzeigen übersprungen',
+      inPruefung: 'warten auf die KI-Prüfung',
       browserNeu: 'per Browser gefunden',
       browserVervollstaendigt: 'per Browser vervollständigt',
       fehlerDetail: 'Anzeigen nicht lesbar',
@@ -269,6 +275,8 @@ const t = texts({
     demoNoSkips: 'In der Demo wird nichts aussortiert.',
     noSkips: 'Nichts aussortiert.',
     aiNo: ', KI: passt nicht',
+    notPosting: ', keine Stellenanzeige',
+    notPostingRule: ', keine Stellenanzeige (Regeln)',
     demoNoRuns: 'In der Demo gibt es keine Läufe.',
     noRuns: 'Noch keine Läufe.',
     logUnavailable: 'Protokoll nicht verfügbar.',
@@ -299,6 +307,9 @@ const t = texts({
       fristUnsicher: 'deadlines uncertain',
       probelaeufe: 'test runs for new sources',
       dubletten: 'duplicates merged',
+      keineAnzeigeRegel: 'not a job posting (rules)',
+      musterAusgelassen: 'URLs without postings skipped',
+      inPruefung: 'waiting for the AI check',
       browserNeu: 'found via browser',
       browserVervollstaendigt: 'completed via browser',
       fehlerDetail: 'postings not readable',
@@ -478,6 +489,8 @@ const t = texts({
     demoNoSkips: 'Nothing is filtered out in the demo.',
     noSkips: 'Nothing filtered out.',
     aiNo: ', AI: not a match',
+    notPosting: ', not a job posting',
+    notPostingRule: ', not a job posting (rules)',
     demoNoRuns: 'There are no runs in the demo.',
     noRuns: 'No runs yet.',
     logUnavailable: 'Log not available.',
@@ -508,6 +521,9 @@ const t = texts({
       fristUnsicher: 'nesigurni rokovi',
       probelaeufe: 'probni prolazi za nove izvore',
       dubletten: 'spojeni duplikati',
+      keineAnzeigeRegel: 'nije oglas za posao (pravila)',
+      musterAusgelassen: 'preskočene adrese bez oglasa',
+      inPruefung: 'čeka AI proveru',
       browserNeu: 'pronađeni pomoću pregledača',
       browserVervollstaendigt: 'dopunjeni pomoću pregledača',
       fehlerDetail: 'nečitljivi oglasi',
@@ -688,6 +704,8 @@ const t = texts({
     demoNoSkips: 'U demo verziji se ništa ne odbacuje.',
     noSkips: 'Ništa nije odbačeno.',
     aiNo: ', AI: ne odgovara',
+    notPosting: ', nije oglas za posao',
+    notPostingRule: ', nije oglas za posao (pravila)',
     demoNoRuns: 'U demo verziji nema prolaza.',
     noRuns: 'Još nema prolaza.',
     logUnavailable: 'Zapisnik nije dostupan.',
@@ -1608,7 +1626,7 @@ export function SourcesPage() {
                   </a>
                   <small className="hint">
                     {k.institutionId ? (s.institutions.get(k.institutionId)?.shortName ?? s.institutions.get(k.institutionId)?.name) : k.sourceId}, {relativeTime(k.seenAt)}
-                    {k.reason === 'ki-nein' ? t.aiNo : ''}
+                    {k.reason === 'ki-nein' ? t.aiNo : k.reason === 'keine-anzeige' ? t.notPosting : k.reason === 'regel-keine-anzeige' ? t.notPostingRule : ''}
                   </small>
                   {k.reason === 'ki-nein' && k.note && <small className="skip__note">{k.note}</small>}
                 </li>

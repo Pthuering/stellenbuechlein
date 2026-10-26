@@ -32,8 +32,9 @@ import { applySeed } from './seed';
 import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
 import { processPendingChecks, runSourceCheck } from './sourceCheck';
-import { backfillAiTasks, countOpenAiTasks, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
+import { backfillAiTasks, countOpenAiTasks, getSetting, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
 import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage } from './aiTasks';
+import { cleanupJobs, learnSkipPrefixes } from './cleanup';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
 
@@ -210,6 +211,45 @@ async function main(): Promise<void> {
         `Eingespielt: ${r.erledigt}, entfernt (keine Anzeige oder KI: nein): ${r.entfernt}, Weite gespeichert: ${r.weiteGespeichert}, ohne Ergebnis: ${r.unbeantwortet}, Fehler: ${r.fehler.length}, noch offen: ${r.offen}`,
       );
       for (const e of r.fehler) console.log(`  Fehler: ${e}`);
+      break;
+    }
+    case 'aufraeumen': {
+      // Bestand aufräumen: falsche Kennziffern, Dubletten. Ohne --los nur anzeigen.
+      const db = openDb();
+      const apply = flag('los');
+      const r = await cleanupJobs(db, { apply });
+      const n = r.gruppen.reduce((s, g) => s + g.drop.length, 0);
+      const why = (w: string) => r.gruppen.filter((g) => g.why === w).length;
+      console.log(`Falsche Kennziffern: ${r.kennziffern}`);
+      console.log(`Dubletten: ${r.gruppen.length} Gruppen, ${n} Anzeigen zu viel (gleicher Text ${why('text')}, fast gleiche Adresse ${why('adresse')}, gleicher Titel aus zwei Quellen ${why('quellen')}); übersprungen, weil mehrfach markiert: ${r.uebersprungen}`);
+      for (const g of r.gruppen.slice(0, Number(option('zeigen') ?? 15))) {
+        console.log(`  [${g.why}] ${g.keep.title.slice(0, 70)}
+      behalten: ${g.keep.canonical_url}`);
+        for (const d of g.drop) console.log(`      weg:      ${d.canonical_url}`);
+      }
+      console.log(apply ? 'Aufgeräumt.' : 'Nur angezeigt. Mit --los ausführen.');
+      break;
+    }
+    case 'quellen-muster': {
+      // Adressanfänge lernen, unter denen nur Seiten ohne Anzeige liegen. Ohne --los nur anzeigen.
+      const db = openDb();
+      const { vorschlaege, ohneAnzeigen } = await learnSkipPrefixes(db);
+      const known = (await getSetting<string[]>(db, 'skipPrefixes', [])) ?? [];
+      const fresh = vorschlaege.filter((v) => !known.includes(v.prefix));
+      console.log(`Adressanfänge ohne Anzeigen: ${vorschlaege.length} (neu: ${fresh.length}, schon gespeichert: ${known.length})`);
+      for (const v of fresh) console.log(`  ${String(v.weg).padStart(3)}  ${v.prefix}
+       z. B. ${v.beispiele.map((b) => b.slice(0, 60)).join(' | ')}`);
+      if (ohneAnzeigen.length) {
+        console.log('Websites ohne eine einzige Anzeige (Quelle prüfen oder pausieren):');
+        for (const h of ohneAnzeigen) console.log(`  ${String(h.weg).padStart(3)}  ${h.host}`);
+      }
+      if (flag('los') && fresh.length) {
+        await db.run("INSERT INTO settings (key, value, updated_at) VALUES ('skipPrefixes', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at", [
+          JSON.stringify([...known, ...fresh.map((v) => v.prefix)]),
+          new Date().toISOString(),
+        ]);
+        console.log('Gespeichert. Der nächste Lauf überspringt diese Adressen.');
+      } else if (fresh.length) console.log('Nur angezeigt. Mit --los speichern.');
       break;
     }
     case 'reminders': {

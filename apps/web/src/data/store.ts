@@ -445,6 +445,15 @@ export class Store {
     this.enqueue({ t: 'setting', key, value });
   }
 
+  /** Seite als „keine Stellenanzeige“ melden; danach verschwindet sie auch hier. */
+  async reportNotPosting(jobId: string): Promise<void> {
+    await this.api.reportNotPosting(jobId);
+    const jobs = new Map(this.state.jobs);
+    jobs.delete(jobId);
+    this.set({ jobs }, true);
+    if (!this.state.demo) void idbSet(CACHE_JOBS, [...jobs.values()]);
+  }
+
   // ---------------------------------------------------------------- Meldungen
 
   toast(text: string, action?: Toast['action'], ms = 4500): void {

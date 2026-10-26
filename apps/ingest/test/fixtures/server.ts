@@ -240,7 +240,33 @@ function baJobs(base: string, was: string): unknown {
   return { stellenangebote: all, maxErgebnisse: all.length, gesucht: was };
 }
 
-const homepage = page('Startseite', '<h1>Willkommen an der Testuniversität</h1><p>Forschung und Lehre.</p><p><a href="/stellen/">Stellenangebote</a> <a href="/studium">Studium</a></p>');
+// Eine Quelle, die dieselbe Stelle unter zwei Adressen führt und auch Nachrichten und Projektseiten verlinkt
+const doppeltList = page(
+  'Stellen am Institut',
+  `<h1>Stellen am Institut</h1><ul>
+  <li><a href="/doppelt/stelle-a.html">Wissenschaftliche Mitarbeiterin (m/w/d) Lernmotivation</a></li>
+  <li><a href="/doppelt/stelle-a-kopie.html">Wissenschaftliche Mitarbeiterin (m/w/d) Lernmotivation</a></li>
+  <li><a href="/doppelt/news/neuer-rektor.html">Neuer Rektor gewählt</a></li>
+  <li><a href="/doppelt/projekt.html">Projekt Lernmotivation</a></li></ul>`,
+);
+const doppeltStelle = page(
+  'Lernmotivation',
+  `<article><h1>Wissenschaftliche Mitarbeiterin (m/w/d) Lernmotivation</h1>
+<p>Am Institut für Psychologie ist eine Stelle im Projekt Lernmotivation zu besetzen. Wir untersuchen, wie Studierende ihr Lernen planen.</p>
+<h2>Ihre Aufgaben</h2><ul><li>Planung und Durchführung von Feldstudien an Schulen</li><li>Auswertung mit R</li></ul>
+<h2>Ihr Profil</h2><ul><li>Master in Psychologie</li><li>Erfahrung mit Mehrebenenmodellen</li></ul>
+<p>Die Stelle ist mit 65 % nach Entgeltgruppe 13 TV-L zu besetzen. Bewerbungsfrist: 20.11.2026.</p></article>`,
+);
+const doppeltNews = page(
+  'Neuer Rektor gewählt',
+  `<article><h1>Neuer Rektor gewählt</h1><p>Der Senat der Testuniversität hat einen Professor für Psychologie zum neuen Rektor gewählt. Er tritt sein Amt im Frühjahr an und will die Forschung zur Lernpsychologie stärken.</p></article>`,
+);
+const doppeltProjekt = page(
+  'Projekt Lernmotivation',
+  `<article><h1>Projekt Lernmotivation</h1><p>Im Projekt Lernmotivation untersucht die Pädagogische Psychologie, wie Studierende ihr Lernen planen. Interessierte melden sich gern bei der Projektleitung.</p></article>`,
+);
+
+const homepage = page('Startseite','<h1>Willkommen an der Testuniversität</h1><p>Forschung und Lehre.</p><p><a href="/stellen/">Stellenangebote</a> <a href="/studium">Studium</a></p>');
 
 export interface FixtureServer {
   url: string;
@@ -287,8 +313,17 @@ export async function startFixtureServer(): Promise<FixtureServer> {
         return html(fristOhneJahr);
       case '/zentral/frist-weit.html':
         return html(fristWeit);
+      case '/doppelt/':
+        return html(doppeltList);
+      case '/doppelt/stelle-a.html':
+      case '/doppelt/stelle-a-kopie.html':
+        return html(doppeltStelle);
+      case '/doppelt/news/neuer-rektor.html':
+        return html(doppeltNews);
+      case '/doppelt/projekt.html':
+        return html(doppeltProjekt);
       case '/robots.txt':
-        return send(200, 'text/plain', 'User-agent: *\nDisallow: /privat/\nCrawl-delay: 0\n');
+        return send(200, 'text/plain','User-agent: *\nDisallow: /privat/\nCrawl-delay: 0\n');
       case '/stellen/':
         return html(url.searchParams.get('page') === '2' ? listPage2 : listPage1);
       case '/stellen/job-1.html':

@@ -167,6 +167,8 @@ export interface Backend {
   acceptCheck(id: number, body: AcceptCheckBody): Promise<void>;
   discardCheck(id: number): Promise<void>;
   setDiscoveryStatus(siteKey: string, status: Discovery['status']): Promise<void>;
+  /** Seite als „keine Stellenanzeige“ melden: wird gelöscht, die Adresse kommt nicht wieder. */
+  reportNotPosting(jobId: string): Promise<void>;
   /** Brücken-Vorschläge der KI (nur, wenn der Worker einen KI-Schlüssel hat). */
   suggestBridges(profile: Suchprofil): Promise<Bruecke[]>;
   runs(): Promise<RunInfo[]>;

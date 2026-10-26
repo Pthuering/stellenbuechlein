@@ -107,6 +107,10 @@ export class HttpBackend implements Backend {
     await this.call('/api/discoveries/status', { method: 'POST', body: JSON.stringify({ siteKey, status }) });
   }
 
+  async reportNotPosting(jobId: string): Promise<void> {
+    await this.call(`/api/jobs/${encodeURIComponent(jobId)}/keine-anzeige`, { method: 'POST' });
+  }
+
   async suggestBridges(profile: Suchprofil): Promise<Bruecke[]> {
     return (await this.call<{ bruecken: Bruecke[] }>('/api/horizont/vorschlaege', { method: 'POST', body: JSON.stringify({ profile }) })).bruecken;
   }

@@ -26,6 +26,7 @@ import {
   listSuggestions,
   patchSource,
   removePushSubscription,
+  reportNotPosting,
   resolveSuggestion,
   setFavorite,
   setSetting,
@@ -271,6 +272,12 @@ export function createApp(deps: AppDeps): Hono {
   app.get('/api/jobs/:id', async (c) => {
     const job = await getJob(deps.db(c), c.req.param('id'));
     return job ? c.json(job) : c.json({ error: 'Anzeige nicht gefunden.' }, 404);
+  });
+
+  // Von Hand gemeldet: keine einzelne Stellenanzeige. Wird gelöscht, die Adresse kommt nicht wieder.
+  app.post('/api/jobs/:id/keine-anzeige', async (c) => {
+    const ok = await reportNotPosting(deps.db(c), c.req.param('id'));
+    return ok ? c.json({ ok: true }) : c.json({ error: 'Anzeige nicht gefunden.' }, 404);
   });
 
   app.put('/api/marks/:jobId', async (c) => {

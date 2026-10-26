@@ -12,6 +12,8 @@ import {
   assessDeadline,
   canonicalUrl,
   checkGate,
+  checkPosting,
+  jobLikeUrl,
   classifyKind,
   cleanTitleForKey,
   contentHash,
@@ -28,14 +30,18 @@ import {
   matchFeld,
   normalizeText,
   parseProfile,
+  plausibleReference,
   profileSummary,
   scoreJob,
   searchTextOf,
   starterProfile,
   stripMarkdown,
+  textSimilarity,
+  samePlace,
   titleSimilarity,
   todayBerlin,
   truncate,
+  urlKey,
   verifyDeadlineQuote,
   weiteCandidate,
   DEFAULT_GATE_TERMS,
@@ -46,6 +52,7 @@ import {
   type Institution,
   type JobHorizon,
   type Lane,
+  type PostingCheck,
   type Source,
   type Suchprofil,
 } from '@stellen/core';
@@ -61,14 +68,17 @@ import {
   gateSkipStmt,
   getSetting,
   imagesToCheck,
+  jobAliasStmt,
   listCities,
   listInstitutions,
   listSources,
   loadGateSkipIndex,
+  loadJobAliases,
   loadJobIndex,
   markSeenStmt,
   nextBrowserItems,
   purgeExpired,
+  releaseCheckedJobs,
   setCityImage,
   setInstitutionImage,
   sourceRunStmt,
@@ -141,7 +151,7 @@ interface JobMeta {
 export const GENERIC_TITLE = /^(?:stellenangebote?|stellenausschreibung(?:en)?|stellenanzeige|jobs?|job ?details?|karriere|ausschreibung|startseite|home|details?|anzeige|offene stellen|stellenmarkt|vacancies|job offer|position)$/i;
 const GENERIC_WORDS = new Set(['wissenschaftliche', 'wissenschaftlicher', 'wissenschaftlichen', 'mitarbeiter', 'mitarbeiterin', 'mitarbeitende', 'stelle', 'position', 'research', 'associate', 'in', 'r', 'm', 'w', 'd', 'f', 'x', 'und', 'oder', 'der', 'die', 'das', 'fuer', 'im', 'am', 'zur', 'zum', 'e', 'tv', 'l']);
 
-function significantWords(title: string): number {
+export function significantWords(title: string): number {
   return cleanTitleForKey(title)
     .split(' ')
     .filter((w) => w.length > 2 && !GENERIC_WORDS.has(w) && !/^\d+$/.test(w)).length;
@@ -175,6 +185,12 @@ export class Pipeline {
   private index = new Map<string, JobIndexEntry>();
   private fuzzy = new Map<string, JobIndexEntry>();
   private byInstitution = new Map<string, JobIndexEntry[]>();
+  private byHash = new Map<string, JobIndexEntry>();
+  private byUrlKey = new Map<string, JobIndexEntry>();
+  /** Anzeigentexte für den Textvergleich bei Dubletten aus derselben Quelle (bei Bedarf aus der Datenbank) */
+  private descriptions = new Map<string, string>();
+  /** Adressanfänge, unter denen erfahrungsgemäß keine Anzeigen stehen (Einstellung skipPrefixes, gelernt aus Claudes Urteilen) */
+  private skipPrefixes: string[] = [];
   private sourcesByJob = new Map<string, Set<string>>();
   private gateTerms: string[] = DEFAULT_GATE_TERMS;
   private gateHash = '';
@@ -235,7 +251,7 @@ export class Pipeline {
   // ---------------------------------------------------------------- Laden
 
   private async load(): Promise<Source[]> {
-    const [insts, cities, sources, index, skips, gateTerms, jobSources, profileRaw, allSources, discoveries] = await Promise.all([
+    const [insts, cities, sources, index, skips, gateTerms, jobSources, profileRaw, allSources, discoveries, aliases, skipPrefixes] = await Promise.all([
       listInstitutions(this.db),
       listCities(this.db),
       listSources(this.db, true),
@@ -246,6 +262,8 @@ export class Pipeline {
       getSetting<unknown>(this.db, 'profile', null),
       listSources(this.db),
       listDiscoveries(this.db, 'alle', 5000),
+      loadJobAliases(this.db),
+      getSetting<string[]>(this.db, 'skipPrefixes', []),
     ]);
     this.profile = parseProfile(profileRaw) ?? starterProfile();
     this.horizon = horizontOf(this.profile);
@@ -257,6 +275,12 @@ export class Pipeline {
     this.instMatcher = new InstitutionMatcher(insts);
     this.cityMatcher = new CityMatcher(cities);
     for (const e of index) this.indexEntry(e);
+    const byId = new Map(index.map((e) => [e.id, e]));
+    for (const a of aliases) {
+      const e = byId.get(a.jobId);
+      if (e) this.index.set(a.url, e);
+    }
+    this.skipPrefixes = (skipPrefixes ?? []).filter((p) => typeof p === 'string' && p.length > 10);
     for (const r of jobSources) {
       const set = this.sourcesByJob.get(r.job_id) ?? new Set<string>();
       set.add(r.source_id);
@@ -275,6 +299,8 @@ export class Pipeline {
   private indexEntry(e: JobIndexEntry): void {
     this.index.set(e.canonicalUrl, e);
     if (e.fuzzyKey) this.fuzzy.set(e.fuzzyKey, e);
+    this.byHash.set(e.contentHash, e);
+    this.byUrlKey.set(urlKey(e.canonicalUrl), e);
     if (e.institutionId) {
       const list = this.byInstitution.get(e.institutionId) ?? [];
       list.push(e);
@@ -294,8 +320,11 @@ export class Pipeline {
       title: j.title,
       deadline: j.deadline ?? null,
       descriptionLength: j.descriptionMd.length,
+      cityId: j.cityId ?? null,
+      locationText: j.locationText ?? null,
     };
     this.indexEntry(e);
+    this.descriptions.set(j.id, j.descriptionMd);
     for (const u of extraUrls) this.index.set(canonicalUrl(u), e);
   }
 
@@ -327,6 +356,7 @@ export class Pipeline {
           await expireJobs(this.db, this.today, new Date(t - this.cfg.goneAfterDays * 86_400_000).toISOString(), this.now, new Date(t - 45 * 86_400_000).toISOString()),
         );
         this.bump('geloescht', await purgeExpired(this.db, new Date(t - this.cfg.purgeAfterDays * 86_400_000).toISOString(), this.now));
+        this.bump('freigegeben', await releaseCheckedJobs(this.db, this.today, this.now));
       }
       if (this.opts.reminders !== false) {
         this.bump('erinnerungen', await sendReminders(this.db, this.cfg, this.log, this.today));
@@ -460,7 +490,9 @@ export class Pipeline {
     const existing = this.index.get(canon);
     if (existing) {
       this.bump('gesehen');
-      stmts.push(markSeenStmt(existing.id, this.now), touchJobSourceStmt(existing.id, source.id, c.url, this.now));
+      // Über eine weitere Adresse (Dublette) gesehen: Quelle merken, aber die Adresse der Anzeige behalten
+      const alias = canon !== existing.canonicalUrl;
+      stmts.push(markSeenStmt(existing.id, this.now), touchJobSourceStmt(existing.id, source.id, alias ? existing.canonicalUrl : c.url, this.now));
       this.sourcesByJob.set(existing.id, (this.sourcesByJob.get(existing.id) ?? new Set()).add(source.id));
       // Zuerst ohne Einrichtung gefunden (Portal, Erkundung), jetzt in einer Quelle mit Einrichtung
       if (!existing.institutionId && source.institutionId) {
@@ -468,7 +500,7 @@ export class Pipeline {
         existing.institutionId = source.institutionId;
       }
       const refetch = existing.completeness === 'teilweise' || this.refetchToday(existing.id);
-      if (!refetch || budget.left <= 0) return null;
+      if (alias || !refetch || budget.left <= 0) return null;
       budget.left--;
       const data = await this.readCandidate(source, c, stmts);
       if (!data) return null;
@@ -488,6 +520,10 @@ export class Pipeline {
       this.bump('grobfilterBekannt');
       return null;
     }
+    if (this.skipPrefixes.some((p) => canon.startsWith(p)) && !jobLikeUrl(canon)) {
+      this.bump('musterAusgelassen');
+      return null;
+    }
     if (budget.left <= 0) {
       this.bump('verschoben');
       return null;
@@ -497,6 +533,13 @@ export class Pipeline {
     if (!data) return null;
     if (source.kind === 'portal' && isOutsideGermany({ country: data.country ?? c.hints?.country, locationText: data.locationText ?? c.hints?.locality })) {
       this.bump('ausland');
+      return null;
+    }
+    const posting = this.checkPosting(data, c);
+    if (posting.verdict === 'keine') {
+      stmts.push(gateSkipStmt({ url: canon, sourceId: source.id, institutionId: source.institutionId, title: truncate(data.title || c.title || c.url, 200), textHash: this.gateHash, reason: 'regel-keine-anzeige', note: posting.noise }, this.now));
+      this.gateSkips.set(canon, this.gateHash);
+      this.bump('keineAnzeigeRegel');
       return null;
     }
     const norm = searchTextOf({ title: data.title, descriptionMd: data.descriptionMd });
@@ -535,11 +578,14 @@ export class Pipeline {
       this.bump('keineAnzeige');
       return null;
     }
-    const dup = this.findDuplicate(job, source.id);
+    const dup = await this.findDuplicate(job, source.id);
     if (dup) {
       this.dropAi(job.id);
       this.bump('dubletten');
-      stmts.push(markSeenStmt(dup.id, this.now), touchJobSourceStmt(dup.id, source.id, c.url, this.now));
+      const sameSource = this.sourcesByJob.get(dup.id)?.has(source.id) ?? false;
+      stmts.push(markSeenStmt(dup.id, this.now), jobAliasStmt(canon, dup.id, source.id, this.now));
+      if (!sameSource) stmts.push(touchJobSourceStmt(dup.id, source.id, c.url, this.now));
+      this.sourcesByJob.set(dup.id, (this.sourcesByJob.get(dup.id) ?? new Set()).add(source.id));
       this.index.set(canon, dup);
       if (dup.completeness === 'teilweise' && job.completeness === 'ok') {
         stmts.push(this.replaceContentStmt(dup.id, job));
@@ -549,12 +595,13 @@ export class Pipeline {
       return null;
     }
     if (source.kind === 'portal' && job.institutionId) this.portalHealth(job, source);
+    this.holdIfUnclear(job, posting);
     stmts.push(upsertJobStmt(job), touchJobSourceStmt(job.id, source.id, c.url, this.now));
     this.flushAi(job.id, stmts);
     this.indexJob(job, [c.url]);
     this.sourcesByJob.set(job.id, new Set([source.id]));
     this.bump('neu');
-    this.newScored.push({ id: job.id, title: job.title, score: scoreJob(job, searchTextOf(job), this.profile).score });
+    if (job.status === 'aktiv') this.newScored.push({ id: job.id, title: job.title, score: scoreJob(job, searchTextOf(job), this.profile).score });
     if (job.lane === 'horizont') this.bump('neuHorizont');
     if (job.lane === 'weite') this.bump('neuWeite');
     if (job.newSite) {
@@ -782,7 +829,7 @@ export class Pipeline {
       deadlineText: fields.deadlineText ?? fields.deadlineUnclear,
       deadlineCheck: dl.check,
       deadlineNote: dl.note,
-      referenceNo: fields.referenceNo ?? data.referenceNo ?? null,
+      referenceNo: fields.referenceNo ?? plausibleReference(data.referenceNo),
       contact: fields.contact,
       language: detectLanguage(data.descriptionMd),
       imageUrl: data.imageUrl ?? null,
@@ -848,18 +895,57 @@ export class Pipeline {
     return dl;
   }
 
-  private findDuplicate(job: JobWrite, sourceId: string): JobIndexEntry | null {
+  /**
+   * Ist die Anzeige schon unter einer anderen Adresse bekannt? Derselbe Text ist dieselbe Anzeige, ebenso ein fast
+   * gleicher Text unter fast derselben Adresse (Sprachversion, Sitzungs-Parameter, „-1“ am Ende). Aus einer anderen
+   * Quelle genügt außerdem derselbe Titel mit Frist oder Kennziffer (fuzzyKey) oder ein sehr ähnlicher Titel bei derselben
+   * Einrichtung. Innerhalb einer Quelle reicht der Titel nicht: Dort stehen oft mehrere Stellen mit gleichem Titel und
+   * gleicher Vorlage (verschiedene Kliniken, Institute, Ausbildungsbeginne). Nie eine Dublette: zwei verschiedene Orte.
+   */
+  private async findDuplicate(job: JobWrite, sourceId: string): Promise<JobIndexEntry | null> {
+    const live = (e: JobIndexEntry) => e.id !== job.id && (e.status === 'aktiv' || e.status === 'pruefung') && samePlace(e, job);
+    const fromSource = (e: JobIndexEntry) => this.sourcesByJob.get(e.id)?.has(sourceId) ?? false;
+    const full = job.completeness === 'ok' && job.descriptionMd.length >= 300;
+    const same = this.byHash.get(job.contentHash);
+    if (same && live(same) && full) return same;
+    const near = this.byUrlKey.get(urlKey(job.canonicalUrl));
+    if (near && live(near) && full && textSimilarity(await this.descriptionOf(near.id), job.descriptionMd) >= 0.9) return near;
     if (job.fuzzyKey) {
       const e = this.fuzzy.get(job.fuzzyKey);
-      if (e && !this.sourcesByJob.get(e.id)?.has(sourceId)) return e;
+      if (e && e.id !== job.id && samePlace(e, job) && !fromSource(e)) return e;
     }
     if (!job.institutionId || significantWords(job.title) < 2) return null;
     for (const e of this.byInstitution.get(job.institutionId) ?? []) {
-      if (e.status !== 'aktiv' || this.sourcesByJob.get(e.id)?.has(sourceId)) continue;
+      if (!live(e) || fromSource(e)) continue;
       if (e.deadline && job.deadline && e.deadline !== job.deadline) continue;
       if (titleSimilarity(e.title, job.title) >= 0.85) return e;
     }
     return null;
+  }
+
+  private async descriptionOf(id: string): Promise<string> {
+    let d = this.descriptions.get(id);
+    if (d == null) {
+      d = (await this.db.first<{ d: string }>('SELECT description_md AS d FROM jobs WHERE id = ?', [id]))?.d ?? '';
+      this.descriptions.set(id, d);
+    }
+    return d;
+  }
+
+  /** Regeln vor der KI: Ist die Seite eine einzelne Stellenanzeige? */
+  private checkPosting(data: PostingData, c: Candidate): PostingCheck {
+    return checkPosting({ url: data.url || c.url, title: data.title || c.title || '', text: data.descriptionMd, structured: /jsonld|ats|feed|api/.test(data.method ?? '') });
+  }
+
+  /**
+   * Nicht eindeutig eine Anzeige: bleibt in der App unsichtbar (Status „pruefung“), bis Claude sie ausgewertet hat.
+   * Mit KI im Lauf ist das nicht nötig, die Auswertung entscheidet dort sofort.
+   */
+  private holdIfUnclear(job: JobWrite, posting: PostingCheck): void {
+    if (posting.verdict !== 'unklar' || job.status !== 'aktiv' || this.llm.available) return;
+    job.status = 'pruefung';
+    this.queueAi(job.id, 'auswerten', null);
+    this.bump('inPruefung');
   }
 
   private replaceContentStmt(id: string, j: JobWrite): Stmt {
@@ -867,7 +953,7 @@ export class Pipeline {
       sql: `UPDATE jobs SET title = ?, description_md = ?, summary = ?, summary_ai = ?, kind = ?, pay_grade = ?, pay_level = ?, workload_pct = ?,
             workload_text = ?, fixed_term = ?, is_permanent = ?, start_text = ?, deadline = ?, deadline_text = ?, deadline_check = ?, deadline_note = ?,
             reference_no = ?, contact = ?, language = ?, image_url = COALESCE(?, image_url), pdf_url = COALESCE(?, pdf_url), content_hash = ?, completeness = ?, method = ?,
-            status = CASE WHEN ? IS NOT NULL AND ? < ? THEN 'abgelaufen' WHEN ? IS NOT NULL AND ? >= ? THEN 'aktiv' ELSE status END,
+            status = CASE WHEN status = 'pruefung' THEN status WHEN ? IS NOT NULL AND ? < ? THEN 'abgelaufen' WHEN ? IS NOT NULL AND ? >= ? THEN 'aktiv' ELSE status END,
             updated_at = ?, last_seen_at = ? WHERE id = ?`,
       params: [
         j.title, j.descriptionMd, j.summary ?? null, j.summaryByAi ? 1 : 0, j.kind, j.payGrade ?? null, j.payLevel ?? null, j.workloadPct ?? null,
@@ -1031,7 +1117,12 @@ export class Pipeline {
         const norm = searchTextOf({ title: res.data.title, descriptionMd: res.data.descriptionMd });
         const gate = checkGate(norm, this.gateTerms);
         let meta: JobMeta | null = { lane: 'kern', horizon: null, isNew: !existing };
-        if (!existing && source.gate === 'psych' && !gate.pass) {
+        const posting = this.checkPosting(res.data, { url: item.url, via: 'browser' });
+        if (!existing && posting.verdict === 'keine') {
+          stmts.push(gateSkipStmt({ url: canon, sourceId: source.id, institutionId: source.institutionId, title: truncate(res.data.title, 200), textHash: this.gateHash, reason: 'regel-keine-anzeige', note: posting.noise }, this.now));
+          this.bump('keineAnzeigeRegel');
+          meta = null;
+        } else if (!existing && source.gate === 'psych' && !gate.pass) {
           const d = await this.decideOutside(norm, res.data, jobIdForUrl(item.url));
           if ('pendingWeite' in d) {
             await this.queueWeite(source, { url: item.url, via: 'browser' }, res.data, gate.matched, stmts);
@@ -1055,6 +1146,7 @@ export class Pipeline {
               this.flushAi(job.id, stmts, existing.id);
               this.bump('browserVervollstaendigt');
             } else {
+              this.holdIfUnclear(job, posting);
               stmts.push(upsertJobStmt(job), touchJobSourceStmt(job.id, source.id, item.url, this.now));
               this.flushAi(job.id, stmts);
               this.indexJob(job);

@@ -480,11 +480,11 @@ export interface SyncPage {
   next: string | null;
 }
 
-/** Cursor-Format: "<updated_at>|<id>". Leerer Cursor = alles. */
+/** Cursor-Format: "<updated_at>|<id>". Leerer Cursor = alles. Anzeigen in Prüfung (Status „pruefung“) sieht die App noch nicht. */
 export async function syncJobs(db: Db, cursor: string, limit = 100): Promise<SyncPage> {
   const [since, sinceId] = cursor ? [cursor.split('|')[0], cursor.split('|')[1] ?? ''] : ['', ''];
   const rows = await db.all<JobRow>(
-    `SELECT * FROM jobs WHERE (updated_at > ? OR (updated_at = ? AND id > ?)) ORDER BY updated_at, id LIMIT ?`,
+    `SELECT * FROM jobs WHERE (updated_at > ? OR (updated_at = ? AND id > ?)) AND status <> 'pruefung' ORDER BY updated_at, id LIMIT ?`,
     [since, since, sinceId, limit],
   );
   const refs = await jobSourcesFor(db, rows.map((r) => r.id));
@@ -540,6 +540,8 @@ export interface JobIndexEntry {
   title: string;
   deadline: string | null;
   descriptionLength: number;
+  cityId: string | null;
+  locationText: string | null;
 }
 
 export async function loadJobIndex(db: Db): Promise<JobIndexEntry[]> {
@@ -554,8 +556,10 @@ export async function loadJobIndex(db: Db): Promise<JobIndexEntry[]> {
     title: string;
     deadline: string | null;
     len: number;
+    city_id: string | null;
+    location_text: string | null;
   }>(
-    'SELECT id, canonical_url, content_hash, fuzzy_key, status, completeness, institution_id, title, deadline, length(description_md) AS len FROM jobs',
+    'SELECT id, canonical_url, content_hash, fuzzy_key, status, completeness, institution_id, title, deadline, length(description_md) AS len, city_id, location_text FROM jobs',
   );
   return rows.map((r) => ({
     id: r.id,
@@ -568,6 +572,8 @@ export async function loadJobIndex(db: Db): Promise<JobIndexEntry[]> {
     title: r.title,
     deadline: r.deadline,
     descriptionLength: r.len,
+    cityId: r.city_id,
+    locationText: r.location_text,
   }));
 }
 
@@ -581,6 +587,33 @@ export function touchJobSourceStmt(jobId: string, sourceId: string, url: string,
 
 export function markSeenStmt(jobId: string, now = nowIso()): Stmt {
   return { sql: 'UPDATE jobs SET last_seen_at = ? WHERE id = ?', params: [now, jobId] };
+}
+
+/** Weitere Adresse derselben Anzeige (Dublette) merken; url ist die vereinheitlichte Adresse. */
+export function jobAliasStmt(url: string, jobId: string, sourceId: string | null, now = nowIso()): Stmt {
+  return {
+    sql: `INSERT INTO job_aliases (url, job_id, source_id, seen_at) VALUES (?, ?, ?, ?)
+          ON CONFLICT(url) DO UPDATE SET job_id = excluded.job_id, seen_at = excluded.seen_at`,
+    params: [url, jobId, sourceId, now],
+  };
+}
+
+export async function loadJobAliases(db: Db): Promise<{ url: string; jobId: string }[]> {
+  const rows = await db.all<{ url: string; job_id: string }>('SELECT url, job_id FROM job_aliases');
+  return rows.map((r) => ({ url: r.url, jobId: r.job_id }));
+}
+
+/**
+ * Gibt Anzeigen in Prüfung frei, sobald keine Auswertung mehr offen ist: Claude hat sie als Anzeige bestätigt
+ * (sonst wären sie gelöscht) oder konnte sie nach drei Versuchen nicht beurteilen – dann lieber zeigen als verlieren.
+ */
+export async function releaseCheckedJobs(db: Db, today: string, now = nowIso()): Promise<number> {
+  const r = await db.run(
+    `UPDATE jobs SET status = CASE WHEN deadline IS NOT NULL AND deadline < ? THEN 'abgelaufen' ELSE 'aktiv' END, updated_at = ?
+     WHERE status = 'pruefung' AND NOT EXISTS (SELECT 1 FROM ki_aufgaben k WHERE k.job_id = jobs.id AND k.art = 'auswerten' AND k.status = 'offen')`,
+    [today, now],
+  );
+  return r.changes;
 }
 
 /**
@@ -633,6 +666,7 @@ export async function purgeExpired(db: Db, olderThanIso: string, now = nowIso())
   for (const v of victims) {
     stmts.push({ sql: 'DELETE FROM jobs WHERE id = ?', params: [v.id] });
     stmts.push({ sql: 'DELETE FROM job_sources WHERE job_id = ?', params: [v.id] });
+    stmts.push({ sql: 'DELETE FROM job_aliases WHERE job_id = ?', params: [v.id] });
     stmts.push({ sql: "DELETE FROM marks WHERE job_id = ? AND decision = 'abgelehnt'", params: [v.id] });
     stmts.push({ sql: 'INSERT OR REPLACE INTO deleted_jobs (id, deleted_at) VALUES (?, ?)', params: [v.id, now] });
   }
@@ -646,7 +680,7 @@ export interface GateSkipInput {
   institutionId: string | null;
   title: string;
   textHash: string;
-  /** grobfilter (kein Psychologie-Bezug, keine Brücke) | ki-nein (KI: passt nicht) | ausland */
+  /** grobfilter (kein Psychologie-Bezug, keine Brücke) | ki-nein (KI: passt nicht) | keine-anzeige (Claude, von Hand) | regel-keine-anzeige (Regeln) | ausland */
   reason?: string;
   note?: string | null;
 }
@@ -1048,7 +1082,7 @@ export function aiTaskFailedStmt(id: number, fehler: string, now = nowIso()): St
  */
 export async function backfillAiTasks(db: Db, now = nowIso()): Promise<{ auswerten: number; frist: number }> {
   const a = await db.run(
-    "INSERT INTO ki_aufgaben (art, job_id, status, created_at) SELECT 'auswerten', id, 'offen', ? FROM jobs WHERE status = 'aktiv' AND summary_ai = 0 ON CONFLICT(art, job_id) DO NOTHING",
+    "INSERT INTO ki_aufgaben (art, job_id, status, created_at) SELECT 'auswerten', id, 'offen', ? FROM jobs WHERE status IN ('aktiv', 'pruefung') AND summary_ai = 0 ON CONFLICT(art, job_id) DO NOTHING",
     [now],
   );
   const f = await db.run(
@@ -1065,7 +1099,36 @@ export async function removeJobIfUnmarked(db: Db, id: string, now = nowIso()): P
   await db.batch([
     { sql: 'DELETE FROM jobs WHERE id = ?', params: [id] },
     { sql: 'DELETE FROM job_sources WHERE job_id = ?', params: [id] },
+    { sql: 'DELETE FROM job_aliases WHERE job_id = ?', params: [id] },
     { sql: "DELETE FROM marks WHERE job_id = ? AND decision = 'abgelehnt'", params: [id] },
+    { sql: 'INSERT OR REPLACE INTO deleted_jobs (id, deleted_at) VALUES (?, ?)', params: [id, now] },
+  ]);
+  return true;
+}
+
+/**
+ * Von Hand gemeldet: Die Seite ist keine einzelne Stellenanzeige. Sie wird gelöscht (auch wenn markiert, die Meldung
+ * ist die Entscheidung), und ihre Adressen kommen beim Einsammeln nicht wieder. Gemerkt wird die Quelle, damit
+ * Quellen mit vielen solchen Seiten auffallen.
+ */
+export async function reportNotPosting(db: Db, id: string, now = nowIso()): Promise<boolean> {
+  const job = await db.first<{ canonical_url: string; title: string; institution_id: string | null; source_id: string | null }>(
+    `SELECT canonical_url, title, institution_id, (SELECT source_id FROM job_sources WHERE job_id = jobs.id ORDER BY first_seen_at LIMIT 1) AS source_id
+     FROM jobs WHERE id = ?`,
+    [id],
+  );
+  if (!job) return false;
+  const aliases = await db.all<{ url: string }>('SELECT url FROM job_aliases WHERE job_id = ?', [id]);
+  const skip = (url: string) =>
+    gateSkipStmt({ url, sourceId: job.source_id ?? 'hand', institutionId: job.institution_id, title: job.title.slice(0, 200), textHash: NOT_A_POSTING, reason: NOT_A_POSTING, note: 'von Hand gemeldet' }, now);
+  await db.batch([
+    skip(job.canonical_url),
+    ...aliases.map((a) => skip(a.url)),
+    { sql: 'DELETE FROM jobs WHERE id = ?', params: [id] },
+    { sql: 'DELETE FROM job_sources WHERE job_id = ?', params: [id] },
+    { sql: 'DELETE FROM job_aliases WHERE job_id = ?', params: [id] },
+    { sql: 'DELETE FROM marks WHERE job_id = ?', params: [id] },
+    { sql: 'DELETE FROM ki_aufgaben WHERE job_id = ?', params: [id] },
     { sql: 'INSERT OR REPLACE INTO deleted_jobs (id, deleted_at) VALUES (?, ?)', params: [id, now] },
   ]);
   return true;
