@@ -229,6 +229,8 @@ const t = texts({
     },
     page: {
       later: 'Später weitermachen',
+      saved: 'Antworten gespeichert. Du kannst jederzeit aufhören.',
+      savedLocal: 'Auf diesem Gerät gespeichert. Wird übertragen, sobald du wieder online bist.',
       me: 'Ich',
       part: (i: number, n: number, name: string) => `Teil ${i} von ${n}: ${name}`,
       done: 'Geschafft',
@@ -414,6 +416,8 @@ const t = texts({
     },
     page: {
       later: 'Continue later',
+      saved: 'Answers saved. You can stop anytime.',
+      savedLocal: 'Saved on this device. It’ll sync as soon as you’re back online.',
       me: 'Me',
       part: (i, n, name) => `Part ${i} of ${n}: ${name}`,
       done: 'Done',
@@ -599,6 +603,8 @@ const t = texts({
     },
     page: {
       later: 'Nastavi kasnije',
+      saved: 'Odgovori su sačuvani. Možeš da staneš kad god hoćeš.',
+      savedLocal: 'Odgovori su sačuvani na ovom uređaju i biće preneti čim ponovo budeš onlajn.',
       me: 'Ja',
       part: (i, n, name) => `Deo ${i} od ${n}: ${name}`,
       done: 'Gotovo',
@@ -1429,8 +1435,10 @@ export function UmfragePage() {
   const screen = useRef<HTMLElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
 
-  // Speichern: kurz nach der letzten Änderung, beim Verlassen sofort
+  // Speichern: kurz nach der letzten Änderung; sofort, wenn die Seite verlassen, die App geschlossen oder
+  // in den Hintergrund geschickt wird. Gespeichert wird zuerst auf dem Gerät (Warteschlange), dann auf dem Server.
   const dirty = useRef(false);
+  const touched = useRef(false);
   const latest = useRef(stand);
   latest.current = stand;
   useEffect(() => {
@@ -1441,15 +1449,38 @@ export function UmfragePage() {
     }, 700);
     return () => window.clearTimeout(timer);
   }, [stand, store]);
-  useEffect(
-    () => () => {
-      if (dirty.current) store.updateSettings('umfrage', latest.current);
-    },
-    [store],
-  );
+  useEffect(() => {
+    const save = () => {
+      if (!dirty.current) return;
+      dirty.current = false;
+      store.updateSettings('umfrage', latest.current);
+    };
+    // Zurück in der App: den Stand vom Server holen, falls inzwischen auf einem anderen Gerät weitergemacht wurde
+    const onVisibility = () => (document.visibilityState === 'hidden' ? save() : void store.refresh());
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', onVisibility);
+    void store.refresh();
+    return () => {
+      window.removeEventListener('pagehide', save);
+      document.removeEventListener('visibilitychange', onVisibility);
+      save();
+    };
+  }, [store]);
+
+  // Neuerer Stand aus dem Abgleich (anderes Gerät): übernehmen, solange hier nichts ungespeichert ist.
+  // Hat man hier noch nichts angetippt, gilt der Stand vom Server auch dann, wenn er älter ist.
+  const incoming = s.settings.umfrage;
+  useEffect(() => {
+    if (!incoming || dirty.current) return;
+    const cur = latest.current;
+    if (incoming.geaendert === cur.geaendert) return;
+    if (touched.current && incoming.geaendert < cur.geaendert) return;
+    setStand(incoming);
+  }, [incoming]);
 
   const update = (fn: (s: UmfrageStand) => UmfrageStand) => {
     dirty.current = true;
+    touched.current = true;
     setStand((prev) => ({ ...fn(prev), geaendert: new Date().toISOString() }));
   };
   const set: Set_ = (patch) => update((st) => ({ ...st, antworten: { ...st.antworten, ...patch } }));
@@ -1522,6 +1553,7 @@ export function UmfragePage() {
           <div className="check-progress" role="progressbar" aria-label={t.page.progress} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
             <span style={{ width: `${pct}%` }} />
           </div>
+          <p className="survey-saved">{s.pending > 0 && (s.sync.error || !navigator.onLine) ? t.page.savedLocal : t.page.saved}</p>
         </div>
       )}
 

@@ -2753,6 +2753,12 @@ details.help ul {
   color: var(--text-muted);
 }
 
+.survey-saved {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+
 .survey-title {
   margin: 10px 0 4px;
   font-size: 25px;

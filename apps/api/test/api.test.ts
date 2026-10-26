@@ -205,6 +205,20 @@ describe('Probelauf, Funde und Horizont', () => {
     expect(b.settings.umfrage).toEqual(value);
   });
 
+  it('überschreibt einen neueren Umfrage-Stand nicht mit einem älteren (Gerät war offline)', async () => {
+    const put = (value: unknown) => app.request('/api/settings/umfrage', { method: 'PUT', headers: auth, body: JSON.stringify({ value }) });
+    const neuer = { version: 1, seite: 9, antworten: { name: 'Anna' }, begonnen: '2026-10-25T20:00:00Z', geaendert: '2026-10-26T09:00:00Z', uebernommen: null };
+    const aelter = { ...neuer, seite: 3, geaendert: '2026-10-26T08:00:00Z' };
+    await put(neuer);
+    expect(await (await put(aelter)).json()).toMatchObject({ ok: true, veraltet: true });
+    const b = (await (await app.request('/api/bootstrap', { headers: auth })).json()) as { settings: Record<string, unknown> };
+    expect(b.settings.umfrage).toEqual(neuer);
+    // Löschen („Antworten löschen“) geht immer
+    await put(null);
+    const b2 = (await (await app.request('/api/bootstrap', { headers: auth })).json()) as { settings: Record<string, unknown> };
+    expect(b2.settings.umfrage ?? null).toBeNull();
+  });
+
   it('Brücken-Vorschläge der KI (ohne schon vorhandene)', async () => {
     const off = await app.request('/api/horizont/vorschlaege', { method: 'POST', headers: auth, body: '{}' });
     expect(off.status).toBe(501);

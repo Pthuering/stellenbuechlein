@@ -96,6 +96,12 @@ try {
   await page.fill('input[placeholder="Vorname"]', 'Test');
   for (let i = 0; i < 3; i++) await page.click('.survey-nav__next');
   await page.click('.survey-chips >> text=Klinische Psychologie & Psychotherapie');
+  // Direkt nach dem Antippen neu laden (vor dem verzögerten Speichern): Die Umfrage geht an derselben Stelle weiter
+  await page.reload();
+  await page.waitForSelector('.survey-title');
+  assert.equal((await page.locator('.survey-title').textContent())?.trim(), 'Welche Bereiche der Psychologie interessieren dich?', 'Umfrage geht nach dem Neuladen nicht auf derselben Seite weiter');
+  assert.equal(await page.locator('.survey-chips button', { hasText: 'Klinische Psychologie & Psychotherapie' }).getAttribute('aria-pressed'), 'true', 'Antwort ging beim Neuladen verloren');
+  assert.match((await page.locator('.survey-saved').textContent()) ?? '', /gespeichert/, 'Hinweis „gespeichert“ fehlt');
   for (let i = 0; i < 3; i++) await page.click('.survey-nav__next');
   await page.getByRole('checkbox', { name: /^Promotion/ }).click();
   while (await page.locator('.survey-nav__next').count()) await page.click('.survey-nav__next');

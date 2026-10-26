@@ -325,6 +325,12 @@ export function createApp(deps: AppDeps): Hono {
     if (!body || !('value' in body)) return c.json({ error: 'Wert fehlt.' }, 400);
     const raw = JSON.stringify(body.value);
     if (raw.length > 200_000) return c.json({ error: 'Einstellung ist zu groß.' }, 413);
+    // Umfrage: einen älteren Zwischenstand (etwa nachgereicht von einem Gerät, das offline war) nicht über einen neueren schreiben
+    if (key === 'umfrage' && body.value && typeof body.value === 'object') {
+      const prev = await getSetting<{ geaendert?: unknown } | null>(deps.db(c), 'umfrage', null);
+      const next = (body.value as { geaendert?: unknown }).geaendert;
+      if (typeof prev?.geaendert === 'string' && typeof next === 'string' && next < prev.geaendert) return c.json({ ok: true, veraltet: true });
+    }
     await setSetting(deps.db(c), key, body.value);
     return c.json({ ok: true });
   });
