@@ -1272,10 +1272,46 @@ button.hearts {
 /* ================================================================== Ergänzungen: Rahmen, Listen, Karte, Einstellungen */
 
 .main {
+  position: relative;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Sprachwahl oben im rosa Rand; bleibt stehen, wenn die Seite scrollt */
+.lang-margin {
+  position: absolute;
+  z-index: 7;
+  top: 8px;
+  left: 1px;
+  width: calc(var(--margin-x) - 3px);
+  display: grid;
+  gap: 3px;
+}
+
+.lang-margin button {
+  appearance: none;
+  height: calc(var(--margin-x) - 3px);
+  padding: 0;
+  border: 1.5px solid transparent;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.lang-margin button:hover {
+  color: var(--text);
+}
+
+.lang-margin button[aria-pressed='true'] {
+  border-color: var(--primary-strong);
+  color: var(--primary-strong);
 }
 
 .page-head__actions {

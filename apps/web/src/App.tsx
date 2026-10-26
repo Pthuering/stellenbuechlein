@@ -13,6 +13,7 @@ import { useChecklist } from './screens/settings/ChecklistPage';
 import { JobDetail } from './screens/JobDetail';
 import { Login } from './screens/Login';
 import { Toasts, Doodle } from './ui/bits';
+import { LangMargin } from './ui/LangSwitch';
 import { IconHeart, IconList, IconMap, IconMe, IconStack, SvgDefs } from './ui/icons';
 import { srForm, texts } from './i18n';
 
@@ -133,6 +134,7 @@ export function App() {
 
       <main className="main" key={`${route.tab}/${route.sub ?? ''}`}>
         {screen}
+        <LangMargin />
       </main>
       <nav className="tabs" aria-label={t.tabsLabel}>
         {TABS.map((tab) => (
