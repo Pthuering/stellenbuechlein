@@ -41,7 +41,7 @@ Ist schon gesetzt, du musst ihn nur eingeben. Der Wert steht in `.env` in der Ze
 Eingeben musst du ihn einmal pro Gerät und Browser. Bequemer als Abtippen: einmal diese Adresse öffnen, mit dem Wert hinten angehängt:
 
 ```text
-https://stellenbuechlein.philipp-thuering.workers.dev/#key=HIER_DEN_APP_KEY
+https://stellenbuechlein.<dein-name>.workers.dev/#key=HIER_DEN_APP_KEY
 ```
 
 Die App übernimmt den Schlüssel und entfernt ihn sofort aus der Adresse. Den Link nicht als Lesezeichen speichern und nicht weitergeben, denn wer ihn hat, kommt in die App.

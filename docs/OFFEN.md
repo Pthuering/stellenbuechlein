@@ -12,7 +12,7 @@ Insgesamt laufen 131 automatische Tests und ein Browser-Durchlauf der Demo. Was 
 
 ## 0. Kurz entscheiden
 
-- [x] **Wo die App wohnt:** im Cloudflare-Worker unter `https://stellenbuechlein.philipp-thuering.workers.dev` (entschieden am 25. Oktober).
+- [x] **Wo die App wohnt:** im Cloudflare-Worker unter `https://stellenbuechlein.<dein-name>.workers.dev` (entschieden am 25. Oktober).
 - [ ] **„Morgens um 12“:** Eingestellt ist 12 Uhr mittags (deutsche Zeit) plus der Knopf „Jetzt einsammeln“. War Mitternacht gemeint, sind es zwei Zeilen in `.github/workflows/einsammeln.yml`.
 - [ ] **Benachrichtigung bei neuen Anzeigen:** ist an (ab 85 %). Mit dem Startprofil liegen fast alle Psychologie-Anzeigen darüber, es käme also täglich eine Sammelnachricht. Nach dem Steckbrief passt die Schwelle besser; sonst unter *Ich → Erinnerungen* ausschalten.
 - [ ] **Unternehmen im Stapel:** Firmen sind normale Quellen mit Grobfilter (nur Anzeigen mit Psychologie-Bezug, der Rest über Brücken). Sollen sie seltener erscheinen, lässt sich im Filter die Einrichtungsart „Unternehmen“ abwählen.

@@ -1,5 +1,5 @@
 # Cloudflare Worker: API + Auslieferung der PWA (kostenloser Plan reicht).
-# Die App läuft unter https://stellenbuechlein.philipp-thuering.workers.dev.
+# Die App läuft unter https://stellenbuechlein.<dein-name>.workers.dev (die eigene Adresse steht lokal in .env als API_URL).
 # Einrichtung: siehe docs/BETRIEB.md
 
 name = "stellenbuechlein"
