@@ -128,9 +128,9 @@ describe('KI-Warteschlange für Claude', () => {
   });
 
   it('ersetzt einen Titel, der nur der Name des Arbeitgebers ist', async () => {
-    const f = job('f', { title: 'Freie Universität Berlin', employer: 'Freie Universität Berlin' });
+    const f = job('f', { title: 'Kienbaum', employer: 'Kienbaum Consultants International GmbH' });
     await db.batch([upsertJobStmt(f), enqueueAiTaskStmt('auswerten', f.id, null, NOW)]);
-    const task = (await exportAiTasks(db, { max: 10 })).aufgaben.find((t) => t.titel === 'Freie Universität Berlin')!;
+    const task = (await exportAiTasks(db, { max: 10 })).aufgaben.find((t) => t.titel === 'Kienbaum')!;
     expect(task.titel_fehlt).toBe(true);
     await importAiResults(db, [{ id: task.id, ergebnis: { is_job_posting: true, title: 'Wissenschaftliche Mitarbeit im DFG-Projekt PALMWORK' } }], NOW);
     const { jobs } = await syncJobs(db, '', 50);

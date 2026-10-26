@@ -70,11 +70,14 @@ function looksBroken(title: string): boolean {
   return !title || title.length < 6 || GENERIC_TITLE.test(title) || /^\(?[mwdfx](?:\s*\/\s*[mwdfx]){1,3}\)?$/i.test(title.trim());
 }
 
-/** Titel fehlt oder ist nur der Name der Einrichtung bzw. des Arbeitgebers (Seitenname statt Stellenbezeichnung). */
-function titleNeedsAi(job: Pick<JobRow, 'title' | 'employer' | 'institution_name'>): boolean {
+/**
+ * Titel fehlt oder ist nur (ein Teil vom) Namen der Einrichtung bzw. des Arbeitgebers, also der Seitenname statt
+ * der Stellenbezeichnung („Kienbaum“ bei Kienbaum Consultants International GmbH).
+ */
+export function titleNeedsAi(job: { title: string; employer?: string | null; institution_name?: string | null }): boolean {
   if (looksBroken(job.title)) return true;
   const t = normalizeText(job.title);
-  return [job.employer, job.institution_name].some((n) => !!n && normalizeText(n) === t);
+  return t.length >= 3 && [job.employer, job.institution_name].some((n) => !!n && normalizeText(n).includes(t));
 }
 
 async function loadProfileAndGate(db: Db) {
