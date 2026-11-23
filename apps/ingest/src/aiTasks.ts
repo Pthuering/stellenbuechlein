@@ -411,3 +411,64 @@ export async function importAiResults(
   report.offen = Object.values(open).reduce((s, n) => s + n, 0);
   return report;
 }
+
+// ---------------------------------------------------------------- Vorab bearbeitete Ergebnisse
+
+/**
+ * Legt vorab bearbeitete Ergebnisse in der Zwischentabelle ki_vorab ab (nur Schreibzugriffe, geht also auch bei
+ * erschöpftem Lese-Limit der Datenbank). Eingespielt werden sie später mit applyPrepared.
+ */
+export async function stagePrepared(db: Db, items: { art: AiTaskKind; jobId: string; ergebnis: unknown }[], now = new Date().toISOString()): Promise<number> {
+  for (let i = 0; i < items.length; i += 50) {
+    await db.batch(
+      items.slice(i, i + 50).map((it) => ({
+        sql: 'INSERT INTO ki_vorab (art, job_id, ergebnis, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(art, job_id) DO UPDATE SET ergebnis = excluded.ergebnis, created_at = excluded.created_at',
+        params: [it.art, it.jobId, JSON.stringify(it.ergebnis), now],
+      })),
+    );
+  }
+  return items.length;
+}
+
+export interface PreparedReport {
+  eingespielt: number;
+  entfernt: number;
+  fehler: number;
+  /** Zeilen ohne offene Aufgabe (inzwischen anderweitig erledigt oder Anzeige weg) */
+  verfallen: number;
+}
+
+/**
+ * Spielt die vorab bearbeiteten Ergebnisse ein: Zu jeder Zeile aus ki_vorab wird die offene Aufgabe derselben Art
+ * und Anzeige gesucht, das Ergebnis läuft durch dieselbe Prüfung wie bei ki-import. Danach ist die Tabelle leer.
+ */
+export async function applyPrepared(db: Db, now = new Date().toISOString()): Promise<PreparedReport> {
+  const report: PreparedReport = { eingespielt: 0, entfernt: 0, fehler: 0, verfallen: 0 };
+  for (;;) {
+    const rows = await db.all<{ art: string; job_id: string; ergebnis: string; task_id: number }>(
+      `SELECT v.art, v.job_id, v.ergebnis, a.id AS task_id FROM ki_vorab v
+       JOIN ki_aufgaben a ON a.art = v.art AND a.job_id = v.job_id AND a.status = 'offen'
+       ORDER BY v.art, v.job_id LIMIT 200`,
+    );
+    if (!rows.length) break;
+    const results: { id: number; ergebnis: unknown }[] = [];
+    for (const r of rows) {
+      try {
+        results.push({ id: r.task_id, ergebnis: JSON.parse(r.ergebnis) });
+      } catch {
+        report.fehler++;
+      }
+    }
+    const r = await importAiResults(db, results, now);
+    report.eingespielt += r.erledigt;
+    report.entfernt += r.entfernt;
+    report.fehler += r.fehler.length;
+    // Erledigt oder als Fehlversuch gezählt: In beiden Fällen ist die Zeile verbraucht
+    for (let i = 0; i < rows.length; i += 40) {
+      const part = rows.slice(i, i + 40);
+      await db.run(`DELETE FROM ki_vorab WHERE ${part.map(() => '(art = ? AND job_id = ?)').join(' OR ')}`, part.flatMap((x) => [x.art, x.job_id]));
+    }
+  }
+  report.verfallen = (await db.run('DELETE FROM ki_vorab')).changes;
+  return report;
+}

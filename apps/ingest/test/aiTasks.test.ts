@@ -172,3 +172,25 @@ describe('Sperre der Warteschlange', () => {
     expect(await getAiLock(db, '2026-10-26T10:01:00.000Z')).toBeNull();
   });
 });
+
+describe('Vorab bearbeitete Ergebnisse', () => {
+  it('werden abgelegt und später der offenen Aufgabe zugeordnet; der Rest verfällt', async () => {
+    const { stagePrepared, applyPrepared } = await import('../src/aiTasks');
+    const db = new SqliteDb(':memory:');
+    migrateSqlite(db);
+    const a = job('vorab-a');
+    const b = job('vorab-b');
+    await db.batch([upsertJobStmt(a), upsertJobStmt(b), enqueueAiTaskStmt('auswerten', a.id, null, NOW)]);
+    const ergebnis = { is_job_posting: true, title: null, summary_de: 'Die Stelle untersucht Aufmerksamkeit und Gedächtnis mit Experimenten im Labor.' };
+    // a hat eine offene Aufgabe, b nicht (inzwischen anderweitig erledigt)
+    expect(await stagePrepared(db, [{ art: 'auswerten', jobId: a.id, ergebnis }, { art: 'auswerten', jobId: b.id, ergebnis }], NOW)).toBe(2);
+    const r = await applyPrepared(db, NOW);
+    expect(r).toMatchObject({ eingespielt: 1, fehler: 0, verfallen: 1 });
+    expect((await countOpenAiTasks(db)).auswerten).toBe(0);
+    const jobs = (await syncJobs(db, '', 10)).jobs;
+    expect(jobs.find((j) => j.id === a.id)?.summaryByAi).toBe(true);
+    expect(jobs.find((j) => j.id === b.id)?.summaryByAi).toBeFalsy();
+    // die Tabelle ist danach leer, ein zweiter Aufruf tut nichts
+    expect(await applyPrepared(db, NOW)).toEqual({ eingespielt: 0, entfernt: 0, fehler: 0, verfallen: 0 });
+  });
+});

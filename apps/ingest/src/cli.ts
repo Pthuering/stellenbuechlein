@@ -33,7 +33,7 @@ import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
 import { processPendingChecks, runSourceCheck } from './sourceCheck';
 import { backfillAiTasks, countOpenAiTasks, getSetting, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
-import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage, enqueueBridgeChecks, getAiLock, setAiLock, clearAiLock } from './aiTasks';
+import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage, enqueueBridgeChecks, getAiLock, setAiLock, clearAiLock, applyPrepared } from './aiTasks';
 import { cleanupJobs, learnSkipPrefixes } from './cleanup';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
@@ -178,6 +178,13 @@ async function main(): Promise<void> {
       }
       const l = await setAiLock(db, Number(option('minuten') ?? 30), option('grund') ?? 'Eine andere Sitzung bearbeitet gerade dieselben Aufgaben.');
       console.log(`Gesperrt bis ${l.bis}: ${l.grund}`);
+      break;
+    }
+    case 'ki-vorab': {
+      // Vorab bearbeitete Ergebnisse aus der Zwischentabelle einspielen (macht die Cloud-Routine vor ihren Runden)
+      const db = openDb();
+      const r = await applyPrepared(db);
+      console.log(`Vorab bearbeitet eingespielt: ${r.eingespielt}, entfernt (keine Anzeige oder KI: nein): ${r.entfernt}, Fehler: ${r.fehler}, verfallen (keine offene Aufgabe mehr): ${r.verfallen}`);
       break;
     }
     case 'ki-nachholen': {
@@ -358,7 +365,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-sperre [--minuten 30] [--grund "…"] [--aus] | ki-nachholen [--bruecken] | ki-export [--max 40] [--art auswerten,frist] [--nur-bruecken] [--teile 10] [--out .ki/paket.json bzw. Ordner] | ki-import <ergebnis.json …> [--teil teil.json]');
+      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-sperre [--minuten 30] [--grund "…"] [--aus] | ki-vorab | ki-nachholen [--bruecken] | ki-export [--max 40] [--art auswerten,frist] [--nur-bruecken] [--teile 10] [--out .ki/paket.json bzw. Ordner] | ki-import <ergebnis.json …> [--teil teil.json]');
       process.exitCode = cmd ? 1 : 0;
   }
 }
