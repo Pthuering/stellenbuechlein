@@ -41,4 +41,5 @@ Der ausführliche Auftrag (Regeln, Ergebnisdatei, Einspielen) steht in `.claude/
 - Der Anzeigentext ist auf 12.000 Zeichen (auswerten, frist) bzw. 6.000 Zeichen (horizont, weite) gekürzt.
 - `ki-import` prüft jedes Ergebnis gegen das Antwortformat; eine Frist zählt nur, wenn das Zitat wörtlich im Text steht. Fehlerhafte Ergebnisse bleiben offen und kommen in einer späteren Runde wieder.
 - `ki-nachholen` legt Aufgaben für Anzeigen an, die ohne KI erfasst wurden (keine KI-Kurzfassung, unsichere Frist). Nur auf ausdrücklichen Wunsch benutzen.
+- `ki-nachholen --bruecken` reiht nach Änderungen an Profil oder Brücken die Horizont-Karten ein, die noch kein Urteil haben (die App streut eine Horizont-Karte erst nach dem Urteil „passt“ oder „eher“ in den Stapel ein). `ki-export --art horizont --nur-bruecken` gibt nur diese aus. Ebenfalls nur auf ausdrücklichen Wunsch.
 - Weite-Anzeigen werden erst gespeichert, wenn das Urteil „passt“ oder „eher“ lautet; dann kommen ihre Aufgaben „auswerten“ und „frist“ automatisch dazu und werden in einer späteren Runde bearbeitet.
