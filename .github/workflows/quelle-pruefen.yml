@@ -18,7 +18,8 @@ concurrency:
 
 jobs:
   pruefen:
-    runs-on: ubuntu-latest
+    # Festes Ubuntu 24.04: ubuntu-latest ist seit November 2026 Ubuntu 26.04, dort lässt sich der Browser von Playwright 1.56 nicht installieren.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       API_URL: ${{ secrets.API_URL }}
