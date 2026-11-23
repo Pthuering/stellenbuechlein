@@ -154,6 +154,16 @@ async function main(): Promise<void> {
       const n = await countOpenAiTasks(db);
       const sum = Object.values(n).reduce((a, b) => a + b, 0);
       console.log(`KI-Aufgaben offen: ${sum} (auswerten ${n.auswerten}, frist ${n.frist}, horizont ${n.horizont}, weite ${n.weite})`);
+      // Für geplante Läufe: Arbeitet gerade schon ein anderer Lauf? (dann kommen laufend Ergebnisse an)
+      const seit = new Date(Date.now() - 30 * 60_000).toISOString();
+      const act = await db.first<{ zuletzt: string | null; n: number | null }>(
+        'SELECT MAX(done_at) AS zuletzt, SUM(done_at >= ?) AS n FROM ki_aufgaben WHERE done_at IS NOT NULL',
+        [seit],
+      );
+      if (act?.zuletzt) {
+        const min = Math.max(0, Math.round((Date.now() - Date.parse(act.zuletzt)) / 60_000));
+        console.log(`Zuletzt eingespielt: ${act.zuletzt} (vor ${min} Min.), in den letzten 30 Min.: ${act.n ?? 0}`);
+      }
       break;
     }
     case 'ki-nachholen': {
