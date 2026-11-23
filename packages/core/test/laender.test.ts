@@ -21,6 +21,15 @@ describe('Land einer Stelle', () => {
     expect(countryOf({ title: 'Robotics Pod Lead', locationText: 'Peking - Beijing Shi - China' })).toBe('CN');
   });
 
+  it('liest ein ausdrückliches Feld „Country“ im Anzeigentext', () => {
+    const table = ['Application Deadline', '', '20 Dec 2026', '', 'Country', '', 'Sweden', '', 'Type of Contract', '', 'Temporary'].join('\n');
+    expect(countryOf({ title: 'PhD position in Experimental Pragmatics', text: table })).toBe('SE');
+    expect(countryOf({ title: 'Postdoc', text: ['Organisation: Uni', 'Country: Netherlands', 'City: Leiden'].join('\n') })).toBe('NL');
+    // ein Bundesland ist kein Land, und Fließtext zählt nicht
+    expect(countryOf({ title: 'Referent:in', text: ['Land', '', 'Niedersachsen', '', 'Ort', '', 'Hannover'].join('\n') })).toBeNull();
+    expect(countryOf({ title: 'Postdoc', text: 'We welcome applicants from every country, including Sweden.' })).toBeNull();
+  });
+
   it('im Zweifel unbekannt statt Ausland', () => {
     expect(countryOf({ title: 'Wissenschaftliche Mitarbeiterin (m/w/d) Psychologie', locationText: 'Halle (Saale)', germanCity: true })).toBe('DE');
     // Städtenamen mitten im Titel sind keine Ortsangabe

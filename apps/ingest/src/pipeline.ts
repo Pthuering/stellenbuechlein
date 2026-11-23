@@ -571,7 +571,7 @@ export class Pipeline {
     if (!data) return null;
     // Ausland (nur bei Portalen): ohne Freigabe verwerfen; mit Freigabe entscheidet unten abroadVerdict
     const place = data.locationText ?? c.hints?.locality ?? null;
-    const land = source.kind === 'portal' ? countryOf({ country: data.country ?? c.hints?.country, locationText: place, title: data.title || c.title, germanCity: !!this.cityMatcher.match(place) }) : null;
+    const land = source.kind === 'portal' ? countryOf({ country: data.country ?? c.hints?.country, locationText: place, title: data.title || c.title, text: data.descriptionMd, germanCity: !!this.cityMatcher.match(place) }) : null;
     // Quellen ohne Länderfilter (config.ausland): Was kein erkennbares Land hat, zählt als Ausland („ZZ“ = unbekannt),
     // damit Regeln und Deckel auch dafür gelten
     const abroad = land && land !== 'DE' ? land : !land && source.kind === 'portal' && source.config.ausland === true ? 'ZZ' : null;

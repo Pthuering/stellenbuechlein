@@ -166,17 +166,34 @@ function titlePlaces(title: string): string {
 }
 
 /**
- * Land einer Stelle. Reihenfolge: Länderangabe des Portals, dann Ortsangabe (Land oder große Stadt), dann die
- * Ortsteile des Titels („Psychotherapeut:in – Region Zürich“, „Developer (Lisboa, PT)“).
+ * Ausdrückliches Feld „Country“ im Anzeigentext, wie es Portale als Tabelle ausgeben
+ * („Country“, Leerzeile, „Sweden“ oder „Country: Sweden“). Ein Bundesland unter „Land“ ergibt kein Kürzel.
+ */
+function countryField(text: string): string | null {
+  for (const m of text.slice(0, 30_000).matchAll(/(?:^|\n)[ \t>*|-]*(?:Country|Countries|Land|Pays)[ \t*]*(?::[ \t]*|[ \t]*\|[ \t]*|\n\s*)([^\n|]{2,40})/g)) {
+    const code = countryCode(m[1].replace(/[*_]/g, '').trim());
+    if (code) return code;
+  }
+  return null;
+}
+
+/**
+ * Land einer Stelle. Reihenfolge: Länderangabe des Portals, dann Ortsangabe (Land oder große Stadt), dann ein
+ * ausdrückliches Feld „Country“ im Text, dann die Ortsteile des Titels („Psychotherapeut:in – Region Zürich“,
+ * „Developer (Lisboa, PT)“).
  * germanCity: Die Ortsangabe nennt eine deutsche Stadt aus dem Register (dann zählt der Titel nicht mehr).
  * „DE“ heißt: sicher in Deutschland. null heißt: unbekannt (wird wie eine deutsche Stelle behandelt).
  */
-export function countryOf(p: { country?: string | null; locationText?: string | null; title?: string | null; germanCity?: boolean }): string | null {
+export function countryOf(p: { country?: string | null; locationText?: string | null; title?: string | null; text?: string | null; germanCity?: boolean }): string | null {
   const given = countryCode(p.country);
   if (given) return given;
   if (p.locationText) {
     const byPlace = find(p.locationText, NAME_ENTRIES) ?? find(p.locationText, CITY_ENTRIES);
     if (byPlace) return byPlace;
+  }
+  if (p.text) {
+    const byField = countryField(p.text);
+    if (byField) return byField;
   }
   if (p.germanCity) return 'DE';
   if (p.title) {
