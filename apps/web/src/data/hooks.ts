@@ -35,6 +35,8 @@ import {
   interleaveGaps,
   isAbroad,
   isEurope,
+  fachSignale,
+  fachlichEinschlaegig,
 } from '@stellen/core';
 import type { SavedSort, State, Store } from './store';
 
@@ -60,6 +62,8 @@ export interface JobView {
   norm: string;
   /** Ring mit dem aktuellen Profil: Kern, Horizont (Brücke) oder Weite */
   lane: LaneInfo;
+  /** Nur bei Auslandsstellen: false, wenn sie nicht gezeigt wird (Passung zu niedrig oder fachlich nicht einschlägig). */
+  abroadOk?: boolean;
   /** Gespeicherte Filter mit Push, zu denen die Anzeige passt (Marke in Liste, Stapel und Anzeige) */
   alerts: SavedFilter[];
 }
@@ -124,6 +128,7 @@ export function useViews(): Map<string, JobView> {
         mark: s.marks.get(job.id),
         norm,
         lane,
+        abroadOk: isAbroad(job) ? score.score >= ABROAD_MIN_SCORE && fachlichEinschlaegig(fachSignale(job, job.descriptionMd, norm, s.settings.profile)) : undefined,
         alerts: pushFilters.length ? pushFilters.filter((f) => passesFilter(job, f.filter, place, geo, norm, today, lane.lane, score.score)) : [],
       });
     }
@@ -135,8 +140,8 @@ export function useViews(): Map<string, JobView> {
 export function filterViews(views: Iterable<JobView>, filter: JobFilter, geo: GeoContext, today = todayBerlin()): JobView[] {
   const out: JobView[] = [];
   for (const v of views) {
-    // Auslandsstellen erscheinen nur, wenn sie gut passen (Gemerktes läuft nicht über diesen Filter)
-    if (isAbroad(v.job) && v.score.score < ABROAD_MIN_SCORE) continue;
+    // Auslandsstellen erscheinen nur, wenn sie gut passen und fachlich einschlägig sind (Gemerktes läuft nicht über diesen Filter)
+    if (v.abroadOk === false) continue;
     if (passesFilter(v.job, filter, v.place, geo, v.norm, today, v.lane.lane, v.score.score)) out.push(v);
   }
   return out;

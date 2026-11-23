@@ -25,6 +25,8 @@ import {
   horizonGateHash,
   horizontOf,
   isThematic,
+  fachSignale,
+  fachlichEinschlaegig,
   countryOf,
   isEurope,
   parseAusland,
@@ -711,13 +713,16 @@ export class Pipeline {
 
   /**
    * Auslandsanzeige aufnehmen? Entschieden wird nach Regeln, bevor eine KI die Anzeige sieht, damit der Aufwand
-   * steuerbar bleibt: Die Anzeige muss zum Kern passen (Grobfilter, Themen-Treffer mit Psychologie-Bezug und die
-   * Mindest-Passung aus der Einstellung „ausland“), und je Lauf gilt ein Deckel, von dem nur ein Teil für Länder
-   * außerhalb Europas offen ist. Brücken und Weite gibt es für Auslandsanzeigen nicht.
+   * steuerbar bleibt: Die Anzeige muss zum Kern passen (Grobfilter, Themen-Treffer mit Psychologie-Bezug), fachlich
+   * einschlägig sein (Titel nennt Psychologie oder ein Profil-Thema, oder ein Abschluss in Psychologie ist verlangt;
+   * dazu ein Schwerpunkt-Thema) und die Mindest-Passung aus der Einstellung „ausland“ erreichen. Je Lauf gilt ein
+   * Deckel, von dem nur ein Teil für Länder außerhalb Europas offen ist. Brücken und Weite gibt es hier nicht.
    */
   private abroadVerdict(land: string, norm: string, data: PostingData, gatePass: boolean): 'ja' | 'unpassend' | 'voll' {
     const job = { kind: classifyKind(data.title, data.descriptionMd), title: data.title };
-    if (!gatePass || !isThematic(job, norm, this.profile) || scoreJob(job, norm, this.profile).score < this.abroad.minPassung) return 'unpassend';
+    if (!gatePass || !isThematic(job, norm, this.profile)) return 'unpassend';
+    if (!fachlichEinschlaegig(fachSignale(job, data.descriptionMd, norm, this.profile))) return 'unpassend';
+    if (scoreJob(job, norm, this.profile).score < this.abroad.minPassung) return 'unpassend';
     const europe = isEurope(land);
     if (this.abroadLeft.alle <= 0 || (!europe && this.abroadLeft.weltweit <= 0)) return 'voll';
     this.abroadLeft.alle--;

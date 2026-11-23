@@ -208,8 +208,8 @@ export function countryOf(p: { country?: string | null; locationText?: string | 
 
 /**
  * Einstellung „ausland“: ob Auslandsanzeigen aufgenommen werden und wie viele. Entschieden wird beim Einsammeln
- * nach Regeln, also bevor eine KI die Anzeige sieht: Nur was zum Kern passt (Themen-Treffer und Mindest-Passung),
- * und je Lauf höchstens proLauf Anzeigen, davon höchstens weltweitProLauf außerhalb Europas.
+ * nach Regeln, also bevor eine KI die Anzeige sieht: Nur was fachlich einschlägig ist (siehe fach.ts) und die
+ * Mindest-Passung erreicht, und je Lauf höchstens proLauf Anzeigen, davon höchstens weltweitProLauf außerhalb Europas.
  */
 export interface AuslandSetting {
   an: boolean;
@@ -218,7 +218,7 @@ export interface AuslandSetting {
   minPassung: number;
 }
 
-export const DEFAULT_AUSLAND: AuslandSetting = { an: false, proLauf: 40, weltweitProLauf: 10, minPassung: 75 };
+export const DEFAULT_AUSLAND: AuslandSetting = { an: false, proLauf: 40, weltweitProLauf: 10, minPassung: 65 };
 
 export function parseAusland(raw: unknown, fallbackOn = false): AuslandSetting {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_AUSLAND, an: fallbackOn };
@@ -240,7 +240,8 @@ export const ABROAD_GAPS: [number, number] = [2, 5];
 
 /**
  * Unter dieser Passung wird eine Auslandsstelle gar nicht angezeigt, weder im Stapel noch in den Listen
- * (Gemerktes bleibt sichtbar). Dieselbe Schwelle gilt beim Einsammeln, damit nichts aufbereitet wird, was nie erscheint.
+ * (Gemerktes bleibt sichtbar); außerdem muss sie fachlich einschlägig sein (fach.ts). Dieselben Regeln gelten beim
+ * Einsammeln, damit nichts aufbereitet wird, was nie erscheint.
  */
 export const ABROAD_MIN_SCORE = DEFAULT_AUSLAND.minPassung;
 

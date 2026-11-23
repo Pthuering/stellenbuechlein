@@ -52,8 +52,8 @@ describe('Land einer Stelle', () => {
 describe('Einstellung „ausland“', () => {
   it('ohne Einstellung gilt die Antwort aus der Umfrage, Zahlen bleiben in Grenzen', () => {
     expect(parseAusland(null).an).toBe(false);
-    expect(parseAusland(null, true)).toMatchObject({ an: true, proLauf: 40, weltweitProLauf: 10, minPassung: 75 });
-    expect(parseAusland({ an: true, proLauf: 5, weltweitProLauf: -3, minPassung: 250 })).toEqual({ an: true, proLauf: 5, weltweitProLauf: 10, minPassung: 75 });
+    expect(parseAusland(null, true)).toMatchObject({ an: true, proLauf: 40, weltweitProLauf: 10, minPassung: 65 });
+    expect(parseAusland({ an: true, proLauf: 5, weltweitProLauf: -3, minPassung: 250 })).toEqual({ an: true, proLauf: 5, weltweitProLauf: 10, minPassung: 65 });
   });
 });
 

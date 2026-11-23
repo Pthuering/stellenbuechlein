@@ -9,6 +9,7 @@ export * from './ai';
 export * from './classify';
 export * from './gate';
 export * from './laender';
+export * from './fach';
 export * from './profile';
 export * from './scoring';
 export * from './steckbrief';
