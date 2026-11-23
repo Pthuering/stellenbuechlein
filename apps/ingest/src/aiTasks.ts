@@ -31,6 +31,7 @@ import {
   enqueueAiTaskStmt,
   gateSkipStmt,
   getSetting,
+  setSetting,
   listOpenAiTasks,
   NOT_A_POSTING,
   releaseCheckedJobs,
@@ -244,6 +245,31 @@ export async function exportAiTasks(db: Db, opts: { max?: number; arten?: AiTask
     ergebnis_format: 'JSON-Liste [{"id": <id der Aufgabe>, "ergebnis": { …Felder wie unter anleitung[art].antwort… }}], eine Zeile pro Aufgabe; Aufgaben, die du nicht sicher beurteilen kannst, weglassen.',
     aufgaben,
   };
+}
+
+/**
+ * Sperre der Warteschlange (Einstellung „kiSperre“): So stimmen sich Sitzungen ab, die dieselben Aufgaben
+ * bearbeiten könnten, etwa eine lokale Sitzung, die vorab bearbeitete Ergebnisse einspielt, und die Cloud-Routine.
+ * Solange die Sperre gilt, gibt ki-export keine Aufgaben aus. Sie läuft von selbst ab.
+ */
+export interface AiLock {
+  bis: string;
+  grund: string;
+}
+
+export async function getAiLock(db: Db, now = new Date().toISOString()): Promise<AiLock | null> {
+  const l = await getSetting<Partial<AiLock> | null>(db, 'kiSperre', null);
+  return l && typeof l.bis === 'string' && l.bis > now ? { bis: l.bis, grund: typeof l.grund === 'string' ? l.grund : '' } : null;
+}
+
+export async function setAiLock(db: Db, minutes: number, grund: string, now = new Date()): Promise<AiLock> {
+  const lock: AiLock = { bis: new Date(now.getTime() + Math.max(1, Math.min(minutes, 24 * 60)) * 60_000).toISOString(), grund };
+  await setSetting(db, 'kiSperre', lock);
+  return lock;
+}
+
+export async function clearAiLock(db: Db): Promise<void> {
+  await setSetting(db, 'kiSperre', null);
 }
 
 /** Teilt ein Paket in Teile zu höchstens size Aufgaben (einer pro Subagent); jeder Teil trägt Anleitung und Profil mit. */

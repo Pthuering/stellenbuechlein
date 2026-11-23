@@ -155,3 +155,20 @@ describe('KI-Warteschlange für Claude', () => {
     expect((await countOpenAiTasks(db)).horizont).toBe(1);
   });
 });
+
+describe('Sperre der Warteschlange', () => {
+  it('gilt bis zum Ablauf und lässt sich aufheben', async () => {
+    const { getAiLock, setAiLock, clearAiLock } = await import('../src/aiTasks');
+    const db = new SqliteDb(':memory:');
+    migrateSqlite(db);
+    expect(await getAiLock(db)).toBeNull();
+    const start = new Date('2026-10-26T10:00:00.000Z');
+    const lock = await setAiLock(db, 30, 'Ergebnisse werden eingespielt.', start);
+    expect(lock.bis).toBe('2026-10-26T10:30:00.000Z');
+    expect(await getAiLock(db, '2026-10-26T10:29:00.000Z')).toEqual(lock);
+    // abgelaufen: gilt nicht mehr, ohne dass jemand aufräumen muss
+    expect(await getAiLock(db, '2026-10-26T10:31:00.000Z')).toBeNull();
+    await clearAiLock(db);
+    expect(await getAiLock(db, '2026-10-26T10:01:00.000Z')).toBeNull();
+  });
+});

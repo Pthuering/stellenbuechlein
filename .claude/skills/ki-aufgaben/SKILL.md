@@ -23,7 +23,7 @@ Stehen keine Subagenten zur Verfügung, bearbeitest du trotzdem nichts selbst: M
 
 ## Ablauf
 
-1. `npm run ki -- ki-status` zeigt, wie viel offen ist. Ist nichts offen: kurz melden, fertig.
+1. `npm run ki -- ki-status` zeigt, wie viel offen ist. Ist nichts offen: kurz melden, fertig. Meldet der Befehl „Gesperrt bis …“, bearbeitet gerade eine andere Sitzung dieselben Aufgaben (oder spielt vorab bearbeitete Ergebnisse ein): keine Runde starten, kurz melden, fertig. `ki-export` gibt in dieser Zeit ohnehin nichts aus.
 2. Runde n (zählt ab 1): `npm run ki -- ki-export --max 100 --teile 10 --out .ki/runde-<n>`. Der Befehl schreibt die Teile in den Ordner und gibt pro Teil eine Zeile mit Pfad und Anzahl aus. Mehr brauchst du nicht; die Dateien öffnest du nicht.
 3. Pro Teil einen Subagenten starten, alle in derselben Nachricht, damit sie gleichzeitig laufen: `model: "haiku"`, `effort: "high"`, als Auftrag nur die kurze Nachricht unten mit den beiden Pfaden. Die Ergebnisdatei liegt im selben Ordner, `teil-` durch `ergebnis-` ersetzt (`.ki/runde-1/teil-03.json` → `.ki/runde-1/ergebnis-03.json`).
 4. Warten, bis alle Subagenten der Runde fertig sind. Erst dann die nächste Runde exportieren, sonst kämen dieselben Aufgaben doppelt. Die Rückmeldungen (je eine Zeile „Eingespielt: …“) merkst du dir für die Zusammenfassung.
@@ -40,6 +40,7 @@ Der ausführliche Auftrag (Regeln, Ergebnisdatei, Einspielen) steht in `.claude/
 
 - Der Anzeigentext ist auf 12.000 Zeichen (auswerten, frist) bzw. 6.000 Zeichen (horizont, weite) gekürzt.
 - `ki-import` prüft jedes Ergebnis gegen das Antwortformat; eine Frist zählt nur, wenn das Zitat wörtlich im Text steht. Fehlerhafte Ergebnisse bleiben offen und kommen in einer späteren Runde wieder.
+- `ki-sperre --minuten 30 --grund "…"` sperrt die Warteschlange für andere Sitzungen (läuft von selbst ab, `ki-sperre --aus` hebt sie auf). Benutzen, wenn Aufgaben außerhalb der üblichen Runden bearbeitet werden, damit niemand dieselben Aufgaben doppelt bearbeitet.
 - `ki-nachholen` legt Aufgaben für Anzeigen an, die ohne KI erfasst wurden (keine KI-Kurzfassung, unsichere Frist). Nur auf ausdrücklichen Wunsch benutzen.
 - `ki-nachholen --bruecken` reiht nach Änderungen an Profil oder Brücken die Horizont-Karten ein, die noch kein Urteil haben (die App streut eine Horizont-Karte erst nach dem Urteil „passt“ oder „eher“ in den Stapel ein). `ki-export --art horizont --nur-bruecken` gibt nur diese aus. Ebenfalls nur auf ausdrücklichen Wunsch.
 - Weite-Anzeigen werden erst gespeichert, wenn das Urteil „passt“ oder „eher“ lautet; dann kommen ihre Aufgaben „auswerten“ und „frist“ automatisch dazu und werden in einer späteren Runde bearbeitet.

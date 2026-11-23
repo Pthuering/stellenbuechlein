@@ -33,7 +33,7 @@ import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
 import { processPendingChecks, runSourceCheck } from './sourceCheck';
 import { backfillAiTasks, countOpenAiTasks, getSetting, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
-import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage, enqueueBridgeChecks } from './aiTasks';
+import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage, enqueueBridgeChecks, getAiLock, setAiLock, clearAiLock } from './aiTasks';
 import { cleanupJobs, learnSkipPrefixes } from './cleanup';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
@@ -164,6 +164,20 @@ async function main(): Promise<void> {
         const min = Math.max(0, Math.round((Date.now() - Date.parse(act.zuletzt)) / 60_000));
         console.log(`Zuletzt eingespielt: ${act.zuletzt} (vor ${min} Min.), in den letzten 30 Min.: ${act.n ?? 0}`);
       }
+      const sperre = await getAiLock(db);
+      if (sperre) console.log(`Gesperrt bis ${sperre.bis}: ${sperre.grund} Bis dahin keine Runde starten.`);
+      break;
+    }
+    case 'ki-sperre': {
+      // Abstimmung zwischen Sitzungen: Solange die Sperre gilt, gibt ki-export keine Aufgaben aus
+      const db = openDb();
+      if (flag('aus')) {
+        await clearAiLock(db);
+        console.log('Sperre aufgehoben.');
+        break;
+      }
+      const l = await setAiLock(db, Number(option('minuten') ?? 30), option('grund') ?? 'Eine andere Sitzung bearbeitet gerade dieselben Aufgaben.');
+      console.log(`Gesperrt bis ${l.bis}: ${l.grund}`);
       break;
     }
     case 'ki-nachholen': {
@@ -180,6 +194,11 @@ async function main(): Promise<void> {
     }
     case 'ki-export': {
       const db = openDb();
+      const sperre = flag('trotz-sperre') ? null : await getAiLock(db);
+      if (sperre) {
+        console.log(`Keine Aufgaben ausgegeben: Die Warteschlange ist bis ${sperre.bis} gesperrt (${sperre.grund}).`);
+        break;
+      }
       const arten = option('art')?.split(',') as AiTaskKind[] | undefined;
       const pkg = await exportAiTasks(db, { max: Number(option('max') ?? 40), arten, nurBruecken: flag('nur-bruecken') });
       const describe = (p: AiPackage) => {
@@ -339,7 +358,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-nachholen [--bruecken] | ki-export [--max 40] [--art auswerten,frist] [--nur-bruecken] [--teile 10] [--out .ki/paket.json bzw. Ordner] | ki-import <ergebnis.json …> [--teil teil.json]');
+      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-sperre [--minuten 30] [--grund "…"] [--aus] | ki-nachholen [--bruecken] | ki-export [--max 40] [--art auswerten,frist] [--nur-bruecken] [--teile 10] [--out .ki/paket.json bzw. Ordner] | ki-import <ergebnis.json …> [--teil teil.json]');
       process.exitCode = cmd ? 1 : 0;
   }
 }
