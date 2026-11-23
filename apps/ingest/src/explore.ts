@@ -7,36 +7,47 @@ import type { Candidate } from './extract';
 import type { DiscoverContext } from './discover';
 import { baSearch } from './portals';
 
-/** Suchwörter für den Kernbereich – bewusst andere als die festen Suchwörter des BA-Portals. */
+/**
+ * Suchwörter für den Kernbereich – bewusst andere als die festen Suchwörter des BA-Portals. Immer Wortgruppen
+ * (Fach plus Stellenart oder Forschung): Ein einzelnes Wort wie „Verhaltensforschung“ oder „Psychometrie“ bringt
+ * bei der Arbeitsagentur vor allem fachfremde Stellen.
+ */
 export const CORE_EXPLORE_QUERIES = [
   'Psychologin Forschungsprojekt',
-  'Verhaltensforschung',
-  'Kognitionswissenschaft',
-  'Arbeitspsychologie',
-  'Verkehrspsychologie',
-  'Gesundheitspsychologie',
-  'Medienpsychologie',
-  'Wirtschaftspsychologie',
-  'Pädagogische Psychologie',
+  'wissenschaftlicher Mitarbeiter Allgemeine Psychologie',
+  'wissenschaftliche Mitarbeiterin Kognitionspsychologie',
+  'Postdoc Experimentalpsychologie',
+  'Kognitionswissenschaft wissenschaftlicher Mitarbeiter',
+  'Verhaltensforschung Psychologie',
+  'Arbeitspsychologie Forschung',
+  'Ingenieurpsychologie Human Factors',
+  'Human Factors Psychologie',
+  'Verkehrspsychologie Forschung',
+  'Gesundheitspsychologie Forschung',
+  'Medienpsychologie wissenschaftlicher Mitarbeiter',
+  'Wirtschaftspsychologie Professur',
+  'Pädagogische Psychologie wissenschaftlicher Mitarbeiter',
   'Neuropsychologie Studie',
-  'Psychometrie',
-  'Human Factors',
+  'Psychometrie Diagnostik Forschung',
+  'Alternsforschung Psychologie',
   'Studienkoordination Psychologie',
   'wissenschaftliche Mitarbeiterin Verhaltenswissenschaft',
   'Research Associate Psychology',
-  'Evaluation Sozialforschung',
+  'Evaluation Sozialforschung Psychologie',
   ...[
     'PhD position psychology',
     'postdoctoral researcher psychology',
+    'postdoc cognitive psychology',
     'cognitive neuroscience research position',
     'behavioural science researcher',
     'research assistant psychology Germany',
+    'human factors researcher psychology',
     'user research psychologist',
   ],
 ];
 
 /** Englische Suchwörter: Die Websuche fragt dann auf Englisch und nach „job vacancy“ statt „Stellenausschreibung“. */
-const ENGLISH_QUERY = /^(phd|postdoc|cognitive|behaviou?ral|research|user|human factors)/i;
+const ENGLISH_QUERY = /^(phd|postdoc|cognitive|behaviou?ral|research|user|human factors)\b/i;
 
 /**
  * Suchwörter für diesen Lauf: abwechselnd Kern und Brücken, täglich weiterrotierend, damit über

@@ -166,7 +166,7 @@ const mobilitaet = page(
   'Mobilitätsplanung',
   `<h1>Referent:in (m/w/d) Mobilitätsplanung</h1>
 <p>Im Dezernat Bau und Liegenschaften entwickeln Sie das Mobilitätskonzept der Universität weiter.</p>
-<h2>Ihre Aufgaben</h2><ul><li>Konzeption und Auswertung einer Befragung von Studierenden und Beschäftigten zu ihren Wegen zur Arbeit</li><li>Statistische Auswertung und Bericht an die Hochschulleitung</li><li>Abstimmung mit Stadt und Verkehrsbetrieben</li></ul>
+<h2>Ihre Aufgaben</h2><ul><li>Konzeption und Auswertung einer Befragung (Mixed Methods) von Studierenden und Beschäftigten zu ihren Wegen zur Arbeit</li><li>Statistische Auswertung und Bericht an die Hochschulleitung</li><li>Abstimmung mit Stadt und Verkehrsbetrieben</li></ul>
 <h2>Ihr Profil</h2><ul><li>Hochschulabschluss in Sozialwissenschaften, Geografie oder Verkehrsplanung</li><li>Sicherer Umgang mit Statistik-Software</li></ul>
 <p>E 11 TV-L, unbefristet. Bewerbungsfrist: 25.11.2026.</p>`,
 );
@@ -175,7 +175,7 @@ const steuern = page(
   'Steuern',
   `<h1>Sachbearbeitung (m/w/d) Steuern und Abgaben</h1>
 <p>In der Finanzabteilung bearbeiten Sie Umsatzsteuer-Voranmeldungen und Abgaben.</p>
-<h2>Ihre Aufgaben</h2><ul><li>Umsatzsteuer und Ertragsteuern der Betriebe gewerblicher Art</li><li>Statistik der Abgaben für das Ministerium</li><li>Auskünfte zur Befragung durch das Finanzamt</li></ul>
+<h2>Ihre Aufgaben</h2><ul><li>Umsatzsteuer und Ertragsteuern der Betriebe gewerblicher Art</li><li>Statistik der Abgaben für das Ministerium</li><li>Auskünfte zur Befragung durch das Finanzamt; auch hier zählt der Faktor Mensch</li></ul>
 <h2>Ihr Profil</h2><ul><li>Ausbildung als Steuerfachangestellte:r</li><li>Erfahrung im Steuerrecht</li></ul>
 <p>E 9a TV-L, unbefristet. Bewerbungsfrist: 30.11.2026.</p>`,
 );
@@ -190,7 +190,7 @@ const studienberatung = page(
   'Studienberatung',
   `<h1>Koordinator:in (m/w/d) Studienberatung</h1>
 <p>In der Zentralen Studienberatung begleiten Sie Studieninteressierte und Studierende bei Orientierungsfragen und unterstützen Lernprozesse in Workshops.</p>
-<h2>Ihre Aufgaben</h2><ul><li>Einzelgespräche mit Ratsuchenden</li><li>Konzeption von Workshops zu Lernstrategien</li><li>Auswertung der jährlichen Befragung der Ratsuchenden</li></ul>
+<h2>Ihre Aufgaben</h2><ul><li>Einzelgespräche mit Ratsuchenden</li><li>Konzeption von Workshops zu Lernstrategien</li><li>Auswertung der jährlichen Befragung der Ratsuchenden (Mixed Methods)</li></ul>
 <h2>Ihr Profil</h2><ul><li>Hochschulabschluss</li><li>Erfahrung in Beratung</li></ul>
 <p>E 11 TV-L, 100 %, unbefristet. Bewerbungsfrist: 27.11.2026.</p>`,
 );

@@ -72,6 +72,8 @@ const EN: Table = {
   't-schmerz': { label: 'Pain & the body' },
   't-gedaecht': { label: 'Memory & learning' },
   't-aufm': { label: 'Attention & perception' },
+  't-wechsel': { label: 'Task switching, multitasking & interruptions' },
+  't-exek': { label: 'Executive functions & cognitive control' },
   't-entsch': { label: 'Decision-making & judgment' },
   't-motiv': { label: 'Motivation & self-regulation' },
   't-sprache': { label: 'Language' },
@@ -227,7 +229,7 @@ const EN: Table = {
 
   // Wie oft Horizont-Karten kommen
   'dosis:oft': { label: 'Often', hinweis: 'about every second to third card' },
-  'dosis:normal': { label: 'Now and then', hinweis: 'about every third to fifth card' },
+  'dosis:normal': { label: 'Now and then', hinweis: 'about every third to sixth card' },
   'dosis:selten': { label: 'Rarely', hinweis: 'about every sixth to eighth card' },
   'dosis:aus': { label: 'Not at all', hinweis: 'only jobs related to psychology' },
 
@@ -284,6 +286,8 @@ const SR: Table = {
   't-schmerz': { label: 'Bol i telo' },
   't-gedaecht': { label: 'Pamćenje i učenje' },
   't-aufm': { label: 'Pažnja i opažanje' },
+  't-wechsel': { label: 'Prebacivanje između zadataka, multitasking i prekidi' },
+  't-exek': { label: 'Izvršne funkcije i kognitivna kontrola' },
   't-entsch': { label: 'Odlučivanje i rasuđivanje' },
   't-motiv': { label: 'Motivacija i samoregulacija' },
   't-sprache': { label: 'Jezik' },
@@ -439,7 +443,7 @@ const SR: Table = {
 
   // Wie oft Horizont-Karten kommen
   'dosis:oft': { label: 'Često', hinweis: 'otprilike svaka druga do treća kartica' },
-  'dosis:normal': { label: 'Povremeno', hinweis: 'otprilike svaka treća do peta kartica' },
+  'dosis:normal': { label: 'Povremeno', hinweis: 'otprilike svaka treća do šesta kartica' },
   'dosis:selten': { label: 'Retko', hinweis: 'otprilike svaka šesta do osma kartica' },
   'dosis:aus': { label: 'Nikako', hinweis: 'samo poslovi vezani za psihologiju' },
 

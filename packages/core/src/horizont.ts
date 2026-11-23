@@ -11,22 +11,24 @@
 import { hash64 } from './dedup';
 import { CATEGORY_LABELS, horizontOf, type Bruecke, type Horizont, type HorizontDosis, type Suchprofil } from './profile';
 import { allMatches, compileTerms, type CompiledTerm } from './text';
-import { matchItem } from './scoring';
+import { matchItem, topicLimit } from './scoring';
 import { JOB_KIND_LABELS, type Job, type JobKind, type Lane } from './types';
 
 /**
- * Standard-Anknüpfung: Begriffe, die zeigen, dass es um Menschen, Verhalten oder empirische Arbeit geht.
- * Floskeln aus Anzeigen („hohe Motivation“, „stressresistent“) sind bewusst nicht dabei.
+ * Standard-Anknüpfung: Wortgruppen, die zeigen, dass die Stelle ihr Feld mit Psychologie verbindet, also mit
+ * Wissen über Menschen und Verhalten oder mit den Methoden dafür. Einzelne Allerweltswörter („Experiment“,
+ * „Akzeptanz“, „empirisch“, „Wahrnehmung“) sind bewusst nicht dabei: Sie stehen in zu vielen Anzeigen.
  */
 export const STANDARD_ANKER: string[] = [
-  '*psych', 'verhalten', 'behavio', 'nutzerverhalten', 'nutzerstud', 'nutzerforsch', 'nutzerzentriert', 'nutzerinnen', 'user stud',
-  'user research', 'menschliche faktoren', 'faktor mensch', 'human factors', 'human centered', 'human centred', 'menschzentriert',
-  'mensch technik', 'mensch maschine', 'mensch computer', 'akzeptanz', 'wahrnehmung', 'entscheidungsverhalten', 'entscheidungsfindung',
-  'kognit', 'cognit', 'emotion', 'stresserleben', 'stressforschung', 'beanspruchung', 'wohlbefinden', 'well being', 'wellbeing',
-  'empirisch', 'empirical', 'befragung', 'umfrage', 'interviewstud', 'qualitative interviews', 'fokusgrupp', 'experiment', 'feldstud',
-  'laborstud', 'probanden', 'proband', 'teilnehmende', 'sozialwissenschaftlich', 'mixed methods', 'lernprozess', 'kompetenzentwicklung',
-  'kommunikationsverhalten', 'gesundheitsverhalten', 'awareness', 'beschäftigte befragt', 'arbeitsbelastung', 'mentale gesundheit',
-  'mental health', 'motivation von', 'nutzerakzeptanz',
+  '*psycholog', 'human factors', 'kognitionswiss', 'cognitive science', 'verhaltenswiss', 'behavioral science', 'behavioural science',
+  'verhaltensforsch', 'behavioral research', 'behavioural research', 'verhaltensökonom', 'behavioral economics', 'behavioural economics', 'nutzerforsch',
+  'nutzerstud', 'nutzerverhalten', 'nutzerakzeptanz', 'nutzerzentriert', 'user research', 'user stud', 'ux research',
+  'usability', 'menschzentriert', 'human centered', 'human centred', 'faktor mensch', 'menschliche faktoren', 'mensch technik',
+  'mensch maschine', 'mensch computer', 'human computer', 'human machine', 'mensch roboter', 'human robot', 'technikakzeptanz',
+  'akzeptanzforsch', 'entscheidungsverhalten', 'gesundheitsverhalten', 'mobilitätsverhalten', 'kommunikationsverhalten', 'umweltverhalten', 'lernverhalten',
+  'empirische sozialforsch', 'empirische bildungsforsch', 'sozialwissenschaftliche method', 'mixed methods', 'psychische gesundheit', 'mental health', 'psychische belastung',
+  'psychosozial', 'probandenstud', 'laborstud', 'verhaltensexperiment', 'behavioral experiment', 'behavioural experiment', 'experimentelle stud',
+  'lehr lern', 'lehrlern',
 ];
 
 const compiledFor = new WeakMap<object, CompiledTerm[]>();
@@ -131,7 +133,9 @@ const KERN: LaneInfo = { lane: 'kern', promoted: false, bridge: null, reason: nu
 export function isThematic(job: Parameters<typeof matchItem>[1], norm: string, p: Suchprofil): boolean {
   const thema = p.categories.find((c) => c.id === 'thema');
   if (!thema || thema.items.length === 0 || thema.weight <= 0) return true;
-  return thema.items.some((it) => matchItem(it, job, norm).state === 'ja');
+  if (!thema.items.some((it) => matchItem(it, job, norm).state === 'ja')) return false;
+  // Ein Themenwort in einer fachfremden Anzeige macht sie nicht zum Kern (dort zählt das Thema auch nur halb).
+  return topicLimit(job, norm) == null;
 }
 
 /**
@@ -139,6 +143,7 @@ export function isThematic(job: Parameters<typeof matchItem>[1], norm: string, p
  *  - Trifft sie ein Kernthema, ist sie Kern (auch wenn sie über eine Brücke hereinkam).
  *  - Sonst Horizont, wenn eine aktive Brücke passt – auch bei Anzeigen, die nur der breite Grobfilter
  *    durchgelassen hat (z. B. „Usability“ ohne Psychologie im Text). Hat die KI „nein“ gesagt, nicht.
+ *    Eingestreut wird eine Horizont-Karte erst, wenn die KI sie geprüft hat („passt“ oder „eher“).
  *  - Weite-Anzeigen bleiben Weite.
  * `promoted` heißt: wird im Stapel als Horizont-Karte eingestreut.
  */
@@ -154,7 +159,7 @@ export function laneOf(job: Pick<Job, 'lane' | 'horizon'>, norm: string, h: Hori
   if (ingest === 'weite') return { lane: 'weite', promoted: on && (h.weite || !!bridge), bridge, reason, verdict, label };
   if (ingest === 'kern' && (!bridge || verdict === 'nein')) return KERN;
   // Ist die Brücke inzwischen pausiert, wird die Anzeige nicht mehr eingestreut (bleibt aber unter „Alle“).
-  return { lane: 'horizont', promoted: on && !!bridge, bridge, reason, verdict, label };
+  return { lane: 'horizont', promoted: on && !!bridge && (verdict === 'passt' || verdict === 'eher'), bridge, reason, verdict, label };
 }
 
 /** Kurze Begründung ohne KI: welche Begriffe die Brücke tragen. */
@@ -179,7 +184,7 @@ export function compareHorizon(a: { lane: LaneInfo; score: number }, b: { lane: 
 export const DOSIS_GAPS: Record<HorizontDosis, [number, number] | null> = {
   aus: null,
   selten: [5, 7], // jede 6. bis 8. Karte
-  normal: [2, 4], // jede 3. bis 5. Karte
+  normal: [2, 5], // jede 3. bis 6. Karte
   oft: [1, 2], // jede 2. bis 3. Karte
 };
 
@@ -195,7 +200,7 @@ function rng(seed: string): () => number {
 }
 
 /**
- * Streut die Horizont-Karten zwischen die Kern-Karten: nach jeweils zufällig 2–4 Kern-Karten eine
+ * Streut die Horizont-Karten zwischen die Kern-Karten: nach jeweils zufällig 2–5 Kern-Karten eine
  * Horizont-Karte (bei „normal“). Der Zufall hängt nur vom Startwert ab, damit sich die Reihenfolge beim
  * Wischen nicht verschiebt. Sind die Kern-Karten aufgebraucht, folgen die übrigen Horizont-Karten.
  */

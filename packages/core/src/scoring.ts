@@ -1,11 +1,13 @@
 // Einfacher, erklärbarer Score:
 //   Jede Kategorie ist "voll", sobald 3 Herzchen getroffen sind (unbekannte Angaben zählen halb).
+//   Das Thema zählt höchstens halb, wenn die Anzeige nichts mit Psychologie zu tun hat oder der Titel
+//   einen anderen Beruf nennt (Ergotherapeut, Softwareentwickler …).
 //   Score = Summe der Kategorie-Anteile – Abzüge für "Lieber nicht" (5 Punkte je Herz).
 // Nie ein Ausschlusskriterium: Der Score ordnet nur.
 
 import type { Job } from './types';
 import { CATEGORY_LABELS, type CategoryId, type Condition, type ProfileItem, type Suchprofil } from './profile';
-import { compileTerms, firstMatch, type CompiledTerm } from './text';
+import { compileTerms, firstMatch, normalizeText, stripNoise, type CompiledTerm } from './text';
 
 export type MatchState = 'ja' | 'nein' | 'unbekannt';
 
@@ -22,9 +24,11 @@ export interface CategoryScore {
   /** Maximal erreichbare Punkte (Anteil am Gesamtscore). */
   max: number;
   points: number;
-  /** Getroffene Herzchen (unbekannt halb), gedeckelt auf 3. */
+  /** Getroffene Herzchen (unbekannt halb), gedeckelt auf 3; beim Thema mit Grenze höchstens 1,5. */
   hearts: number;
   hits: ItemHit[];
+  /** Nur beim Thema: warum es höchstens halb zählt (sonst null). */
+  limit: TopicLimit | null;
 }
 
 export interface ScoreResult {
@@ -36,8 +40,41 @@ export interface ScoreResult {
 
 export const HEARTS_FOR_FULL = 3;
 export const PENALTY_PER_HEART = 5;
+/** So viel vom Thema bleibt, wenn eine Grenze greift (siehe topicLimit). */
+export const TOPIC_LIMIT_FACTOR = 0.5;
 
-type ScoreJob = Pick<Job, 'kind' | 'payLevel' | 'workloadPct' | 'isPermanent' | 'language'>;
+/** Der Titel ist freiwillig (Tests, Vorschau); ohne ihn entfällt die Prüfung auf einen anderen Beruf. */
+type ScoreJob = Pick<Job, 'kind' | 'payLevel' | 'workloadPct' | 'isPermanent' | 'language'> & { title?: string | null };
+
+/**
+ * Warum das Thema einer Anzeige höchstens halb zählt:
+ *  - 'kein-fachbezug': In der ganzen Anzeige kommt Psychologie nicht vor. Ein Themenwort allein
+ *    („Gedächtnis“, „künstliche Intelligenz“) macht aus einer fachfremden Stelle keine passende;
+ *    solche Stellen sind Sache des Horizonts.
+ *  - 'anderer-beruf': Der Titel nennt einen anderen Beruf und nicht die Psychologie. Dann sucht die
+ *    Anzeige diesen Beruf, auch wenn im Text „kognitives Training“ oder „Psychologen im Team“ steht.
+ */
+export type TopicLimit = 'kein-fachbezug' | 'anderer-beruf';
+
+/** Woran der Score erkennt, dass eine Anzeige mit Psychologie zu tun hat (bewusst ohne Psychiatrie und Psychotherapie). */
+export const FACHBEZUG_TERMS: string[] = [
+  '*psycholog', 'psychometr', 'psychophys', 'psycholingu', 'kognitionswiss', 'cognitive science', 'kognitive neurowiss',
+  'cognitive neuroscien', 'verhaltenswiss', 'behavioral science', 'behavioural science', 'human factors',
+];
+
+/** Berufe im Titel, für die Psychologinnen und Psychologen nicht gesucht werden. */
+const OTHER_PROFESSION =
+  /ergotherap|physiotherap|logop[äa]d|pflegefach|pflegekraft|pflegehelf|krankenpfleg|altenpfleg|heilerziehungspfleg|pflegedienst|[äa]rzt(?:in|innen|e|lich\w*)?\b|medizinische[rn]? fachangestellt|\bm(?:fa|ta|tra|tla)\b|hebamme|erzieher(?:in)?\b|heilp[äa]dagog(?:e|in)\b|sozialarbeiter|sozialp[äa]dagog(?:e|in)\b|apotheker|(?:musik|kunst|sport|bewegungs|arbeits)therapeut|(?:software|web|app|game|java|python|php|front-?\s?end|back-?\s?end|full-?\s?stack|mobile)[- ]?(?:developer|entwickler|engineer)|softwareentwickl|\bsw engineer|programmierer|fachinformatik|systemadministrat|devops/i;
+
+let fachbezug: CompiledTerm[] | null = null;
+
+/** Greift beim Thema eine Grenze? normText ist die Ausgabe von searchTextOf(job). */
+export function topicLimit(job: ScoreJob, normText: string): TopicLimit | null {
+  const title = job.title ? stripNoise(job.title) : '';
+  if (title && OTHER_PROFESSION.test(title) && !/psycholog/i.test(title)) return 'anderer-beruf';
+  fachbezug ??= compileTerms(FACHBEZUG_TERMS);
+  return firstMatch(normText, fachbezug) ? null : 'kein-fachbezug';
+}
 
 const compiledCache = new WeakMap<ProfileItem, CompiledTerm[]>();
 
@@ -79,7 +116,11 @@ export function matchItem(item: ProfileItem, job: ScoreJob, normText: string): I
     via = r.via;
   }
   if (state !== 'ja' && item.terms && item.terms.length > 0) {
-    const t = firstMatch(normText, termsOf(item));
+    // Stellenart: Ist die Art erkannt, entscheidet sie allein. Nur wenn sie unbekannt ist, helfen die Begriffe,
+    // und dann im Titel: „Professor“ oder „Postdoc“ steht in vielen Anzeigen irgendwo im Text.
+    let text: string | null = normText;
+    if (item.condition?.type === 'kind') text = state === 'unbekannt' ? (job.title ? normalizeText(stripNoise(job.title)) : normText) : null;
+    const t = text == null ? null : firstMatch(text, termsOf(item));
     if (t) {
       state = 'ja';
       via = `„${t.raw.replace(/^\*|^"|"$/g, '')}“`;
@@ -102,14 +143,25 @@ export function scoreJob(job: ScoreJob, normText: string, profile: Suchprofil): 
     const isActive = active.includes(c);
     const max = isActive ? (c.weight / weightSum) * 100 : 0;
     const hits = c.items.map((it) => matchItem(it, job, normText));
+    // Eine Anzeige hat genau eine Stellenart. Ist sie unbekannt, zählt deshalb nur der wichtigste
+    // Stellenart-Eintrag halb, nicht jeder (sonst wäre „unbekannt“ mehr wert als jede erkannte Art).
+    const byKind = (hit: ItemHit) => hit.item.condition?.type === 'kind';
+    const kindKnown = hits.some((hit) => byKind(hit) && hit.state === 'ja');
+    let kindGuess: ItemHit | null = null;
+    for (const hit of hits) {
+      if (!byKind(hit) || hit.state !== 'unbekannt') continue;
+      if (!kindKnown && (!kindGuess || hit.item.hearts > kindGuess.item.hearts)) kindGuess = hit;
+    }
     let h = 0;
     for (const hit of hits) {
+      if (byKind(hit) && hit.state === 'unbekannt' && hit !== kindGuess) hit.state = 'nein';
       if (hit.state === 'ja') h += hit.item.hearts;
       else if (hit.state === 'unbekannt') h += hit.item.hearts / 2;
     }
-    const hearts = Math.min(HEARTS_FOR_FULL, h);
+    const limit = c.id === 'thema' && h > 0 ? topicLimit(job, normText) : null;
+    const hearts = Math.min(HEARTS_FOR_FULL, h) * (limit ? TOPIC_LIMIT_FACTOR : 1);
     const points = isActive ? max * (hearts / HEARTS_FOR_FULL) : 0;
-    return { id: c.id, label: CATEGORY_LABELS[c.id], max, points, hearts, hits };
+    return { id: c.id, label: CATEGORY_LABELS[c.id], max, points, hearts, hits, limit };
   });
 
   const penalties = profile.avoid.map((it) => matchItem(it, job, normText)).filter((h) => h.state === 'ja');

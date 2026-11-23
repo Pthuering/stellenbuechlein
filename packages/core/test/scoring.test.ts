@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  deckJitter,
   deckTier,
   parseDeckOrder,
   checkGate,
@@ -36,6 +37,34 @@ describe('Textabgleich', () => {
     const t = searchTextOf({ title: 'Lehr-Lern-Forschung', descriptionMd: '' });
     expect(compileTerm('*lehrlern')!.re.test(t)).toBe(true);
   });
+  it('"R" passt nicht auf Genderendungen, „i. d. R.“ oder Kürzel', () => {
+    const r = compileTerm('"r"')!.re;
+    const noise = searchTextOf({
+      title: 'Medizinische/r Technologin/-e (MT-R)',
+      descriptionMd: 'Wissenschaftliche\\*r Mitarbeiter\\*in, Jede:r Bewerber(in), i. d. R. in Vollzeit. Fragen an r.mueller@uni.example oder [E-Mail](mailto:a@b.example?subject=R%C3%BCckfrage). R&D Team.',
+    });
+    expect(r.test(noise)).toBe(false);
+    expect(compileTerm('mitarbeiter')!.re.test(noise)).toBe(true);
+    expect(r.test(searchTextOf({ title: 'Stelle', descriptionMd: 'Kenntnisse in SPSS/R oder Python.' }))).toBe(true);
+    expect(r.test(searchTextOf({ title: 'Stelle', descriptionMd: 'Auswertung mit Python, R und Mplus' }))).toBe(true);
+  });
+  it('Wortgruppen passen auch auf gebeugte Formen', () => {
+    const t = normalizeText('Mitarbeit in der Kognitiven Psychologie: Untersuchung kognitiver Prozesse, Forschung zur visuellen Suche');
+    expect(compileTerm('kognitive psych')!.re.test(t)).toBe(true);
+    expect(compileTerm('kognitive prozess')!.re.test(t)).toBe(true);
+    expect(compileTerm('visuelle suche')!.re.test(t)).toBe(true);
+    // kurze Wörter müssen genau so dastehen, und die Reihenfolge zählt
+    expect(compileTerm('e prime')!.re.test(normalizeText('entwickelte Primer für die PCR'))).toBe(false);
+    expect(compileTerm('psychologie kognitive')!.re.test(t)).toBe(false);
+    // „kognitive Verhaltenstherapie“ ist keine Kognitive Psychologie
+    expect(compileTerm('kognitive psych')!.re.test(normalizeText('Ausbildung in kognitiver Verhaltenstherapie'))).toBe(false);
+  });
+  it('Adressen: Rechner und Pfad bleiben durchsuchbar, Anhängsel nicht', () => {
+    const t = searchTextOf({ title: 'Stelle', descriptionMd: '[Institut](https://www.psychologie.uni.example/ae?ref=kognition) sekretariat@psychologie.uni.example' });
+    expect(compileTerm('*psycholog')!.re.test(t)).toBe(true);
+    expect(compileTerm('kognit')!.re.test(t)).toBe(false);
+    expect(compileTerm('sekretariat')!.re.test(t)).toBe(false);
+  });
 });
 
 describe('Grobfilter', () => {
@@ -63,6 +92,12 @@ describe('Stellenart', () => {
     ['Studentische Hilfskraft (SHK) im Projekt XY', '', 'shk'],
     ['Psychologischer Psychotherapeut (m/w/d) für die Ambulanz', '', 'klinik'],
     ['Sachbearbeitung Drittmittel (m/w/d)', '', 'verwaltung'],
+    ['Fullstack Developer (Lisboa, PT)', '', 'verwaltung'],
+    ['SW Engineer - Onboard Software (m/f/d)', '', 'verwaltung'],
+    ['Wissenschaftliche*r Mitarbeiter*in (m/w/d) Professur Allg. Psychologie', '', 'wiss_ma'],
+    ['Wissenschaftlicher Mitarbeiter für Lehrstuhl für Pädagogische Psychologie', 'Die Möglichkeit zur Promotion ist gegeben.', 'promotion'],
+    ['Sekretär/in am Lehrstuhl für Sozialpsychologie', 'Der Lehrstuhl gehört zur Universitätsprofessur für Sozialpsychologie.', 'verwaltung'],
+    ['Visiting Assistant Professor', '', 'professur'],
   ])('%s', (title, text, kind) => {
     expect(classifyKind(title, text)).toBe(kind);
   });
@@ -100,6 +135,37 @@ describe('Score', () => {
     const p: Suchprofil = { ...profile, categories: profile.categories.map((c) => (c.id === 'thema' ? c : { ...c, items: [] })), avoid: [] };
     const r = scoreJob(job, searchTextOf({ title: 'Psychologie', descriptionMd: 'klinische Psychologie, kognitive Prozesse' }), p);
     expect(r.score).toBe(100);
+  });
+  it('unbekannte Stellenart zählt einmal halb, nicht je Eintrag', () => {
+    const text = searchTextOf({ title: 'Stelle', descriptionMd: 'Psychologie' });
+    const r = scoreJob({ ...job, kind: 'sonstige' }, text, profile);
+    const stelle = r.categories.find((c) => c.id === 'stelle')!;
+    // Im Startprofil stehen vier Stellenarten (3, 2, 2, 1 Herzen): nur die wichtigste zählt halb.
+    expect(stelle.hearts).toBe(1.5);
+    expect(stelle.hits.filter((h) => h.state === 'unbekannt').map((h) => h.item.id)).toEqual(['s-prom']);
+  });
+  it('Stellenart-Begriffe zählen nur bei unbekannter Art und nur im Titel', () => {
+    const prof = { id: 's-prof', label: 'Professur', hearts: 3 as const, condition: { type: 'kind' as const, kinds: ['professur' as const] }, terms: ['professur', 'professor'] };
+    const p: Suchprofil = { ...profile, categories: profile.categories.map((c) => (c.id === 'stelle' ? { ...c, items: [prof] } : c)) };
+    const stelle = (kind: 'klinik' | 'sonstige', title: string, descriptionMd: string) =>
+      scoreJob({ ...job, kind, title }, searchTextOf({ title, descriptionMd }), p).categories.find((c) => c.id === 'stelle')!.hearts;
+    expect(stelle('klinik', 'Ergotherapeut (m/w/d)', 'Vorstand: Herr Professor Dr. med. Muster')).toBe(0);
+    expect(stelle('sonstige', 'Mitarbeit im Projekt', 'Leitung: Professor Dr. Muster')).toBe(1.5);
+    expect(stelle('sonstige', 'Professorin für Psychologie (Vertretung)', '')).toBe(3);
+  });
+  it('Thema zählt höchstens halb ohne Psychologie-Bezug oder bei anderem Beruf im Titel', () => {
+    const thema = (title: string, descriptionMd: string) => scoreJob({ ...job, title }, searchTextOf({ title, descriptionMd }), profile).categories.find((c) => c.id === 'thema')!;
+    const robotik = thema('Wissenschaftliche Mitarbeiterin', 'Kognitive Robotik und Neurowissenschaft, kognitive Architekturen.');
+    expect(robotik.limit).toBe('kein-fachbezug');
+    expect(robotik.hearts).toBe(0.5);
+    const ergo = thema('Ergotherapeut (m/w/d)', 'Kognitives Training, Klinische Psychologie und Psychotherapie, Team aus Psychologen, Neurowissenschaft.');
+    expect(ergo.limit).toBe('anderer-beruf');
+    expect(ergo.hearts).toBe(1.5);
+    expect(thema('Frontend Developer', 'Studien zur kognitiven Psychologie').limit).toBe('anderer-beruf');
+    expect(thema('Psychologe oder Sozialpädagoge (m/w/d)', 'Beratung').limit).toBeNull();
+    expect(thema('Wissenschaftliche Mitarbeiterin', 'Kognitive Psychologie, Arbeitsgedächtnis').limit).toBeNull();
+    // ohne Thema-Treffer gibt es nichts zu begrenzen
+    expect(thema('Sachbearbeitung', 'Haushalt').limit).toBeNull();
   });
 });
 
@@ -151,6 +217,18 @@ describe('Kurzfassung', () => {
   it('nimmt den Aufgaben-Abschnitt', () => {
     const md = 'Die Universität ist eine der ältesten Hochschulen.\n\n## Ihre Aufgaben\n\n- Planung von EEG-Studien\n- Auswertung der Daten\n- Mitarbeit in der Lehre\n- Publikationen\n\n## Ihr Profil\n\n- Master';
     expect(heuristicSummary(md)).toBe('Planung von EEG-Studien; Auswertung der Daten; Mitarbeit in der Lehre');
+  });
+});
+
+describe('Leichtes Mischen im Stapel', () => {
+  it('höchstens fünf Punkte auf oder ab, je Karte und Tag fest', () => {
+    const ids = Array.from({ length: 200 }, (_, i) => `j${i}`);
+    const values = ids.map((id) => deckJitter(id, 'stapel:2026-11-23'));
+    expect(Math.max(...values)).toBeLessThanOrEqual(5);
+    expect(Math.min(...values)).toBeGreaterThanOrEqual(-5);
+    expect(new Set(values.map((v) => Math.round(v))).size).toBeGreaterThan(6);
+    expect(deckJitter('j1', 'stapel:2026-11-23')).toBe(deckJitter('j1', 'stapel:2026-11-23'));
+    expect(deckJitter('j1', 'stapel:2026-11-24')).not.toBe(deckJitter('j1', 'stapel:2026-11-23'));
   });
 });
 

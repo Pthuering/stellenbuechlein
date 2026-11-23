@@ -173,15 +173,15 @@ const LANES: Table<Lane> = {
 };
 
 const DOSIS: Table<HorizontDosis> = {
-  de: { aus: 'aus', selten: 'jede 6. bis 8.', normal: 'jede 3. bis 5.', oft: 'jede 2. bis 3.' },
-  en: { aus: 'off', selten: 'every 6th to 8th', normal: 'every 3rd to 5th', oft: 'every 2nd to 3rd' },
-  sr: { aus: 'isključeno', selten: 'svaka 6. do 8.', normal: 'svaka 3. do 5.', oft: 'svaka 2. do 3.' },
+  de: { aus: 'aus', selten: 'jede 6. bis 8.', normal: 'jede 3. bis 6.', oft: 'jede 2. bis 3.' },
+  en: { aus: 'off', selten: 'every 6th to 8th', normal: 'every 3rd to 6th', oft: 'every 2nd to 3rd' },
+  sr: { aus: 'isključeno', selten: 'svaka 6. do 8.', normal: 'svaka 3. do 6.', oft: 'svaka 2. do 3.' },
 };
 
 const DOSIS_CARDS: Table<HorizontDosis> = {
-  de: { aus: 'aus', selten: 'jede 6. bis 8. Karte', normal: 'jede 3. bis 5. Karte', oft: 'jede 2. bis 3. Karte' },
-  en: { aus: 'off', selten: 'every 6th to 8th card', normal: 'every 3rd to 5th card', oft: 'every 2nd to 3rd card' },
-  sr: { aus: 'isključeno', selten: 'svaka 6. do 8. kartica', normal: 'svaka 3. do 5. kartica', oft: 'svaka 2. do 3. kartica' },
+  de: { aus: 'aus', selten: 'jede 6. bis 8. Karte', normal: 'jede 3. bis 6. Karte', oft: 'jede 2. bis 3. Karte' },
+  en: { aus: 'off', selten: 'every 6th to 8th card', normal: 'every 3rd to 6th card', oft: 'every 2nd to 3rd card' },
+  sr: { aus: 'isključeno', selten: 'svaka 6. do 8. kartica', normal: 'svaka 3. do 6. kartica', oft: 'svaka 2. do 3. kartica' },
 };
 
 /** „Promotion“, „PhD“, „Doktorat“ */

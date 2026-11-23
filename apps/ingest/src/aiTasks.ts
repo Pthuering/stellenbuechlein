@@ -8,14 +8,21 @@ import {
   canonicalUrl,
   classifyKind,
   DEFAULT_GATE_TERMS,
+  horizontOf,
+  isThematic,
+  matchBridges,
   normalizeText,
   parseProfile,
   profileSummary,
+  searchTextOf,
   starterProfile,
   stripMarkdown,
   todayBerlin,
   verifyDeadlineQuote,
+  type BridgeHit,
   type JobHorizon,
+  type JobKind,
+  type Suchprofil,
 } from '@stellen/core';
 import {
   aiTaskDoneStmt,
@@ -105,6 +112,7 @@ interface JobRow {
   fixed_term: string | null;
   start_text: string | null;
   department: string | null;
+  kind: string | null;
   horizon: string | null;
   lane: string | null;
   /** Quelle, über die die Anzeige zuerst gefunden wurde (für die Lernliste „keine Anzeige“ je Quelle) */
@@ -125,7 +133,7 @@ async function loadJobs(db: Db, ids: string[]): Promise<Map<string, JobRow>> {
   const rows = await allIn<JobRow>(
     db,
     (marks) => `SELECT j.id, j.title, j.url, j.canonical_url, j.description_md, j.employer, j.institution_id, i.name AS institution_name, j.posted_at, j.pay_grade, j.pay_level,
-            j.workload_pct, j.fixed_term, j.start_text, j.department, j.horizon, j.lane,
+            j.workload_pct, j.fixed_term, j.start_text, j.department, j.kind, j.horizon, j.lane,
             (SELECT js.source_id FROM job_sources js WHERE js.job_id = j.id ORDER BY js.first_seen_at LIMIT 1) AS source_id
      FROM jobs j LEFT JOIN institutions i ON i.id = j.institution_id WHERE j.id IN (${marks})`,
     ids,
@@ -133,8 +141,58 @@ async function loadJobs(db: Db, ids: string[]): Promise<Map<string, JobRow>> {
   return new Map(rows.map((r) => [r.id, r]));
 }
 
-/** Gibt bis zu max offene Aufgaben als Paket aus. Aufgaben zu inzwischen gelöschten Anzeigen werden erledigt. */
-export async function exportAiTasks(db: Db, opts: { max?: number; arten?: AiTaskKind[] } = {}): Promise<AiPackage> {
+/**
+ * Passt mit dem aktuellen Profil eine Brücke auf die Anzeige, ohne dass sie ein Kernthema trifft? Dann ist sie
+ * in der App eine Horizont-Karte und wird erst nach dem Urteil der KI in den Stapel eingestreut.
+ */
+function bridgeFor(job: { title: string; department: string | null; description_md: string; kind: string | null }, profile: Suchprofil): BridgeHit | null {
+  const norm = searchTextOf({ title: job.title, department: job.department, descriptionMd: job.description_md });
+  if (isThematic({ kind: job.kind as JobKind | null, title: job.title }, norm, profile)) return null;
+  return matchBridges(norm, horizontOf(profile))[0] ?? null;
+}
+
+/**
+ * Legt „horizont“-Aufgaben für alle aktiven Anzeigen an, die mit dem aktuellen Profil über eine Brücke passen und
+ * noch kein Urteil der KI haben. Nötig nach Änderungen an Profil oder Brücken: Welche Anzeige eine Horizont-Karte
+ * ist, entscheidet die App mit dem aktuellen Profil, beurteilt wurden bisher nur die beim Einsammeln erkannten.
+ * Vorhandene Aufgaben bleiben unberührt.
+ */
+export async function enqueueBridgeChecks(db: Db, now = new Date().toISOString()): Promise<{ kandidaten: number; neu: number }> {
+  const { profile } = await loadProfileAndGate(db);
+  const open = async () => (await countOpenAiTasks(db)).horizont;
+  const before = await open();
+  let after = '';
+  let kandidaten = 0;
+  for (;;) {
+    const rows = await db.all<{ id: string; title: string; department: string | null; description_md: string; kind: string | null; lane: string | null; horizon: string | null }>(
+      "SELECT id, title, department, description_md, kind, lane, horizon FROM jobs WHERE status = 'aktiv' AND id > ? ORDER BY id LIMIT 200",
+      [after],
+    );
+    if (!rows.length) break;
+    after = rows[rows.length - 1].id;
+    const stmts: Stmt[] = [];
+    for (const r of rows) {
+      if (r.lane === 'weite') continue;
+      if (r.horizon && (JSON.parse(r.horizon) as JobHorizon).verdict) continue;
+      const hit = bridgeFor(r, profile);
+      if (!hit) continue;
+      kandidaten++;
+      stmts.push({
+        sql: "INSERT INTO ki_aufgaben (art, job_id, payload, status, created_at) VALUES ('horizont', ?, ?, 'offen', ?) ON CONFLICT(art, job_id) DO NOTHING",
+        params: [r.id, JSON.stringify({ bruecke: hit.bridge.name, warum: hit.bridge.warum ?? null }), now],
+      });
+    }
+    if (stmts.length) await db.batch(stmts);
+  }
+  return { kandidaten, neu: (await open()) - before };
+}
+
+/**
+ * Gibt bis zu max offene Aufgaben als Paket aus. Aufgaben zu inzwischen gelöschten Anzeigen werden erledigt.
+ * nurBruecken: von den „horizont“-Aufgaben nur die, deren Anzeige mit dem aktuellen Profil eine Horizont-Karte ist
+ * (die übrigen bleiben offen liegen).
+ */
+export async function exportAiTasks(db: Db, opts: { max?: number; arten?: AiTaskKind[]; nurBruecken?: boolean } = {}): Promise<AiPackage> {
   const tasks = await listOpenAiTasks(db, opts.max ?? 40, opts.arten);
   const jobs = await loadJobs(db, [...new Set(tasks.filter((t) => t.art !== 'weite').map((t) => t.jobId))]);
   const { profile } = await loadProfileAndGate(db);
@@ -159,7 +217,12 @@ export async function exportAiTasks(db: Db, opts: { max?: number; arten?: AiTask
     const base = { id: t.id, art: t.art, titel: job.title, url: job.url, arbeitgeber: job.employer, text: stripMarkdown(job.description_md).slice(0, TEXT_MAX[t.art]) };
     if (t.art === 'auswerten') aufgaben.push({ ...base, titel_fehlt: p.titelFehlt === true || titleNeedsAi(job) });
     else if (t.art === 'frist') aufgaben.push({ ...base, bisher_erkannt: (p.gefunden as string | null) ?? null });
-    else aufgaben.push({ ...base, bruecke: p.bruecke ? { name: String(p.bruecke), warum: (p.warum as string | null) ?? null } : null });
+    else {
+      const hit = opts.nurBruecken ? bridgeFor(job, profile) : null;
+      if (opts.nurBruecken && !hit) continue;
+      const bruecke = hit ? { name: hit.bridge.name, warum: hit.bridge.warum ?? null } : p.bruecke ? { name: String(p.bruecke), warum: (p.warum as string | null) ?? null } : null;
+      aufgaben.push({ ...base, bruecke });
+    }
   }
   await db.batch(gone);
   const heute = todayBerlin();

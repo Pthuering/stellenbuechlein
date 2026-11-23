@@ -27,7 +27,7 @@ Neben dem **Kern** (Stellen, die deine Kernthemen aus dem Suchprofil treffen) gi
 
 Beim Einsammeln aus breiten Quellen gilt: Was den Grobfilter nicht passiert, kommt über eine Brücke oder die Weite trotzdem herein. Für jede solche Anzeige gibt die KI ein Urteil ab („passt“, „eher“, „nein“) und einen Satz, warum die Stelle passen könnte. „Nein“ heißt: völlig fremd (andere Ausbildung nötig, nichts vom Wissen gebraucht); solche Anzeigen stehen unter *Quellen → Aussortiert* mit der Begründung der KI. Brücken dürfen weit reichen, auch über die Forschung hinaus; eingegrenzt wird über das Interview.
 
-In der App entscheidet das aktuelle Profil, welcher Ring gilt: Trifft eine Anzeige ein Kernthema, ist sie Kern, auch wenn sie über eine Brücke kam. Trifft sie kein Kernthema, aber eine aktive Brücke, ist sie Horizont, auch wenn der breite Grobfilter sie schon durchgelassen hatte (etwa „UX Researcher“ ohne Psychologie im Text). Im Stapel kommt **etwa jede 3. bis 5. Karte aus dem Horizont**, zufällig verteilt, aber beim Wischen stabil (einstellbar: aus, selten, normal, oft). Die Karte trägt ein lavendelfarbenes Etikett mit der Brücke und zeigt statt der Kurzfassung den Satz „Warum das passen könnte“. In jeder Horizont-Anzeige lässt sich die Brücke bearbeiten oder pausieren. Gelernt wird nichts aus dem Wischen.
+In der App entscheidet das aktuelle Profil, welcher Ring gilt: Trifft eine Anzeige ein Kernthema, ist sie Kern, auch wenn sie über eine Brücke kam. Trifft sie kein Kernthema, aber eine aktive Brücke, ist sie Horizont, auch wenn der breite Grobfilter sie schon durchgelassen hatte (etwa „UX Researcher“ ohne Psychologie im Text). Im Stapel kommt **etwa jede 3. bis 6. Karte aus dem Horizont**, zufällig verteilt, aber beim Wischen stabil (einstellbar: aus, selten, normal, oft). Eingestreut wird eine Horizont-Karte erst, wenn die KI sie geprüft hat („passt“ oder „eher“); nach Änderungen an Profil oder Brücken reiht `npm run ki -- ki-nachholen --bruecken` die noch nicht geprüften ein. Eine Anzeige ohne Psychologie-Bezug gilt nicht als Kern, auch wenn ein Themenwort vorkommt. Die Karte trägt ein lavendelfarbenes Etikett mit der Brücke und zeigt statt der Kurzfassung den Satz „Warum das passen könnte“. In jeder Horizont-Anzeige lässt sich die Brücke bearbeiten oder pausieren. Gelernt wird nichts aus dem Wischen.
 
 Brücken kommen aus dem Steckbrief, aus KI-Vorschlägen (*Ich → Horizont → Brücken vorschlagen lassen*, übernommen wird nur, was du annimmst) oder von dir. Bis das Interview sie festlegt, gilt ein breiter Start-Horizont mit zehn Brücken (Mensch & KI, IT-Sicherheit, Arbeit & Organisation, Gesundheit & Prävention, Bildung & Lernen, Mobilität & Verkehr, Umwelt & Nachhaltigkeit, Daten & Methoden, Gesellschaft & Politik, Gestaltung & UX).
 
@@ -85,13 +85,18 @@ Das Suchprofil hat vier Kategorien mit Gewicht: **Thema**, **Stellenart**, **Met
 
 - Eine Kategorie ist voll, sobald Einträge mit zusammen drei Herzchen in der Anzeige vorkommen.
 - Steht eine Angabe nicht in der Anzeige (etwa kein Entgelt), zählt der Eintrag halb.
+- **Stellenart:** Eine Anzeige hat genau eine Art. Ist sie nicht erkennbar, zählt nur der wichtigste Stellenart-Eintrag halb (nicht jeder, sonst wäre „unbekannt“ mehr wert als jede erkannte Art). Ist die Art erkannt, entscheidet sie allein; die Begriffe eines Stellenart-Eintrags helfen nur bei unbekannter Art und werden dann nur im Titel gesucht („Professor“ steht in vielen Anzeigen irgendwo im Text).
+- **Thema zählt höchstens halb**, wenn in der ganzen Anzeige Psychologie nicht vorkommt (ein Themenwort wie „Gedächtnis“ oder „künstliche Intelligenz“ allein macht aus einer fachfremden Stelle keine passende; dafür ist der Horizont da) oder wenn der Titel einen anderen Beruf nennt und nicht die Psychologie (Ergotherapeut, Pflegefachkraft, Ärztin, Softwareentwickler …). Unter „warum?“ steht dann der Grund.
 - Leere Kategorien zählen nicht, die Gewichte der übrigen werden auf 100 % umgerechnet.
 - „Lieber nicht“-Einträge ziehen 5 Punkte je Herz ab.
 - Begriffe passen auf Wortanfänge (`kognit` → kognitiv, Kognition), mit Stern überall im Wort (`*psych` → Neuropsychologie), in Anführungszeichen nur als ganzes Wort (`"R"`). Umlaute und Groß-/Kleinschreibung sind egal.
+- Vor dem Abgleich fallen Genderendungen („Medizinische/r“, „Mitarbeiter*in“), „i. d. R.“ und die Anhängsel von Links und E-Mail-Adressen weg, damit kurze Begriffe wie `"R"` nicht darauf passen.
 
 In jeder Anzeige zeigt „warum?“, welche Einträge gegriffen haben. Im Profil-Editor zeigt „Ausprobieren“ sofort, auf wie viele Anzeigen ein Eintrag passt.
 
-**Reihenfolge:** Lieblingsorte zuerst (Bundesland, Stadt oder Einrichtung), dann Score, dann Frist.
+**Reihenfolge:** Lieblingsorte zuerst (Bundesland, Stadt oder Einrichtung), dann Score, dann Frist. Im Stapel wird leicht gemischt: Jede Karte rutscht um bis zu fünf Punkte nach oben oder unten (pro Tag fest), damit ähnlich gut passende Anzeigen durcheinander kommen.
+
+**Wortgruppen statt Einzelwörter:** Themen, Brücken und Suchwörter arbeiten mit Wortgruppen („kognitive Psychologie“, „visuelle Suche“, „Psychologie Künstliche Intelligenz“), nicht mit einzelnen Allerweltswörtern („kognitiv“, „Aufmerksamkeit“, „Gedächtnis“ stehen auch in Anzeigen für Ergotherapie und Verhaltenstherapie). In einer Wortgruppe darf jedes Wort ab vier Buchstaben gebeugt sein („der Kognitiven Psychologie“).
 
 ## Steckbrief
 

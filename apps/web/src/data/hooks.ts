@@ -28,6 +28,7 @@ import {
   type ScoreResult,
   type SortKey,
   type Suchprofil,
+  deckJitter,
 } from '@stellen/core';
 import type { SavedSort, State, Store } from './store';
 
@@ -143,6 +144,13 @@ export function sortViews(list: JobView[], key: SortKey): JobView[] {
   );
 }
 
+/** Kern-Karten im Stapel: Lieblingsorte zuerst, dann nach Passung, leicht gemischt (siehe deckJitter). */
+function sortCore(list: JobView[], seed: string): JobView[] {
+  const jitter = new Map(list.map((v) => [v.job.id, deckJitter(v.job.id, seed)]));
+  const item = (v: JobView) => ({ job: v.job, score: v.score.score + (jitter.get(v.job.id) ?? 0), favorite: v.favorite, distanceKm: v.place.distanceKm });
+  return [...list].sort((a, b) => compareJobs(item(a), item(b), 'empfohlen'));
+}
+
 export function sortSaved(list: JobView[], key: SavedSort): JobView[] {
   const k: SortKey = key === 'frist' ? 'frist' : key === 'neu' ? 'neu' : key === 'ort' ? 'entfernung' : 'empfohlen';
   if (key === 'score') return [...list].sort((a, b) => b.score.score - a.score.score);
@@ -156,9 +164,12 @@ export function openViews(views: Map<string, JobView>, today = todayBerlin()): J
 
 /**
  * Der Stapel: offene, noch nicht entschiedene Anzeigen, die zu den Filtern passen.
- * Kern-Karten nach Lieblingsorten und Score, dazwischen etwa jede 3. bis 5. Karte eine Horizont-Karte.
- * Mit der Reihenfolge aus den Einstellungen (deckTier) kommt der Stapel in Teilen: erst die gut passenden
- * (ab der Schwelle), dann der Rest, in beiden Teilen auf Wunsch die mit naher Frist zuerst.
+ * Kern-Karten nach Lieblingsorten und Score (leicht gemischt: bis zu fünf Punkte auf oder ab, pro Tag fest),
+ * dazwischen etwa jede 3. bis 6. Karte eine von der KI geprüfte Horizont-Karte.
+ * Mit der Reihenfolge aus den Einstellungen (deckTier) kommen die Kern-Karten in Teilen: erst die gut passenden
+ * (ab der Schwelle), dann der Rest, in beiden Teilen auf Wunsch die mit naher Frist zuerst. Horizont-Karten
+ * werden über den ganzen Stapel eingestreut, nicht je Teil: Ihre Passung ist naturgemäß niedrig, sie kämen
+ * sonst erst nach allen gut passenden Karten.
  * Gemischt wird über alle offenen Anzeigen (auch schon entschiedene) und erst danach gefiltert, damit sich
  * die Reihenfolge beim Wischen nicht verschiebt.
  */
@@ -171,19 +182,20 @@ export function useDeck(): JobView[] {
     const h = horizontOf(s.settings.profile);
     const all = filterViews(openViews(views, today), s.settings.filter, geo, today);
     const tiers = new Map<number, JobView[]>();
+    const extra: JobView[] = [];
     for (const v of all) {
+      if (v.lane.promoted) {
+        extra.push(v);
+        continue;
+      }
       const k = deckTier({ score: v.score.score, deadline: v.job.deadline }, s.settings.deck, today);
-      tiers.set(k, [...(tiers.get(k) ?? []), v]);
+      const part = tiers.get(k);
+      if (part) part.push(v);
+      else tiers.set(k, [v]);
     }
-    return [...tiers.keys()]
-      .sort((a, b) => a - b)
-      .flatMap((k) => {
-        const part = tiers.get(k)!;
-        const core = sortViews(part.filter((v) => !v.lane.promoted), 'empfohlen');
-        const extra = part.filter((v) => v.lane.promoted).sort((a, b) => compareHorizon({ lane: a.lane, score: a.score.score }, { lane: b.lane, score: b.score.score }));
-        return interleave(core, extra, `horizont:${today}:${k}`, h.dosis);
-      })
-      .filter((v) => !v.mark?.decision);
+    const core = [...tiers.keys()].sort((a, b) => a - b).flatMap((k) => sortCore(tiers.get(k)!, `stapel:${today}`));
+    extra.sort((a, b) => compareHorizon({ lane: a.lane, score: a.score.score }, { lane: b.lane, score: b.score.score }));
+    return interleave(core, extra, `horizont:${today}`, h.dosis).filter((v) => !v.mark?.decision);
   }, [views, s.settings.filter, s.settings.profile, s.settings.deck, geo]);
 }
 

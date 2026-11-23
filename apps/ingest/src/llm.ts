@@ -75,7 +75,9 @@ export const HORIZON_PROMPT =
   'Du hilfst einer Person mit Psychologie-Hintergrund, Stellen außerhalb ihres engeren Suchbereichs zu entdecken, auf die sie sich trotzdem realistisch bewerben könnte. ' +
   'Sei offen: Auch Stellen außerhalb der Forschung und außerhalb der Psychologie zählen, wenn ihr Wissen über Menschen, Verhalten, Lernen oder Gesundheit oder ihre Methoden dort gebraucht werden. ' +
   'Nicht passend sind Stellen, für die eine ganz andere Ausbildung nötig ist (zum Beispiel Hotelfach, Handwerk, Pflegefachkraft, Steuerrecht, Elektrotechnik) oder in denen nichts von ihrem Wissen gebraucht wird. ' +
-  'verdict: "passt" (gute Chancen, inhaltlich naheliegend), "eher" (möglich, mit Lücken), "nein" (fremd). ' +
+  'Maßstab ist die Verbindung zur Psychologie: Gesucht sind Stellen, die in einem anderen Feld liegen (etwa Informatik, Gesundheit, Bildung, Arbeit), es aber mit Psychologie verbinden, also Wissen über Menschen und Verhalten oder die Methoden dafür wirklich brauchen. ' +
+  'Reine Fachstellen des anderen Felds ohne diese Verbindung sind "nein", auch wenn im Text einzelne passende Wörter stehen. ' +
+  'verdict: "passt" (die Anzeige nennt oder braucht dieses Wissen ausdrücklich; gute Chancen), "eher" (die Verbindung liegt nahe, ist aber nicht genannt, oder es bleiben Lücken), "nein" (fremd). ' +
   'reason_de: ein konkreter Satz auf Deutsch, warum die Stelle passen könnte (bei "nein": warum nicht), mit Bezug auf die Anzeige und das Profil, ohne Floskeln. ' +
   'label: 2 bis 4 Wörter für die Verbindung, z. B. "IT-Sicherheit × Verhalten". Antworte nur mit JSON.';
 

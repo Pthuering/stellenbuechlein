@@ -25,7 +25,7 @@ describe('Brücken', () => {
   const h = starterHorizont();
 
   it('Feld und Anknüpfung müssen beide vorkommen', () => {
-    const usable = norm('Wissenschaftliche:r Mitarbeiter:in Usable Security', 'Wir untersuchen in Nutzerstudien, wie Beschäftigte Phishing-Mails erkennen. Empirische Methoden, Befragungen und Experimente.');
+    const usable = norm('Wissenschaftliche:r Mitarbeiter:in Usable Security', 'Wir untersuchen in Nutzerstudien und mit Methoden der Verhaltensforschung, wie Beschäftigte Phishing-Mails erkennen.');
     const hits = matchBridges(usable, h);
     expect(hits[0].bridge.name).toBe('IT-Sicherheit');
     expect(hits[0].feld).toContain('phishing');
@@ -33,6 +33,14 @@ describe('Brücken', () => {
 
     const pureIt = norm('Administrator:in IT-Sicherheit', 'Betrieb von Firewalls und Netzwerken, Patch-Management, Rufbereitschaft.');
     expect(matchBridges(pureIt, h)).toEqual([]);
+  });
+
+  it('einzelne Allerweltswörter reichen nicht als Anknüpfung', () => {
+    // „Experimente“, „empirisch“, „Akzeptanz“ und „Befragung“ stehen in zu vielen Anzeigen
+    const data = norm('Data Scientist IT-Sicherheit', 'Experimente zur Angriffserkennung, empirische Auswertung, Befragung der Fachabteilungen, hohe Akzeptanz der Lösung.');
+    expect(matchBridges(data, h)).toEqual([]);
+    const human = norm('Data Scientist IT-Sicherheit', 'Experimente zur Angriffserkennung; im Team mit der Arbeitspsychologie untersuchen wir den Faktor Mensch.');
+    expect(matchBridges(human, h)[0]?.bridge.name).toBe('IT-Sicherheit');
   });
 
   it('Floskeln lösen keine Brücke aus', () => {
@@ -50,7 +58,9 @@ describe('Brücken', () => {
 describe('Weite-Vorauswahl', () => {
   it('braucht eine Fähigkeit und eine Anknüpfung', () => {
     const p = starterProfile();
-    expect(weiteCandidate(norm('Referent:in Verkehrsplanung', 'Auswertung einer Befragung von Pendlerinnen mit Statistik'), p)).not.toBeNull();
+    expect(weiteCandidate(norm('Referent:in Verkehrsplanung', 'Auswertung einer Befragung zum Mobilitätsverhalten von Pendlerinnen mit Statistik'), p)).not.toBeNull();
+    // Fähigkeit ohne Verbindung zu Menschen und Verhalten: kein Kandidat
+    expect(weiteCandidate(norm('Referent:in Verkehrsplanung', 'Auswertung einer Befragung von Pendlerinnen mit Statistik'), p)).toBeNull();
     expect(weiteCandidate(norm('Koch/Köchin', 'Zubereitung von Speisen in der Mensa'), p)).toBeNull();
   });
 });
@@ -64,16 +74,20 @@ describe('Ring einer Anzeige', () => {
     expect(laneOf({ lane: 'horizont' }, t, h, true).lane).toBe('kern');
   });
 
-  it('Horizont wird eingestreut, solange die Brücke aktiv ist', () => {
-    expect(laneOf({ lane: 'horizont' }, t, h, false)).toMatchObject({ lane: 'horizont', promoted: true, label: 'IT-Sicherheit' });
+  it('Horizont wird erst eingestreut, wenn die KI die Karte geprüft hat, und nur bei aktiver Brücke', () => {
+    const passt = { lane: 'horizont' as const, horizon: { bridges: ['h-sec'], verdict: 'passt' as const } };
+    expect(laneOf({ lane: 'horizont' }, t, h, false)).toMatchObject({ lane: 'horizont', promoted: false, label: 'IT-Sicherheit' });
+    expect(laneOf(passt, t, h, false)).toMatchObject({ lane: 'horizont', promoted: true, label: 'IT-Sicherheit' });
+    expect(laneOf({ ...passt, horizon: { ...passt.horizon, verdict: 'eher' } }, t, h, false).promoted).toBe(true);
     const off: Horizont = { ...h, bruecken: h.bruecken.map((b) => ({ ...b, aktiv: false })) };
-    expect(laneOf({ lane: 'horizont' }, t, off, false).promoted).toBe(false);
-    expect(laneOf({ lane: 'horizont' }, t, { ...h, dosis: 'aus' }, false).promoted).toBe(false);
+    expect(laneOf(passt, t, off, false).promoted).toBe(false);
+    expect(laneOf(passt, t, { ...h, dosis: 'aus' }, false).promoted).toBe(false);
   });
 
   it('Vom Grobfilter durchgelassen, aber ohne Kernthema: Horizont, wenn eine Brücke passt', () => {
     const ux = norm('UX Researcher', 'Usability-Tests, Interviews und Befragungen mit Nutzerinnen');
-    expect(laneOf({ lane: 'kern' }, ux, h, false)).toMatchObject({ lane: 'horizont', promoted: true, label: 'Gestaltung & UX' });
+    expect(laneOf({ lane: 'kern' }, ux, h, false)).toMatchObject({ lane: 'horizont', promoted: false, label: 'Gestaltung & UX' });
+    expect(laneOf({ lane: 'kern', horizon: { bridges: [], verdict: 'eher' } }, ux, h, false)).toMatchObject({ lane: 'horizont', promoted: true });
     // KI sagte „nein“: bleibt Kern (wird nicht eingestreut)
     expect(laneOf({ lane: 'kern', horizon: { verdict: 'nein' } }, ux, h, false).lane).toBe('kern');
     // ohne Brücke bleibt es Kern
@@ -84,6 +98,9 @@ describe('Ring einer Anzeige', () => {
     const p = starterProfile();
     expect(isThematic({ kind: null }, norm('Postdoc Psychologie', 'Forschung'), p)).toBe(true);
     expect(isThematic({ kind: null }, norm('UX Researcher', 'Usability-Tests'), p)).toBe(false);
+    // Ein Themenwort in einer fachfremden Anzeige macht sie nicht zum Kern
+    expect(isThematic({ kind: null, title: 'Wissenschaftliche Mitarbeiterin' }, norm('Wissenschaftliche Mitarbeiterin', 'Kognitive Robotik und Neurowissenschaft'), p)).toBe(false);
+    expect(isThematic({ kind: 'klinik', title: 'Ergotherapeut (m/w/d)' }, norm('Ergotherapeut (m/w/d)', 'Team aus Psychologen, kognitives Training'), p)).toBe(false);
   });
 
   it('Filter nach Ring', () => {
@@ -99,7 +116,7 @@ describe('Einstreuen in den Stapel', () => {
   const core = Array.from({ length: 30 }, (_, i) => `k${i}`);
   const extra = Array.from({ length: 6 }, (_, i) => `h${i}`);
 
-  it('jede 3. bis 5. Karte ist eine Horizont-Karte', () => {
+  it('jede 3. bis 6. Karte ist eine Horizont-Karte', () => {
     const mixed = interleave(core, extra, 'horizont:2026-10-12', 'normal');
     expect(mixed).toHaveLength(36);
     const positions = mixed.map((x, i) => (x.startsWith('h') ? i : -1)).filter((i) => i >= 0);
@@ -107,7 +124,7 @@ describe('Einstreuen in den Stapel', () => {
     for (const p of positions) {
       const gap = p - last; // Abstand zur vorigen Horizont-Karte
       expect(gap).toBeGreaterThanOrEqual(3);
-      expect(gap).toBeLessThanOrEqual(5);
+      expect(gap).toBeLessThanOrEqual(6);
       last = p;
     }
   });

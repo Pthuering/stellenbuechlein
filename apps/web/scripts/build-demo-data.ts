@@ -126,7 +126,7 @@ for (const e of examples) {
   const hits = matchBridges(norm, horizon);
   // Wie in der Pipeline: ohne Psychologie-Bezug kommt eine Anzeige nur über eine Brücke herein (Horizont).
   const lane = e.lane ?? (gate.pass ? 'kern' : hits.length ? 'horizont' : 'kern');
-  const thematic = isThematic({ kind: e.kind }, norm, profile);
+  const thematic = isThematic({ kind: e.kind, title: e.title }, norm, profile);
   const horizonInfo =
     lane === 'weite'
       ? { reason: e.why ?? null, verdict: e.verdict ?? 'eher', label: null, bridges: [] }

@@ -1,6 +1,7 @@
 // Filter und Sortierung – vom Nutzer gesetzt, nie automatisch aus dem Steckbrief.
 
 import { daysUntil } from './dates';
+import { hash64 } from './dedup';
 import { termOfText } from './fields';
 import { distanceKm } from './geo';
 import { normalizeText } from './text';
@@ -283,6 +284,19 @@ export interface DeckOrder {
   minScore: number | null;
   urgentFirst: boolean;
   urgentDays: number;
+}
+
+/** So viele Punkte darf eine Karte im Stapel nach oben oder unten rutschen. */
+export const DECK_JITTER = 5;
+
+/**
+ * Leichtes Mischen im Stapel: Jede Karte bekommt einen festen Zufallswert zwischen −5 und +5 Punkten (seed: der Tag).
+ * Sortiert wird nach Passung plus diesem Wert. Karten mit ähnlicher Passung kommen so durcheinander, die gut
+ * passenden bleiben vorn, und beim Wischen verschiebt sich nichts.
+ */
+export function deckJitter(jobId: string, seed: string, spread = DECK_JITTER): number {
+  const x = parseInt(hash64(`${seed}:${jobId}`).slice(0, 8), 16) / 0xffffffff;
+  return (x * 2 - 1) * spread;
 }
 
 export const DEFAULT_DECK_ORDER: DeckOrder = { minScore: null, urgentFirst: false, urgentDays: 30 };

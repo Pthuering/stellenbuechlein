@@ -1,7 +1,7 @@
 // Die ganze Anzeige: Foto, Eckdaten, warum sie passt, Merken/Herzensjob/beworben, Notiz, vollständiger Text.
 
 import { useEffect, useMemo, useState } from 'react';
-import { horizontOf, isAggregatorUrl, type BridgeHit, type FoundVia, type ScoreResult } from '@stellen/core';
+import { horizontOf, isAggregatorUrl, type BridgeHit, type FoundVia, type ScoreResult, type TopicLimit } from '@stellen/core';
 import { useAppState, useStore, useViews, type JobView } from '../data/hooks';
 import { closeOverlay, leaveOverlayTo } from '../lib/router';
 import { deadlineCheckText, deadlineOf, employerName, jobImage, laneLabel, shortDate, unknownPlace } from '../lib/format';
@@ -22,6 +22,10 @@ const t = texts({
     profileEmpty: 'Im Suchprofil ist noch nichts eingetragen.',
     pointsOf: (points: number, max: number) => `${points} von ${max} Punkten`,
     halfUnknown: ' (steht nicht in der Anzeige, zählt halb)',
+    topicLimit: {
+      'kein-fachbezug': 'Zählt höchstens halb: In der Anzeige kommt Psychologie nicht vor.',
+      'anderer-beruf': 'Zählt höchstens halb: Gesucht wird laut Titel ein anderer Beruf.',
+    } as Record<TopicLimit, string>,
     ratherNot: 'Lieber nicht',
     minusPoints: (n: number) => `−${n} Punkte`,
     whyHint: 'Jede Kategorie ist voll, sobald drei Herzchen getroffen sind. Der Score sortiert nur, aussortiert wird nie.',
@@ -104,6 +108,10 @@ const t = texts({
     profileEmpty: 'Your search profile is still empty.',
     pointsOf: (points, max) => `${points} of ${max} points`,
     halfUnknown: ' (not in the posting, counts half)',
+    topicLimit: {
+      'kein-fachbezug': 'Counts at most half: the posting does not mention psychology.',
+      'anderer-beruf': 'Counts at most half: the title asks for a different profession.',
+    },
     ratherNot: 'Rather not',
     minusPoints: (n) => `−${n} ${n === 1 ? 'point' : 'points'}`,
     whyHint: 'Each category is full once three hearts are matched. The match score only sorts; nothing is ever filtered out.',
@@ -186,6 +194,10 @@ const t = texts({
     profileEmpty: 'U profilu pretrage još ništa nije uneto.',
     pointsOf: (points, max) => `${points} od ${max} ${srForm(max, 'poena', 'poena', 'poena')}`,
     halfUnknown: ' (nije navedeno u oglasu, računa se upola)',
+    topicLimit: {
+      'kein-fachbezug': 'Računa se najviše upola: u oglasu se psihologija ne pominje.',
+      'anderer-beruf': 'Računa se najviše upola: prema naslovu se traži drugo zanimanje.',
+    },
     ratherNot: 'Radije ne',
     minusPoints: (n) => `−${n} ${srForm(n, 'poen', 'poena', 'poena')}`,
     whyHint: 'Svaka kategorija je puna čim se pogode tri srca. Poklapanje samo određuje redosled, ništa se ne izbacuje.',
@@ -304,6 +316,12 @@ function Why({ score }: { score: ScoreResult }) {
           <div className="why__bar" aria-hidden="true">
             <span style={{ width: `${(c.points / (c.max || 1)) * 100}%` }} />
           </div>
+          {c.limit ? (
+            <div className="why__item why__item--unbekannt">
+              <span aria-hidden="true">½</span>
+              <span>{t.topicLimit[c.limit]}</span>
+            </div>
+          ) : null}
           {c.hits.map((h) => (
             <div key={h.item.id} className={`why__item why__item--${h.state}`}>
               <span aria-hidden="true">{h.state === 'ja' ? '✓' : h.state === 'unbekannt' ? '?' : '–'}</span>

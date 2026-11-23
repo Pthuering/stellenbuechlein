@@ -52,7 +52,7 @@
     "verified": true,
     "config": {
       "ats": "successfactors",
-      "queries": ["psychologie", "psychology", "human factors", "kognitiv", "ergonomie", "nutzerforschung"],
+      "queries": ["psychologie", "psychology", "human factors", "ingenieurpsychologie", "kognitionswissenschaft", "kognitive ergonomie", "nutzerforschung psychologie", "mensch-maschine-interaktion"],
       "note": "Volltextsuche ohne Präfix-Treffer, daher mehrere Stichworte; /services/ ist per robots.txt gesperrt"
     }
   },

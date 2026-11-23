@@ -33,7 +33,7 @@ import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
 import { processPendingChecks, runSourceCheck } from './sourceCheck';
 import { backfillAiTasks, countOpenAiTasks, getSetting, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
-import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage } from './aiTasks';
+import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage, enqueueBridgeChecks } from './aiTasks';
 import { cleanupJobs, learnSkipPrefixes } from './cleanup';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
@@ -168,6 +168,12 @@ async function main(): Promise<void> {
     }
     case 'ki-nachholen': {
       const db = openDb();
+      if (flag('bruecken')) {
+        // Nach Änderungen an Profil oder Brücken: Horizont-Karten ohne Urteil der KI einreihen
+        const b = await enqueueBridgeChecks(db);
+        console.log(`Horizont-Karten ohne Urteil: ${b.kandidaten}, neu in der Warteschlange: ${b.neu}`);
+        break;
+      }
       const r = await backfillAiTasks(db);
       console.log(`Neu in der Warteschlange: auswerten ${r.auswerten}, frist ${r.frist}`);
       break;
@@ -175,7 +181,7 @@ async function main(): Promise<void> {
     case 'ki-export': {
       const db = openDb();
       const arten = option('art')?.split(',') as AiTaskKind[] | undefined;
-      const pkg = await exportAiTasks(db, { max: Number(option('max') ?? 40), arten });
+      const pkg = await exportAiTasks(db, { max: Number(option('max') ?? 40), arten, nurBruecken: flag('nur-bruecken') });
       const describe = (p: AiPackage) => {
         const by = p.aufgaben.reduce<Record<string, number>>((m, t) => ({ ...m, [t.art]: (m[t.art] ?? 0) + 1 }), {});
         return `${p.aufgaben.length} Aufgaben (${Object.entries(by).map(([k, v]) => `${k} ${v}`).join(', ') || 'keine'})`;
@@ -333,7 +339,7 @@ async function main(): Promise<void> {
       break;
     }
     default:
-      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-nachholen | ki-export [--max 40] [--art auswerten,frist] [--teile 10] [--out .ki/paket.json bzw. Ordner] | ki-import <ergebnis.json …> [--teil teil.json]');
+      console.log('Befehle: seed | ingest [--only id,id] [--gross] [--nur-browser] [--no-browser] [--no-images] [--no-discovery] [--no-explore] [--max N] | test-source <url> [--render] | check-source <url> | check-sources | probe [--n 60] [--kind art] [--only id,id] | agent <url> | reminders | ki-status | ki-nachholen [--bruecken] | ki-export [--max 40] [--art auswerten,frist] [--nur-bruecken] [--teile 10] [--out .ki/paket.json bzw. Ordner] | ki-import <ergebnis.json …> [--teil teil.json]');
       process.exitCode = cmd ? 1 : 0;
   }
 }

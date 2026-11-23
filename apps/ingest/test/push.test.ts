@@ -30,7 +30,7 @@ const later = (days: number) => new Date(Date.parse(NOW) + days * 86_400_000).to
 
 const TEXTS: Record<string, [title: string, description: string]> = {
   a: ['Wissenschaftliche Mitarbeiterin Psychologie', 'Lehrstuhl für Klinische Psychologie, Promotion möglich.'],
-  b: ['Psychologin (m/w/d) für die Studienberatung', 'Wir suchen eine Psychologin für psychologische Beratung von Studierenden.'],
+  b: ['Psychologin (m/w/d) für die Studienberatung', 'Wir suchen eine Psychologin mit Schwerpunkt Klinische Psychologie für die psychologische Beratung von Studierenden.'],
   c: ['Psychologe in Dresden', 'Beratung und Diagnostik.'],
   d: ['Sachbearbeitung Haushalt', 'Verwaltung des Haushalts.'],
 };

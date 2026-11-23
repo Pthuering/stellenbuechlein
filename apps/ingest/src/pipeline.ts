@@ -680,7 +680,7 @@ export class Pipeline {
    * Die KI liefert dafür den Satz „Warum das passen könnte“ – oder „nein“, dann wird sie nicht eingestreut.
    */
   private async horizonForCore(norm: string, data: PostingData, jobId: string): Promise<JobHorizon | null> {
-    if (isThematic({ kind: classifyKind(data.title, data.descriptionMd) }, norm, this.profile)) return null;
+    if (isThematic({ kind: classifyKind(data.title, data.descriptionMd), title: data.title }, norm, this.profile)) return null;
     const hits = matchBridges(norm, this.horizon);
     if (hits.length === 0) return null;
     const bridges = hits.map((h) => h.bridge.id);

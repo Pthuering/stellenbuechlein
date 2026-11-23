@@ -35,10 +35,10 @@ export interface UmfrageOption {
 export const FACHGEBIETE: KatalogEintrag[] = [
   { id: 'f-psych', label: 'Psychologie allgemein', hinweis: 'alles mit Psychologie-Bezug', begriffe: ['*psycholog', 'psychology'] },
   { id: 'f-klin', label: 'Klinische Psychologie & Psychotherapie', begriffe: ['klinische psych', 'clinical psych', '*psychotherap', 'psychische erkrank', 'psychische störung', 'mental disorder', 'psychiatr'] },
-  { id: 'f-kogn', label: 'Kognitive Psychologie', begriffe: ['kognit', 'cognit', 'kognitionspsych', 'kognitionswiss'] },
+  { id: 'f-kogn', label: 'Kognitive Psychologie', begriffe: ['kognitive psych', 'kognitionspsych', 'kognitionswiss', 'kognitionsforsch', 'cognitive psych', 'cognitive science', 'kognitive neurowiss', 'cognitive neuroscien', 'kognitive prozess', 'cognitive process', 'kognitive mechanism', 'cognitive mechanism', 'kognitive modell', 'cognitive model', 'menschliche kognition', 'human cognition', 'kognition und', 'und kognition', 'cognition and', 'and cognition', 'of cognition', 'cognitive performance', 'cognitive abilit', 'cognitive function', 'kognitive entwicklung', 'cognitive development'] },
   { id: 'f-neuro', label: 'Neuropsychologie & Neurowissenschaft', begriffe: ['*neuropsych', '*neurowiss', 'neuroscien', 'neuroimaging', 'hirnforschung', 'gehirn', '"brain"'] },
   { id: 'f-bio', label: 'Biologische Psychologie', begriffe: ['biologische psych', 'biological psych', 'biopsych', 'psychophysiolog', 'psychoneuroendokrin', 'psychoneuroimmun'] },
-  { id: 'f-allg', label: 'Allgemeine Psychologie', hinweis: 'Wahrnehmung, Gedächtnis, Lernen, Denken', begriffe: ['allgemeine psych', 'general psych', 'wahrnehmungspsych', 'visuelle wahrnehmung', 'perception', 'gedächtnis', 'aufmerksamkeit', 'lernpsych'] },
+  { id: 'f-allg', label: 'Allgemeine Psychologie', hinweis: 'Wahrnehmung, Gedächtnis, Lernen, Denken', begriffe: ['allgemeine psych', 'general psych', 'experimentalpsych', 'experimentelle psych', 'experimental psych', 'wahrnehmungspsych', 'aufmerksamkeitspsych', 'gedächtnispsych', 'lernpsych', 'denkpsych', 'psychophysi', 'visuelle wahrnehmung', 'visual perception', 'human perception', 'wahrnehmung und handlung', 'perception action'] },
   { id: 'f-entw', label: 'Entwicklungspsychologie', begriffe: ['entwicklungspsych', 'developmental psych', 'developmental science', 'kindheit', 'jugendalter', 'lebensspanne', 'lifespan', 'child development'] },
   { id: 'f-paed', label: 'Pädagogische Psychologie & Bildung', begriffe: ['pädagogische psych', 'educational psych', '*bildungsforsch', 'lehr lern', 'lehrlern', 'learning sciences', 'unterrichtsforsch', 'schulpsych'] },
   { id: 'f-sozial', label: 'Sozialpsychologie', begriffe: ['sozialpsych', 'social psych', 'intergruppen', 'intergroup', 'vorurteil', 'prejudice'] },
@@ -48,12 +48,12 @@ export const FACHGEBIETE: KatalogEintrag[] = [
   { id: 'f-wirt', label: 'Wirtschaftspsychologie & Konsum', begriffe: ['wirtschaftspsych', 'konsumentenpsych', 'consumer psych', 'konsumverhalten', 'consumer behavio', 'marktforsch', 'market research'] },
   { id: 'f-gesund', label: 'Gesundheitspsychologie', begriffe: ['gesundheitspsych', 'health psych', 'gesundheitsverhalten', 'health behavio', 'verhaltensmedizin', 'behavioral medicine', 'behavioural medicine'] },
   { id: 'f-medien', label: 'Medienpsychologie', begriffe: ['medienpsych', 'media psych', 'medienwirkung', 'mediennutzung', 'media use'] },
-  { id: 'f-ing', label: 'Ingenieurpsychologie & Human Factors', begriffe: ['ingenieurpsych', 'human factors', 'ergonomi', 'mensch maschine', 'mensch technik', 'human machine', 'mensch computer', 'human computer'] },
+  { id: 'f-ing', label: 'Ingenieurpsychologie & Human Factors', begriffe: ['ingenieurpsych', 'human factors', 'kognitive ergonomie', 'cognitive ergonomics', 'software ergonomie', 'mensch maschine', 'mensch technik', 'human machine', 'mensch computer', 'human computer', 'mensch roboter', 'human robot', 'human performance', 'human automation'] },
   { id: 'f-umwelt', label: 'Umweltpsychologie', begriffe: ['umweltpsych', 'environmental psych', 'klimapsych', 'nachhaltiges verhalten', 'pro environmental', 'proenvironmental'] },
   { id: 'f-verkehr', label: 'Verkehrspsychologie', begriffe: ['verkehrspsych', 'traffic psych', 'fahreignung', '"mpu"', 'verkehrssicherheit'] },
   { id: 'f-recht', label: 'Rechtspsychologie', begriffe: ['rechtspsych', 'forensische psych', 'forensic psych', 'aussagepsych', 'kriminalpsych', 'legal psych'] },
   { id: 'f-sport', label: 'Sportpsychologie', begriffe: ['sportpsych', 'sport psych', 'exercise psych'] },
-  { id: 'f-geronto', label: 'Alternspsychologie', hinweis: 'Gerontopsychologie', begriffe: ['gerontopsych', 'gerontolog', 'alternsforsch', 'alternspsych', 'psychology of aging', '"aging"', '"ageing"'] },
+  { id: 'f-geronto', label: 'Alternspsychologie', hinweis: 'Gerontopsychologie', begriffe: ['gerontopsychol', 'gerontolog', 'alternsforsch', 'alternspsych', 'psychology of aging', 'psychology of ageing', 'kognitives altern', 'cognitive aging', 'cognitive ageing', 'gesundes altern', 'healthy aging', 'healthy ageing', 'aging research', 'ageing research', 'ältere erwachsene', 'older adults', '"aging"', '"ageing"'] },
 ];
 
 /** Konkrete Forschungs- und Arbeitsthemen (Kategorie Thema). */
@@ -69,10 +69,12 @@ export const THEMEN: KatalogEintrag[] = [
   { id: 't-pt', label: 'Psychotherapieforschung', begriffe: ['psychotherapieforsch', 'psychotherapy research', 'therapieforsch', 'interventionsforsch', 'intervention research', 'internetbasierte intervention', 'digitale gesundheitsanwend'] },
   { id: 't-schlaf', label: 'Schlaf', begriffe: ['schlaf', 'sleep'] },
   { id: 't-schmerz', label: 'Schmerz & Körper', begriffe: ['schmerz', '"pain"', 'chronic pain', 'psychosomat', 'interozept', 'interocept', 'körperwahrnehmung'] },
-  { id: 't-gedaecht', label: 'Gedächtnis & Lernen', begriffe: ['gedächtnis', 'memory', 'lernprozess', 'human learning'] },
-  { id: 't-aufm', label: 'Aufmerksamkeit & Wahrnehmung', begriffe: ['aufmerksamkeit', 'visuelle wahrnehmung', 'auditive wahrnehmung', 'perception', 'blickbewegung', 'eye movement'] },
-  { id: 't-entsch', label: 'Entscheiden & Urteilen', begriffe: ['entscheidungsverhalten', 'entscheidungsfindung', 'decision making', 'urteilsbildung', 'risikowahrnehmung', 'risk perception'] },
-  { id: 't-motiv', label: 'Motivation & Selbstregulation', begriffe: ['motivationspsych', 'motivation research', 'selbstregulation', 'self regulation', 'selbstkontrolle', 'self control', 'zielverfolgung'] },
+  { id: 't-gedaecht', label: 'Gedächtnis & Lernen', begriffe: ['gedächtnisforsch', 'gedächtnispsych', 'gedächtnisprozess', 'gedächtnisleistung', 'arbeitsgedächtnis', 'episodisches gedächtnis', 'langzeitgedächtnis', 'lernen und gedächtnis', 'gedächtnis und lernen', 'human memory', 'episodic memory', 'working memory', 'memory research', 'memory process', 'memory performance', 'memory and', 'and memory', 'of memory', 'learning and memory', 'human learning', 'lernpsych'] },
+  { id: 't-aufm', label: 'Aufmerksamkeit & Wahrnehmung', begriffe: ['visuelle aufmerksamkeit', 'selektive aufmerksamkeit', 'aufmerksamkeitsforsch', 'aufmerksamkeitspsych', 'aufmerksamkeitsprozess', 'aufmerksamkeitssteuerung', 'aufmerksamkeit und wahrnehmung', 'wahrnehmung und aufmerksamkeit', 'visual attention', 'selective attention', 'attention research', 'attention and perception', 'perception and attention', 'attention perception', 'attentional', 'visuelle wahrnehmung', 'auditive wahrnehmung', 'visual perception', 'auditory perception', 'visuelle suche', 'visual search', 'blickbewegung', 'eye movement'] },
+  { id: 't-wechsel', label: 'Aufgabenwechsel, Multitasking & Unterbrechungen', begriffe: ['aufgabenwechsel', 'task switching', 'task switch', 'dual task', 'doppelaufgab', 'mehrfachaufgab', 'multitasking forsch', 'multitasking research', 'multitasking performance', 'human multitasking', 'aufgabenunterbrech', 'arbeitsunterbrech', 'unterbrechungsforsch', 'task interruption', 'interruption management', 'interruptions'] },
+  { id: 't-exek', label: 'Exekutive Funktionen & kognitive Kontrolle', begriffe: ['exekutive funktion', 'executive function', 'kognitive kontrolle', 'cognitive control', 'kognitive flexibilität', 'cognitive flexibility', 'handlungskontrolle', 'action control', 'inhibitory control', 'arbeitsgedächtnis', 'working memory'] },
+  { id: 't-entsch', label: 'Entscheiden & Urteilen', begriffe: ['entscheidungsverhalten', 'entscheidungspsych', 'entscheidungsforsch', 'urteilen und entscheiden', 'urteils und entscheidungs', 'judgment and decision', 'judgement and decision', 'human decision making', 'decision making under', 'decision science', 'behavioral decision', 'behavioural decision', 'entscheidungen unter unsicherheit', 'urteilsbildung', 'risikowahrnehmung', 'risk perception'] },
+  { id: 't-motiv', label: 'Motivation & Selbstregulation', begriffe: ['motivationspsych', 'motivationsforsch', 'motivational psych', 'motivation science', 'selbstregulation', 'self regulation', 'selbstkontrolle', 'self control', 'zielverfolgung', 'goal pursuit'] },
   { id: 't-sprache', label: 'Sprache', begriffe: ['psycholinguist', 'sprachverarbeitung', 'spracherwerb', 'language processing', 'language acquisition', 'sprachentwicklung'] },
   { id: 't-bez', label: 'Beziehungen & Einsamkeit', begriffe: ['paarbeziehung', 'soziale beziehungen', 'relationship', 'bindungsforsch', 'attachment', 'einsamkeit', 'loneliness'] },
   { id: 't-vorurteil', label: 'Vorurteile & Diversität', begriffe: ['vorurteil', 'prejudice', 'stereotyp', 'diskriminierungserfahr', 'diskriminierungsforsch', 'intergruppen', 'intergroup', 'rassismusforsch'] },
@@ -84,7 +86,7 @@ export const THEMEN: KatalogEintrag[] = [
   { id: 't-alter', label: 'Altern & Demenz', begriffe: ['demenz', 'dementia', '"aging"', '"ageing"', 'gerontolog', 'alternsforsch', 'ältere menschen', 'older adults'] },
   { id: 't-arbeit', label: 'Arbeit, Führung & Teams', begriffe: ['führungsforsch', 'leadership', 'mitarbeiterführung', 'teamforsch', 'arbeitszufriedenheit', 'work engagement', 'burnout', 'arbeitsbelastung', 'psychische belastung'] },
   { id: 't-medien', label: 'Digitale Medien & Social Media', begriffe: ['social media', 'soziale medien', 'digitale medien', 'mediennutzung', 'smartphone', 'internetnutzung'] },
-  { id: 't-ki', label: 'Mensch & Technik, KI', begriffe: ['künstliche intelligenz', 'künstlicher intelligenz', 'artificial intelligence', 'human ai', 'technikakzeptanz', 'mensch technik', 'mensch maschine', 'human computer', 'mensch computer'] },
+  { id: 't-ki', label: 'Mensch & Technik, KI', begriffe: ['mensch ki', 'mensch und ki', 'human ai', 'human centered ai', 'human centred ai', 'menschzentrierte ki', 'menschzentrierte künstliche intelligenz', 'ki akzeptanz', 'akzeptanz von ki', 'akzeptanz künstlicher intelligenz', 'vertrauen in ki', 'trust in ai', 'trust in automation', 'vertrauen in automation', 'technikakzeptanz', 'mensch technik', 'mensch maschine', 'mensch roboter', 'human robot', 'human machine', 'human computer', 'mensch computer', 'human automation'] },
   { id: 't-klima', label: 'Klima & Nachhaltigkeit', begriffe: ['klimawandel', 'klimaschutz', 'nachhaltigkeit', 'nachhaltiges verhalten', 'sustainab', 'umweltverhalten', 'pro environmental'] },
 ];
 
@@ -275,7 +277,7 @@ export const UMFANG_STUFEN = [50, 65, 75, 100] as const;
 
 export const DOSIS_OPTIONEN: { id: HorizontDosis; label: string; hinweis: string }[] = [
   { id: 'oft', label: 'Oft', hinweis: 'etwa jede zweite bis dritte Karte' },
-  { id: 'normal', label: 'Ab und zu', hinweis: 'etwa jede dritte bis fünfte Karte' },
+  { id: 'normal', label: 'Ab und zu', hinweis: 'etwa jede dritte bis sechste Karte' },
   { id: 'selten', label: 'Selten', hinweis: 'etwa jede sechste bis achte Karte' },
   { id: 'aus', label: 'Gar nicht', hinweis: 'nur Stellen mit Psychologie-Bezug' },
 ];

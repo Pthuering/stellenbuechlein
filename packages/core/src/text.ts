@@ -46,6 +46,9 @@ function escapeRegExp(s: string): string {
  *  - "*psycholog" → passt überall, auch in Zusammensetzungen (Entwicklungspsychologie)
  *  - "EEG"        → Wortanfang, also "eeg", "eeg-labor", aber nicht "steeg"
  * Ein abschließendes * ist erlaubt und ändert nichts (Wortanfang ist ohnehin Präfix-Suche).
+ *  - Wortgruppen ("kognitive psych", "visual search") passen auch auf gebeugte Formen: Jedes Wort ab vier
+ *    Buchstaben darf weitergehen ("der Kognitiven Psychologie", "kognitiver Prozesse"). Kurze Wörter
+ *    ("von", "in", "e") müssen genau so dastehen.
  */
 export function compileTerm(term: string): CompiledTerm | null {
   let t = term.trim();
@@ -61,7 +64,8 @@ export function compileTerm(term: string): CompiledTerm | null {
   t = t.replace(/^\*+/, '').replace(/\*+$/, '');
   const norm = normalizeText(t);
   if (!norm) return null;
-  const body = escapeRegExp(norm);
+  const words = norm.split(' ');
+  const body = words.map((w, i) => (i < words.length - 1 && w.length >= 4 ? `${escapeRegExp(w)}[a-z0-9]*` : escapeRegExp(w))).join(' ');
   const re = anywhere ? new RegExp(body) : new RegExp(`(?:^| )${body}`);
   return { raw: term, norm, anywhere, re };
 }
@@ -93,11 +97,30 @@ export function allMatches(normText: string, terms: readonly CompiledTerm[]): Co
   return terms.filter((t) => t.re.test(normText));
 }
 
+/**
+ * Entfernt, was beim Abgleich nur Fehltreffer erzeugt. Ohne das passt ein kurzer Begriff wie "R" auf
+ * „Medizinische/r“, „i. d. R.“ oder „MT-R“ und damit auf jede vierte Anzeige.
+ *  - Genderendungen: „Mitarbeiter/in“, „Wissenschaftliche*r“, „Kolleg:innen“, „Bewerber(in)“ → Grundwort
+ *  - „i. d. R.“ und „R&D“
+ *  - Kürzel mit angehängtem Buchstaben: „MT-R“ → „MTR“
+ *  - bei Links und E-Mail-Adressen alles außer Rechner und Pfad (dort steht manchmal das Fach)
+ */
+export function stripNoise(raw: string): string {
+  return raw
+    .replace(/mailto:[^\s)]*/gi, ' ')
+    .replace(/[\w.+-]+@/g, ' @')
+    .replace(/(https?:\/\/[^\s)?#]*)[?#][^\s)]*/g, '$1')
+    .replace(/\bi\.\s?d\.\s?R\./g, ' ')
+    .replace(/\bR\s?(?:&|&amp;)\s?D\b/g, 'RnD')
+    .replace(/(\p{Lu}{2,})-(\p{Lu})(?![\p{L}\d])/gu, '$1$2')
+    .replace(/(\p{Ll})(?:\\?[\/*:_]-?(?:innen|rin|in|en|er|r|n|e)|\((?:innen|in|en|er|r|n|e)\))(?![\p{L}\d])/gu, '$1');
+}
+
 /** Text, gegen den Profil- und Grobfilter-Begriffe geprüft werden. */
 export function searchTextOf(job: { title: string; department?: string | null; descriptionMd: string }): string {
   // Zusammengesetzte Wörter mit Bindestrich zusätzlich zusammengezogen anhängen,
   // damit "Lehr-Lern-Forschung" auch auf "lehrlernforschung" passt.
-  const raw = `${job.title}\n${job.department ?? ''}\n${job.descriptionMd}`;
+  const raw = stripNoise(`${job.title}\n${job.department ?? ''}\n${job.descriptionMd}`);
   const norm = normalizeText(raw);
   const hyphenated = raw.match(/[\p{L}\d]+(?:[-‐‑][\p{L}\d]+)+/gu);
   if (!hyphenated) return norm;
