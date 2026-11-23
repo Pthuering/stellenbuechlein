@@ -13,7 +13,7 @@
 // Datenbank: lokal eine SQLite-Datei (--db, Standard ./stellen.sqlite im Repo),
 // in Produktion der Worker (Umgebungsvariablen API_URL und INGEST_KEY).
 
-import { appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { RemoteDb, type Db } from '@stellen/db';
@@ -32,8 +32,8 @@ import { applySeed } from './seed';
 import { runPipeline } from './pipeline';
 import { sendReminders } from './push';
 import { processPendingChecks, runSourceCheck } from './sourceCheck';
-import { backfillAiTasks, countOpenAiTasks, getSetting, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
-import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage, enqueueBridgeChecks, getAiLock, setAiLock, clearAiLock, applyPrepared } from './aiTasks';
+import { backfillAiTasks, countOpenAiTasks, getSetting, setSetting, listCities, listInstitutions, listSources, openBrowserItemCount, type AiTaskKind } from '@stellen/db';
+import { exportAiTasks, importAiResults, splitAiPackage, type AiPackage, enqueueBridgeChecks, getAiLock, setAiLock, clearAiLock, applyPrepared, stagePrepared } from './aiTasks';
 import { cleanupJobs, learnSkipPrefixes } from './cleanup';
 import { extractFields, classifyKind, stripMarkdown } from '@stellen/core';
 import type { Source } from '@stellen/core';
@@ -181,9 +181,19 @@ async function main(): Promise<void> {
       break;
     }
     case 'ki-vorab': {
-      // Vorab bearbeitete Ergebnisse aus der Zwischentabelle einspielen (macht die Cloud-Routine vor ihren Runden)
+      // Vorab bearbeitete Ergebnisse einspielen (macht die Cloud-Routine vor ihren Runden). Zuerst werden Dateien
+      // aus data/vorab abgelegt: So übergibt eine Sitzung Ergebnisse, auch wenn die Datenbank gerade nichts annimmt.
+      // Jede Datei nur einmal; welche schon dran waren, steht in der Einstellung „kiVorabDateien“.
       const db = openDb();
+      const ordner = resolve(option('ordner') ?? resolve(here, '../../../data/vorab'));
+      const schon = (await getSetting<string[]>(db, 'kiVorabDateien', [])) ?? [];
+      const neu = existsSync(ordner) ? readdirSync(ordner).filter((f) => f.endsWith('.json') && !schon.includes(f)).sort() : [];
+      for (const f of neu) {
+        const items = JSON.parse(readFileSync(join(ordner, f), 'utf8')) as { art: AiTaskKind; jobId: string; ergebnis: unknown }[];
+        console.log(`${f}: ${await stagePrepared(db, items)} Ergebnisse abgelegt`);
+      }
       const r = await applyPrepared(db);
+      if (neu.length) await setSetting(db, 'kiVorabDateien', [...schon, ...neu]);
       console.log(`Vorab bearbeitet eingespielt: ${r.eingespielt}, entfernt (keine Anzeige oder KI: nein): ${r.entfernt}, Fehler: ${r.fehler}, verfallen (keine offene Aufgabe mehr): ${r.verfallen}`);
       break;
     }
