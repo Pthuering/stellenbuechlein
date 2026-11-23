@@ -94,11 +94,14 @@ async function main(): Promise<void> {
       console.log(stats);
       if (gross) {
         const offen = await openBrowserItemCount(db);
-        const weiter = (stats.quellenVertagt ?? 0) > 0 || offen > 0;
+        // Nach einem Abbruch ebenfalls fortsetzen: Die nächste Runde lässt schon gelesene Quellen aus.
+        const weiter = (stats.quellenVertagt ?? 0) > 0 || offen > 0 || !!stats.abgebrochen;
         console.log(`Großer Durchlauf: ${stats.quellenVertagt ?? 0} Quellen vertagt, ${offen} Seiten für den Browser offen → ${weiter ? 'Fortsetzung' : 'fertig'}.`);
         // Für den Workflow: Fortsetzung starten, Beginn weitergeben
         if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `weiter=${weiter ? 1 : 0}\nseit=${seit}\n`);
       }
+      // Abgebrochener Lauf: als Fehler melden, sonst stünde er in GitHub als erfolgreich da
+      if (stats.abgebrochen) process.exitCode = 1;
       break;
     }
     case 'check-sources': {

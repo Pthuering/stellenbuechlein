@@ -57,7 +57,8 @@ jobs:
         name: Großer Durchlauf (Runde ${{ inputs.runde }})
         run: npm run cli -w @stellen/ingest -- ingest --gross
       - name: Fortsetzen, falls noch etwas offen ist
-        if: steps.lauf.outputs.weiter == '1' && fromJSON(inputs.runde) < 8
+        # Auch nach einem Abbruch (Schritt rot), solange er eine Fortsetzung verlangt
+        if: ${{ !cancelled() && steps.lauf.outputs.weiter == '1' && fromJSON(inputs.runde) < 8 }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run grosser-lauf.yml -R "${{ github.repository }}" -f seit="${{ steps.lauf.outputs.seit }}" -f runde="$(( ${{ inputs.runde }} + 1 ))"

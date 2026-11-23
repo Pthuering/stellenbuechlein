@@ -172,6 +172,31 @@ function dateOnly(s: string | null | undefined): string | null {
 
 export type RunStats = Record<string, number>;
 
+/**
+ * Lässt n Arbeiter nacheinander Aufgaben holen (`take` gibt null, wenn nichts mehr ansteht).
+ * Scheitert eine Aufgabe, holt keiner mehr eine neue; laufende Aufgaben werden noch fertig, dann kommt
+ * der erste Fehler zurück. (Mit Promise.all liefen die übrigen Arbeiter nach einem Abbruch weiter,
+ * ohne Browser, bis GitHub den Lauf nach zwei Stunden abbrach.)
+ */
+export async function inParallel(n: number, take: () => (() => Promise<void>) | null): Promise<void> {
+  let failed = false;
+  const worker = async () => {
+    while (!failed) {
+      const task = take();
+      if (!task) return;
+      try {
+        await task();
+      } catch (e) {
+        failed = true;
+        throw e;
+      }
+    }
+  };
+  const results = await Promise.allSettled(Array.from({ length: Math.max(1, n) }, worker));
+  const err = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (err) throw err.reason;
+}
+
 export class Pipeline {
   readonly log: RunLog;
   readonly http: Http;
@@ -365,6 +390,7 @@ export class Pipeline {
       ok = true;
     } catch (e) {
       this.log.error(`Lauf abgebrochen: ${errText(e)}`);
+      this.stats.abgebrochen = 1;
     } finally {
       await this.pool?.close();
       this.stats.http = this.http.requests;
@@ -427,13 +453,11 @@ export class Pipeline {
     const deadline = this.startedMs + this.cfg.sourceBudgetMs;
     const primaryDeadline = deadline - (portals.length ? Math.min(20 * 60_000, this.cfg.sourceBudgetMs / 4) : 0);
     let next = 0;
-    const worker = async () => {
-      while (next < primary.length && Date.now() < primaryDeadline) {
-        const s = primary[next++];
-        await this.processSource(s);
-      }
-    };
-    await Promise.all(Array.from({ length: Math.max(1, this.cfg.sourceConcurrency) }, worker));
+    await inParallel(this.cfg.sourceConcurrency, () => {
+      if (next >= primary.length || Date.now() >= primaryDeadline) return null;
+      const s = primary[next++];
+      return () => this.processSource(s);
+    });
     let skipped = primary.length - next;
     for (const p of portals) {
       if (Date.now() >= deadline) skipped++;
@@ -1075,16 +1099,15 @@ export class Pipeline {
     let next = 0;
     let stopped = false;
     // Mehrere Seiten gleichzeitig (BROWSER_CONCURRENCY), z. B. im großen Durchlauf
-    const worker = async () => {
-      while (next < items.length) {
-        if (!this.pool!.budgetLeft || Date.now() - this.startedMs > this.cfg.runBudgetMs) {
-          stopped = true;
-          break;
-        }
-        await this.processBrowserItem(items[next++], byId);
+    await inParallel(this.cfg.browser.concurrency, () => {
+      if (next >= items.length) return null;
+      if (!this.pool!.budgetLeft || Date.now() - this.startedMs > this.cfg.runBudgetMs) {
+        stopped = true;
+        return null;
       }
-    };
-    await Promise.all(Array.from({ length: Math.max(1, this.cfg.browser.concurrency) }, worker));
+      const item = items[next++];
+      return () => this.processBrowserItem(item, byId);
+    });
     if (stopped) this.log.info('Browser-Zeitbudget für diesen Lauf aufgebraucht – Rest beim nächsten Lauf.');
   }
 
