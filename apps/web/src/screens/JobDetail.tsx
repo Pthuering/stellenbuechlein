@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { horizontOf, isAggregatorUrl, type BridgeHit, type FoundVia, type ScoreResult, type TopicLimit } from '@stellen/core';
 import { useAppState, useStore, useViews, type JobView } from '../data/hooks';
 import { closeOverlay, leaveOverlayTo } from '../lib/router';
-import { deadlineCheckText, deadlineOf, employerName, jobImage, laneLabel, shortDate, unknownPlace } from '../lib/format';
+import { deadlineCheckText, deadlineOf, employerName, jobImage, laneLabel, placeName, shortDate, unknownPlace } from '../lib/format';
 import { setIntent } from '../lib/intent';
 import { alertChip } from '../lib/savedFilters';
 import { useTestPhotos } from '../data/testPhotos';
@@ -470,7 +470,7 @@ export function JobDetail({ id }: { id: string }) {
   return (
     <Sheet onClose={closeOverlay} full labelledBy="detail-title">
       <div className="detail-photo">
-        <Polaroid src={img.src} credit={img.credit} seed={v.place.cityId ?? job.institutionId ?? job.id} caption={city?.name ?? unknownPlace()} sub={v.place.distanceKm != null ? t.fromHome(fmtKm(v.place.distanceKm)) : undefined} tilt={-0.8} />
+        <Polaroid src={img.src} credit={img.credit} seed={v.place.cityId ?? job.institutionId ?? job.id} caption={job.country ? placeName(job, city) : (city?.name ?? unknownPlace())} sub={v.place.distanceKm != null ? t.fromHome(fmtKm(v.place.distanceKm)) : undefined} tilt={-0.8} />
         <div style={{ position: 'absolute', right: 0, bottom: 22 }}>
           <ScoreRing value={v.score.score} size={76} />
         </div>
@@ -483,7 +483,7 @@ export function JobDetail({ id }: { id: string }) {
         {job.title}
       </h1>
       <p className="detail-place">
-        <IconPin width={16} height={16} /> {city?.name ?? job.locationText ?? unknownPlace()}
+        <IconPin width={16} height={16} /> {placeName(job, city)}
         {inst && <span className="chip">{institutionKindLabel(inst.kind)}</span>}
         {job.status === 'abgelaufen' && <span className="chip chip--neutral">{t.expired}</span>}
         {alertChip(v.alerts, 'normal')}

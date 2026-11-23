@@ -205,7 +205,11 @@ function rng(seed: string): () => number {
  * Wischen nicht verschiebt. Sind die Kern-Karten aufgebraucht, folgen die übrigen Horizont-Karten.
  */
 export function interleave<T>(core: readonly T[], extra: readonly T[], seed: string, dosis: HorizontDosis): T[] {
-  const gaps = DOSIS_GAPS[dosis];
+  return interleaveGaps(core, extra, seed, DOSIS_GAPS[dosis]);
+}
+
+/** Wie interleave, aber mit festem Abstand (so werden auch die Auslandskarten eingestreut). Ohne Abstand: anhängen. */
+export function interleaveGaps<T>(core: readonly T[], extra: readonly T[], seed: string, gaps: readonly [number, number] | null): T[] {
   if (!gaps || extra.length === 0) return [...core, ...extra];
   const next = rng(seed);
   const [lo, hi] = gaps;

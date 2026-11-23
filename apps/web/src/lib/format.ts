@@ -2,7 +2,7 @@
 
 import { daysUntil, todayBerlin, type City, type DeadlineCheck, type Institution, type Job, type LaneInfo } from '@stellen/core';
 import { testPhotoCredit, testPhotoFor } from '../data/testPhotos';
-import { fmtDate, fmtDayMonth, fmtKm, fmtPct, lang, srForm, texts } from '../i18n';
+import { fmtDate, fmtDayMonth, fmtKm, fmtPct, lang, LANG_TAGS, srForm, texts } from '../i18n';
 import { jobKindLabel, laneName } from '../i18n/labels';
 import { profileLabel } from '../i18n/katalog';
 
@@ -178,11 +178,29 @@ export function employerName(job: Pick<Job, 'employer'>, inst: Institution | und
   return job.employer?.trim() || t.unknownEmployer;
 }
 
-export function placeLabel(city: City | undefined, km: number | null): { city: string; km: string } {
-  return { city: city?.name ?? t.unknownPlace, km: km != null ? fmtKm(km) : '' };
+export function placeLabel(city: City | undefined, km: number | null, job?: Pick<Job, 'locationText' | 'country'>): { city: string; km: string } {
+  return { city: job?.country ? placeName(job, city) : (city?.name ?? t.unknownPlace), km: km != null ? fmtKm(km) : '' };
 }
 
 /** „Ort unbekannt“ */
+/** Ländername in der Sprache der Oberfläche („Schweiz“, „Switzerland“, „Švajcarska“); bei deutschen Stellen null. */
+export function countryName(code: string | null | undefined): string | null {
+  if (!code || code === 'DE') return null;
+  try {
+    return new Intl.DisplayNames([LANG_TAGS[lang()]], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/** Ort einer Anzeige: Stadt aus dem Register, sonst die Ortsangabe der Anzeige; bei Auslandsstellen mit Land. */
+export function placeName(job: Pick<Job, 'locationText' | 'country'>, city: City | undefined): string {
+  const land = countryName(job.country);
+  const ort = city?.name ?? job.locationText ?? null;
+  if (land) return ort && !ort.toLowerCase().includes(land.toLowerCase()) ? `${ort}, ${land}` : (ort ?? land);
+  return ort ?? t.unknownPlace;
+}
+
 export function unknownPlace(): string {
   return t.unknownPlace;
 }

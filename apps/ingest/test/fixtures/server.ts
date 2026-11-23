@@ -266,6 +266,36 @@ const doppeltProjekt = page(
   `<article><h1>Projekt Lernmotivation</h1><p>Im Projekt Lernmotivation untersucht die Pädagogische Psychologie, wie Studierende ihr Lernen planen. Interessierte melden sich gern bei der Projektleitung.</p></article>`,
 );
 
+// Ein Portal mit Stellen außerhalb Deutschlands: eine passende in Europa, eine unpassende, eine passende in Übersee
+const auslandList = page(
+  'Stellen weltweit',
+  `<h1>Stellen weltweit</h1><ul>
+  <li><a href="/ausland/zuerich.html">Postdoc (m/w/d) Kognitive Psychologie – Universität Zürich</a></li>
+  <li><a href="/ausland/wien.html">Sachbearbeitung Buchhaltung (m/w/d), Wien</a></li>
+  <li><a href="/ausland/boston.html">Research Scientist Cognitive Psychology (Boston, USA)</a></li></ul>`,
+);
+const auslandZuerich = page(
+  'Postdoc Zürich',
+  `<article><h1>Postdoc (m/w/d) Kognitive Psychologie – Universität Zürich</h1>
+<p>Am Psychologischen Institut untersuchen wir Aufmerksamkeit und Arbeitsgedächtnis mit Experimenten und Blickbewegungsmessung.</p>
+<h2>Ihre Aufgaben</h2><ul><li>Planung und Auswertung von Experimenten zur kognitiven Psychologie</li><li>Statistische Auswertung mit R</li><li>Publikationen</li></ul>
+<h2>Ihr Profil</h2><ul><li>Abgeschlossene Promotion in Psychologie</li></ul><p>Bewerbungsfrist: 15.12.2026.</p></article>`,
+);
+const auslandWien = page(
+  'Buchhaltung Wien',
+  `<article><h1>Sachbearbeitung Buchhaltung (m/w/d), Wien</h1>
+<p>Das Institut für Psychologie sucht Unterstützung in der Buchhaltung.</p>
+<h2>Ihre Aufgaben</h2><ul><li>Kontierung und Buchung von Rechnungen</li><li>Reisekostenabrechnung</li></ul>
+<h2>Ihr Profil</h2><ul><li>Kaufmännische Ausbildung</li></ul><p>Bewerbungsfrist: 15.12.2026.</p></article>`,
+);
+const auslandBoston = page(
+  'Research Scientist Boston',
+  `<article><h1>Research Scientist Cognitive Psychology (Boston, USA)</h1>
+<p>Our psychology department studies attention and memory with behavioral experiments.</p>
+<h2>Your tasks</h2><ul><li>Design and analysis of experiments in cognitive psychology</li><li>Statistical analysis in R</li><li>Publications</li></ul>
+<h2>Your profile</h2><ul><li>PhD in psychology or cognitive science</li></ul><p>Application deadline: 15.12.2026.</p></article>`,
+);
+
 const homepage = page('Startseite','<h1>Willkommen an der Testuniversität</h1><p>Forschung und Lehre.</p><p><a href="/stellen/">Stellenangebote</a> <a href="/studium">Studium</a></p>');
 
 export interface FixtureServer {
@@ -313,6 +343,14 @@ export async function startFixtureServer(): Promise<FixtureServer> {
         return html(fristOhneJahr);
       case '/zentral/frist-weit.html':
         return html(fristWeit);
+      case '/ausland/':
+        return html(auslandList);
+      case '/ausland/zuerich.html':
+        return html(auslandZuerich);
+      case '/ausland/wien.html':
+        return html(auslandWien);
+      case '/ausland/boston.html':
+        return html(auslandBoston);
       case '/doppelt/':
         return html(doppeltList);
       case '/doppelt/stelle-a.html':

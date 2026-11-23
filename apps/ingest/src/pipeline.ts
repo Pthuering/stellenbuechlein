@@ -25,6 +25,11 @@ import {
   horizonGateHash,
   horizontOf,
   isThematic,
+  countryOf,
+  isEurope,
+  parseAusland,
+  DEFAULT_AUSLAND,
+  type AuslandSetting,
   jobIdForUrl,
   matchBridges,
   matchFeld,
@@ -103,7 +108,7 @@ import { discover, workdayDetail, type DiscoverContext } from './discover';
 import { atsDetail } from './ats';
 import { assessCompleteness, extractPosting, type Candidate, type PostingData } from './extract';
 import { htmlToMarkdown } from './html';
-import { baDetail, isOutsideGermany } from './portals';
+import { baDetail } from './portals';
 import { CityMatcher, InstitutionMatcher } from './matching';
 import { wikipediaImage } from './images';
 import { findJobsPage } from './sourceDiscovery';
@@ -146,6 +151,8 @@ interface JobMeta {
   lane: Lane;
   horizon: JobHorizon | null;
   isNew: boolean;
+  /** Land der Stelle, wenn sie außerhalb Deutschlands liegt */
+  country?: string | null;
 }
 
 export const GENERIC_TITLE = /^(?:stellenangebote?|stellenausschreibung(?:en)?|stellenanzeige|jobs?|job ?details?|karriere|ausschreibung|startseite|home|details?|anzeige|offene stellen|stellenmarkt|vacancies|job offer|position)$/i;
@@ -227,6 +234,9 @@ export class Pipeline {
   private readonly startedMs = Date.now();
   private healthWarnings = new Map<string, string>();
   private profile: Suchprofil = starterProfile();
+  /** Auslandsanzeigen: die Einstellung und was dieser Lauf noch aufnehmen darf (Deckel). */
+  private abroad: AuslandSetting = { ...DEFAULT_AUSLAND };
+  private abroadLeft = { alle: 0, weltweit: 0 };
   private horizon: Horizont = horizontOf(this.profile);
   private summaryForAi = '';
   /** Neue Anzeigen dieses Laufs mit Score, für die Benachrichtigung über sehr gut passende */
@@ -291,6 +301,10 @@ export class Pipeline {
       getSetting<string[]>(this.db, 'skipPrefixes', []),
     ]);
     this.profile = parseProfile(profileRaw) ?? starterProfile();
+    // Ausland: Ohne eigene Einstellung gilt die Antwort aus der Umfrage („Auch ins Ausland“)
+    const umfrage = await getSetting<{ antworten?: { mobil?: string | null } } | null>(this.db, 'umfrage', null);
+    this.abroad = parseAusland(await getSetting<unknown>(this.db, 'ausland', null), umfrage?.antworten?.mobil === 'ausland');
+    this.abroadLeft = { alle: this.abroad.proLauf, weltweit: this.abroad.weltweitProLauf };
     this.horizon = horizontOf(this.profile);
     this.summaryForAi = profileSummary(this.profile);
     // Register: alle Quellen (auch abgeschaltete), Websites der Einrichtungen und bereits bearbeitete Funde
@@ -555,7 +569,13 @@ export class Pipeline {
     budget.left--;
     const data = await this.readCandidate(source, c, stmts);
     if (!data) return null;
-    if (source.kind === 'portal' && isOutsideGermany({ country: data.country ?? c.hints?.country, locationText: data.locationText ?? c.hints?.locality })) {
+    // Ausland (nur bei Portalen): ohne Freigabe verwerfen; mit Freigabe entscheidet unten abroadVerdict
+    const place = data.locationText ?? c.hints?.locality ?? null;
+    const land = source.kind === 'portal' ? countryOf({ country: data.country ?? c.hints?.country, locationText: place, title: data.title || c.title, germanCity: !!this.cityMatcher.match(place) }) : null;
+    // Quellen ohne Länderfilter (config.ausland): Was kein erkennbares Land hat, zählt als Ausland („ZZ“ = unbekannt),
+    // damit Regeln und Deckel auch dafür gelten
+    const abroad = land && land !== 'DE' ? land : !land && source.kind === 'portal' && source.config.ausland === true ? 'ZZ' : null;
+    if (abroad && !this.abroad.an) {
       this.bump('ausland');
       return null;
     }
@@ -570,7 +590,21 @@ export class Pipeline {
     const gate = checkGate(norm, this.gateTerms);
     const jobId = jobIdForUrl(data.url || c.url);
     let meta: JobMeta = { lane: 'kern', horizon: null, isNew: true };
-    if (source.gate === 'psych' && !gate.pass) {
+    if (abroad) {
+      const verdict = this.abroadVerdict(abroad, norm, data, source.gate !== 'psych' || gate.pass);
+      if (verdict === 'voll') {
+        // Deckel für diesen Lauf erreicht: nichts vermerken, die Anzeige kommt in einem späteren Lauf wieder dran
+        this.bump('auslandVertagt');
+        return null;
+      }
+      if (verdict === 'unpassend') {
+        stmts.push(gateSkipStmt({ url: canon, sourceId: source.id, institutionId: source.institutionId, title: truncate(data.title || c.title || c.url, 200), textHash: this.gateHash, reason: 'ausland', note: `Ausland (${abroad}): passt nicht zum Kern` }, this.now));
+        this.gateSkips.set(canon, this.gateHash);
+        this.bump('auslandUnpassend');
+        return null;
+      }
+      meta = { lane: 'kern', horizon: null, isNew: true, country: abroad };
+    } else if (source.gate === 'psych' && !gate.pass) {
       if (!data.complete && this.pool) {
         // Unvollständiger Text (z. B. JavaScript-Seite) – erst vollständig lesen, dann einordnen.
         stmts.push(enqueueBrowserStmt(c.url, source.id, source.institutionId, data.incompleteReason ?? 'Text unvollständig', this.now));
@@ -625,6 +659,7 @@ export class Pipeline {
     this.indexJob(job, [c.url]);
     this.sourcesByJob.set(job.id, new Set([source.id]));
     this.bump('neu');
+    if (job.country) this.bump('neuAusland');
     if (job.status === 'aktiv') this.newScored.push({ id: job.id, title: job.title, score: scoreJob(job, searchTextOf(job), this.profile).score });
     if (job.lane === 'horizont') this.bump('neuHorizont');
     if (job.lane === 'weite') this.bump('neuWeite');
@@ -672,6 +707,22 @@ export class Pipeline {
     this.dropAi(job.id);
     stmts.push(enqueueAiTaskStmt('weite', job.id, { job, sourceId: source.id, url: c.url, folge }, this.now));
     this.bump('weiteWartet');
+  }
+
+  /**
+   * Auslandsanzeige aufnehmen? Entschieden wird nach Regeln, bevor eine KI die Anzeige sieht, damit der Aufwand
+   * steuerbar bleibt: Die Anzeige muss zum Kern passen (Grobfilter, Themen-Treffer mit Psychologie-Bezug und die
+   * Mindest-Passung aus der Einstellung „ausland“), und je Lauf gilt ein Deckel, von dem nur ein Teil für Länder
+   * außerhalb Europas offen ist. Brücken und Weite gibt es für Auslandsanzeigen nicht.
+   */
+  private abroadVerdict(land: string, norm: string, data: PostingData, gatePass: boolean): 'ja' | 'unpassend' | 'voll' {
+    const job = { kind: classifyKind(data.title, data.descriptionMd), title: data.title };
+    if (!gatePass || !isThematic(job, norm, this.profile) || scoreJob(job, norm, this.profile).score < this.abroad.minPassung) return 'unpassend';
+    const europe = isEurope(land);
+    if (this.abroadLeft.alle <= 0 || (!europe && this.abroadLeft.weltweit <= 0)) return 'voll';
+    this.abroadLeft.alle--;
+    if (!europe) this.abroadLeft.weltweit--;
+    return 'ja';
   }
 
   /**
@@ -874,6 +925,7 @@ export class Pipeline {
       newSite,
       foundVia,
       employer: data.hiringOrg ?? c.hints?.org ?? null,
+      country: meta.country ?? null,
       extra: { via: c.via, sourceId: source.id, fetchedAt: this.now, incompleteReason: data.incompleteReason ?? null, query: c.hints?.query ?? null },
     };
     job.fuzzyKey = fuzzyKey(job);

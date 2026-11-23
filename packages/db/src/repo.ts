@@ -66,6 +66,7 @@ export interface JobRow {
   new_site: number | null;
   found_via: string | null;
   employer: string | null;
+  country: string | null;
 }
 
 export const JOB_COLUMNS = [
@@ -74,7 +75,7 @@ export const JOB_COLUMNS = [
   'fixed_term', 'is_permanent', 'start_text', 'deadline', 'deadline_text', 'reference_no', 'contact', 'language',
   'image_url', 'image_kind', 'image_credit', 'pdf_url', 'posted_at', 'first_seen_at', 'last_seen_at', 'updated_at',
   'content_hash', 'fuzzy_key', 'status', 'completeness', 'method', 'psych_terms', 'extra',
-  'deadline_check', 'deadline_note', 'lane', 'horizon', 'new_site', 'found_via', 'employer',
+  'deadline_check', 'deadline_note', 'lane', 'horizon', 'new_site', 'found_via', 'employer', 'country',
 ] as const;
 
 export function rowToJob(r: JobRow, sources?: JobSourceRef[]): Job {
@@ -124,6 +125,7 @@ export function rowToJob(r: JobRow, sources?: JobSourceRef[]): Job {
     newSite: !!r.new_site,
     foundVia: (r.found_via as Job['foundVia']) ?? null,
     employer: r.employer ?? null,
+    country: r.country ?? null,
   };
 }
 
@@ -185,6 +187,7 @@ export function jobToRowValues(j: JobWrite): unknown[] {
     new_site: j.newSite ? 1 : 0,
     found_via: j.foundVia ?? null,
     employer: j.employer ?? null,
+    country: j.country ?? null,
   };
   return JOB_COLUMNS.map((c) => map[c]);
 }

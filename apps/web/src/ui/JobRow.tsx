@@ -4,7 +4,7 @@
 import { useAppState, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
 import { alertChip } from '../lib/savedFilters';
-import { deadlineOf, employerName, shortDate } from '../lib/format';
+import { deadlineOf, employerName, shortDate, placeName } from '../lib/format';
 import { IconHeart, IconStar } from './icons';
 import { fmtKm, texts } from '../i18n';
 import { laneName } from '../i18n/labels';
@@ -68,7 +68,7 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
   const saved = mark?.decision === 'gemerkt';
   const rejected = mark?.decision === 'abgelehnt';
   const expired = job.status === 'abgelaufen' || !!dl?.past;
-  const where = [employerName(job, inst, true), city?.name ?? job.locationText, v.place.distanceKm != null ? fmtKm(v.place.distanceKm) : null].filter(Boolean).join(', ');
+  const where = [employerName(job, inst, true), job.country ? placeName(job, city) : (city?.name ?? job.locationText), v.place.distanceKm != null ? fmtKm(v.place.distanceKm) : null].filter(Boolean).join(', ');
   const lane = v.lane.lane === 'horizont' || v.lane.lane === 'weite' ? laneName(v.lane.lane) : null;
   const hl = v.alerts.length > 0;
 

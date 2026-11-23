@@ -31,6 +31,15 @@ In der App entscheidet das aktuelle Profil, welcher Ring gilt: Trifft eine Anzei
 
 Brücken kommen aus dem Steckbrief, aus KI-Vorschlägen (*Ich → Horizont → Brücken vorschlagen lassen*, übernommen wird nur, was du annimmst) oder von dir. Bis das Interview sie festlegt, gilt ein breiter Start-Horizont mit zehn Brücken (Mensch & KI, IT-Sicherheit, Arbeit & Organisation, Gesundheit & Prävention, Bildung & Lernen, Mobilität & Verkehr, Umwelt & Nachhaltigkeit, Daten & Methoden, Gesellschaft & Politik, Gestaltung & UX).
 
+## Ausland
+
+Stellen außerhalb Deutschlands kommen wie die Horizont-Karten zusätzlich in den Stapel. Ob überhaupt, bestimmt die Einstellung „ausland“; ohne sie gilt die Antwort aus der Umfrage („Auch ins Ausland“).
+
+- **Land:** Jede Auslandsanzeige trägt ihr Land als Kürzel (`jobs.country`, z. B. „CH“). Erkannt wird es aus der Länderangabe des Portals, sonst aus der Ortsangabe oder den Ortsteilen des Titels („– Region Zürich“, „(Lisboa, PT)“). Ohne Kürzel gilt eine Anzeige als deutsch oder unbekannt; bei Quellen ohne Länderfilter zählt Unbekanntes als Ausland.
+- **Vor der KI geregelt und gedeckelt:** Aufgenommen wird nur, was nach den Regeln zum Kern passt (Grobfilter, Themen-Treffer mit Psychologie-Bezug, Passung ab 75 %), und je Lauf höchstens 40 Anzeigen, davon höchstens 10 außerhalb Europas. Was nicht passt, steht unter *Quellen → Aussortiert* (Grund „ausland“) und wird nicht wieder gelesen; was dem Deckel zum Opfer fällt, kommt in einem späteren Lauf wieder dran. Brücken und Weite gibt es für Auslandsanzeigen nicht. Erst danach bereitet die KI auf, der Aufwand bleibt also steuerbar.
+- **Im Stapel:** nach jeweils 2 bis 5 anderen Karten eine Auslandskarte, also höchstens jede dritte (höchstens 33 %). Geordnet nach Passung, Europa mit zehn Punkten Vorsprung. Angezeigt wird eine Auslandsstelle überhaupt nur ab 75 % Passung, im Stapel wie in den Listen (Gemerktes bleibt sichtbar). Am Ort steht das Land.
+- **Quellen:** EURAXESS ohne Länderfilter (ganz Europa) und das Stellenportal der APS (weltweit); die Suche der Arbeitsagentur bleibt auf Deutschland beschränkt.
+
 ## Blinde Flecken: Erkundung neuer Websites
 
 Das Register ist die Liste aller Websites, die die App kennt: Quellen, Websites der Einrichtungen und bereits bearbeitete Funde. Jeder Lauf (täglich gegen 12 Uhr oder per Knopf) endet mit der **Erkundung**: Mit täglich wechselnden Suchwörtern aus dem Kernbereich und aus den Brücken fragt sie bei der Jobsuche der Arbeitsagentur (optional zusätzlich in einer Websuche) und liest nur Anzeigen, deren Website und Arbeitgeber nicht im Register stehen. Sie liest so lange, bis mindestens **drei neue Anzeigen** dabei sind (höchstens 40 Versuche); schafft sie das nicht, steht eine Warnung im Lauf.

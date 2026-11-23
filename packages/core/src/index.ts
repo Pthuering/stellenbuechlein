@@ -8,6 +8,7 @@ export * from './register';
 export * from './ai';
 export * from './classify';
 export * from './gate';
+export * from './laender';
 export * from './profile';
 export * from './scoring';
 export * from './steckbrief';

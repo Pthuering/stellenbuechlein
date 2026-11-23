@@ -125,5 +125,25 @@
     "enabled": true,
     "verified": true,
     "config": {"ats": "interamt", "queries": ["Psycholog"], "maxPages": 40, "maxDetails": 400, "note": "Eigener Adapter (apps/ingest/src/interamt.ts): Suche nur per Formular mit Sitzungs-Cookie. Die robots.txt sperrt nur einzelne Bots (z. B. Jooble), nicht allgemeine Programme."}
+  },
+  {
+    "id": "euraxess-welt",
+    "label": "EURAXESS – alle Länder, Psychological sciences",
+    "url": "https://euraxess.ec.europa.eu/jobs/search?f%5B0%5D=job_research_field%3A374",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern": "/jobs/\\d+$", "maxPages": 6, "ausland": true, "note": "Wie „euraxess“, aber ohne Länderfilter: Stellen aus ganz Europa. Was davon aufgenommen wird, regelt die Einstellung „ausland“ (muss zum Kern passen, Deckel je Lauf). Geprüft am 23.11.2026."}
+  },
+  {
+    "id": "aps-welt",
+    "label": "APS Employment Network – weltweit",
+    "url": "https://jobs.psychologicalscience.org/jobs/",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {"maxPages": 3, "ausland": true, "note": "Stellenmarkt der Association for Psychological Science, überwiegend Nordamerika. Was davon aufgenommen wird, regelt die Einstellung „ausland“ (eigener Deckel für Länder außerhalb Europas). Geprüft am 23.11.2026."}
   }
 ]

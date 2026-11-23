@@ -174,7 +174,7 @@ function DeckCard({
   const city = view.place.cityId ? s.cities.get(view.place.cityId) : undefined;
   const img = jobImage(job, inst, city, testPhotos);
   const showPhoto = s.settings.ui.cardImages !== false;
-  const place = placeLabel(city, view.place.distanceKm);
+  const place = placeLabel(city, view.place.distanceKm, view.job);
   const dl = deadlineOf(job);
   const reasons = topReasons(view.score, 3).map(profileLabel);
   const lane = view.lane.promoted || view.lane.lane !== 'kern' ? laneLabel(view.lane) : null;

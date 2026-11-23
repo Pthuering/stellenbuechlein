@@ -109,7 +109,7 @@ const markSchema = z.object({
   updatedAt: z.string().optional(),
 });
 
-const SETTINGS_KEYS = new Set(['profile', 'filter', 'home', 'reminders', 'gateTerms', 'sort', 'deck', 'ui', 'notifyHighScore', 'highlight', 'savedFilters', 'checklist', 'umfrage', 'freigabe']);
+const SETTINGS_KEYS = new Set(['profile', 'filter', 'home', 'reminders', 'gateTerms', 'sort', 'deck', 'ui', 'notifyHighScore', 'highlight', 'savedFilters', 'checklist', 'umfrage', 'freigabe', 'ausland']);
 
 const assistantStepSchema = z.object({
   messages: z

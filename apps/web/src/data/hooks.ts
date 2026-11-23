@@ -29,6 +29,12 @@ import {
   type SortKey,
   type Suchprofil,
   deckJitter,
+  ABROAD_GAPS,
+  ABROAD_MIN_SCORE,
+  EUROPE_BONUS,
+  interleaveGaps,
+  isAbroad,
+  isEurope,
 } from '@stellen/core';
 import type { SavedSort, State, Store } from './store';
 
@@ -129,6 +135,8 @@ export function useViews(): Map<string, JobView> {
 export function filterViews(views: Iterable<JobView>, filter: JobFilter, geo: GeoContext, today = todayBerlin()): JobView[] {
   const out: JobView[] = [];
   for (const v of views) {
+    // Auslandsstellen erscheinen nur, wenn sie gut passen (Gemerktes läuft nicht über diesen Filter)
+    if (isAbroad(v.job) && v.score.score < ABROAD_MIN_SCORE) continue;
     if (passesFilter(v.job, filter, v.place, geo, v.norm, today, v.lane.lane, v.score.score)) out.push(v);
   }
   return out;
@@ -170,6 +178,8 @@ export function openViews(views: Map<string, JobView>, today = todayBerlin()): J
  * (ab der Schwelle), dann der Rest, in beiden Teilen auf Wunsch die mit naher Frist zuerst. Horizont-Karten
  * werden über den ganzen Stapel eingestreut, nicht je Teil: Ihre Passung ist naturgemäß niedrig, sie kämen
  * sonst erst nach allen gut passenden Karten.
+ * Stellen außerhalb Deutschlands kommen wie die Horizont-Karten dazwischen: nach jeweils 2 bis 5 anderen Karten
+ * eine, also höchstens jede dritte Karte, nach Passung geordnet und Europa zuerst.
  * Gemischt wird über alle offenen Anzeigen (auch schon entschiedene) und erst danach gefiltert, damit sich
  * die Reihenfolge beim Wischen nicht verschiebt.
  */
@@ -183,7 +193,12 @@ export function useDeck(): JobView[] {
     const all = filterViews(openViews(views, today), s.settings.filter, geo, today);
     const tiers = new Map<number, JobView[]>();
     const extra: JobView[] = [];
+    const abroad: JobView[] = [];
     for (const v of all) {
+      if (isAbroad(v.job)) {
+        abroad.push(v);
+        continue;
+      }
       if (v.lane.promoted) {
         extra.push(v);
         continue;
@@ -195,7 +210,12 @@ export function useDeck(): JobView[] {
     }
     const core = [...tiers.keys()].sort((a, b) => a - b).flatMap((k) => sortCore(tiers.get(k)!, `stapel:${today}`));
     extra.sort((a, b) => compareHorizon({ lane: a.lane, score: a.score.score }, { lane: b.lane, score: b.score.score }));
-    return interleave(core, extra, `horizont:${today}`, h.dosis).filter((v) => !v.mark?.decision);
+    const inland = interleave(core, extra, `horizont:${today}`, h.dosis);
+    // Auslandsstellen (nur ab ABROAD_MIN_SCORE, siehe filterViews): nach Passung, Europa mit Vorsprung,
+    // höchstens jede dritte Karte (siehe ABROAD_GAPS)
+    const rank = new Map(abroad.map((v) => [v.job.id, v.score.score + deckJitter(v.job.id, `stapel:${today}`) + (isEurope(v.job.country) ? EUROPE_BONUS : 0)]));
+    abroad.sort((a, b) => rank.get(b.job.id)! - rank.get(a.job.id)!);
+    return interleaveGaps(inland, abroad, `ausland:${today}`, ABROAD_GAPS).filter((v) => !v.mark?.decision);
   }, [views, s.settings.filter, s.settings.profile, s.settings.deck, geo]);
 }
 
