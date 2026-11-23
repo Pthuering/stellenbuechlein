@@ -3,6 +3,7 @@
 
 import { useAppState, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
+import { highlightChip, highlightOf } from '../lib/highlight';
 import { deadlineOf, employerName, shortDate } from '../lib/format';
 import { IconHeart, IconStar } from './icons';
 import { fmtKm, texts } from '../i18n';
@@ -69,10 +70,11 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
   const expired = job.status === 'abgelaufen' || !!dl?.past;
   const where = [employerName(job, inst, true), city?.name ?? job.locationText, v.place.distanceKm != null ? fmtKm(v.place.distanceKm) : null].filter(Boolean).join(', ');
   const lane = v.lane.lane === 'horizont' || v.lane.lane === 'weite' ? laneName(v.lane.lane) : null;
+  const hl = highlightOf(v, s);
 
   return (
     <li
-      className={`row ${faded ? 'row--faded' : ''} ${expired ? 'row--expired' : ''}`}
+      className={`row ${faded ? 'row--faded' : ''} ${expired ? 'row--expired' : ''} ${hl ? 'row--highlight' : ''}`}
       onClick={() => openJob(job.id)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && e.target === e.currentTarget) openJob(job.id);
@@ -100,8 +102,9 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
       <div className="row__main">
         <p className="row__title">{job.title}</p>
         <p className="row__sub">{where}</p>
-        {(showDecision && rejected) || mark?.appliedAt || v.favorite || lane || job.newSite || job.dummy ? (
+        {(showDecision && rejected) || mark?.appliedAt || v.favorite || lane || job.newSite || job.dummy || hl ? (
           <p className="row__tags">
+            {hl && highlightChip(hl, s.settings.highlight.min)}
             {v.favorite && <span className="chip chip--primary chip--tiny">{t.favorite}</span>}
             {lane && <span className="lane-tag lane-tag--tiny">{lane}</span>}
             {job.newSite && <span className="chip chip--neutral chip--tiny">{t.newSite}</span>}

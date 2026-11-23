@@ -314,6 +314,16 @@ img {
   background: var(--accent-soft);
   border-color: transparent;
 }
+/* Wunschstadt ab Schwelle (Einstellung „highlight“): kräftiger Rand, damit sie zwischen den anderen Marken auffällt */
+.chip--highlight {
+  background: var(--primary-soft);
+  border: 1.5px solid var(--primary-strong);
+  color: var(--primary-strong);
+  font-weight: 600;
+}
+.chip--highlight svg {
+  vertical-align: -2px;
+}
 .chip--plain {
   background: var(--surface-raised);
 }

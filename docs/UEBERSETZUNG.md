@@ -17,7 +17,7 @@ Push-Benachrichtigungen schickt der Einsammel-Lauf in allen drei Sprachen mit; d
 - `apps/web/src/i18n/index.ts`: aktuelle Sprache, `texts()`, `tr()`, `srForm()`, Formate für Datum, Zahl, Prozent und km
 - `apps/web/src/i18n/labels.ts`: Stellenarten, Einrichtungsarten, Bundesländer, Kategorien, Sortierung, Ringe, Dosis
 - `apps/web/src/i18n/katalog.ts`: Vorschläge der Umfrage, Startprofil und Start-Brücken; `profileLabel()` übersetzt Einträge im Suchprofil, die aus diesen Listen stammen. Gespeichert wird immer die deutsche Bezeichnung.
-- `packages/core/src/reminders.ts`: Texte der Benachrichtigungen (`reminderText`, `highScoreDigest` mit Sprache)
+- `packages/core/src/reminders.ts`: Texte der Benachrichtigungen (`reminderText`, `highScoreDigest`, `highlightNotifications` für Wunschstädte, jeweils mit Sprache)
 
 Jede Datei legt ihre Texte selbst an, alle drei Sprachen mit denselben Schlüsseln (TypeScript prüft das):
 

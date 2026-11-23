@@ -1,8 +1,21 @@
-// Benachrichtigungen per Web Push: Fristen-Erinnerungen für Herzensjobs (★) und, gebündelt, neue
+// Benachrichtigungen per Web Push: Fristen-Erinnerungen für Herzensjobs (★), neue Treffer in den
+// ausgewählten Städten (Einstellung „highlight“, einzeln und auffällig) und, gebündelt, die übrigen neuen
 // Anzeigen, die besonders gut zum Suchprofil passen (Einstellung „notifyHighScore“).
 
 import webpush from 'web-push';
-import { DEFAULT_REMINDER_DAYS, dueReminders, highScoreDigest, parseHighScoreAlert, reminderText, todayBerlin, type UiLang } from '@stellen/core';
+import {
+  DEFAULT_REMINDER_DAYS,
+  dueReminders,
+  highlightCity,
+  highlightNotifications,
+  highScoreDigest,
+  parseHighlight,
+  parseHighScoreAlert,
+  reminderText,
+  todayBerlin,
+  type HighlightHit,
+  type UiLang,
+} from '@stellen/core';
 import { getSetting, listMarks, listPushSubscriptions, reminderSentStmt, remindersSent, removePushSubscription, type Db, type Stmt } from '@stellen/db';
 import type { IngestConfig } from './config';
 import type { RunLog } from './log';
@@ -17,6 +30,8 @@ interface Payload {
   body: string;
   url: string;
   tag?: string;
+  /** Treffer in einer ausgewählten Stadt: bleibt stehen, bis sie angetippt wird, und meldet sich erneut. */
+  highlight?: boolean;
   /** Dieselbe Nachricht auf Englisch und Serbisch; der Service Worker zeigt die Sprache des Geräts. */
   i18n?: Partial<Record<UiLang, { title: string; body: string }>>;
 }
@@ -91,8 +106,69 @@ export async function sendReminders(db: Db, cfg: IngestConfig, log: RunLog, toda
   return sent;
 }
 
+type NewJob = { id: string; title: string; score: number };
+
+/**
+ * Neue Anzeigen in den ausgewählten Städten ab der dort eingestellten Schwelle: einzeln (bis zu drei),
+ * sonst gebündelt. Gibt die IDs der Treffer zurück, damit die Sammelmeldung sie nicht noch einmal nennt.
+ */
+async function sendHighlightAlerts(db: Db, cfg: IngestConfig, log: RunLog, jobs: readonly NewJob[]): Promise<{ ids: Set<string>; sent: number }> {
+  const none = { ids: new Set<string>(), sent: 0 };
+  const setting = parseHighlight(await getSetting<unknown>(db, 'highlight', null));
+  if (!setting.push || setting.cities.length === 0) return none;
+  const candidates = jobs.filter((j) => j.score >= setting.min);
+  if (candidates.length === 0) return none;
+  const rows = await db.all<{ id: string; city_id: string | null; location_text: string | null }>(
+    `SELECT j.id, COALESCE(j.city_id, i.city_id) AS city_id, j.location_text
+       FROM jobs j LEFT JOIN institutions i ON i.id = j.institution_id
+      WHERE j.id IN (SELECT value FROM json_each(?))`,
+    [JSON.stringify(candidates.map((j) => j.id))],
+  );
+  const cityRows = await db.all<{ id: string; name: string }>('SELECT id, name FROM cities WHERE id IN (SELECT value FROM json_each(?))', [JSON.stringify(setting.cities)]);
+  const cities = new Map(cityRows.map((c) => [c.id, { name: c.name }]));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const hits: HighlightHit[] = [];
+  for (const j of candidates) {
+    const r = byId.get(j.id);
+    const city = r ? highlightCity({ cityId: r.city_id, locationText: r.location_text, score: j.score }, setting, cities) : null;
+    if (city) hits.push({ ...j, city: cities.get(city)?.name ?? city });
+  }
+  if (hits.length === 0) return none;
+  const ids = new Set(hits.map((h) => h.id));
+  if (!cfg.vapid) {
+    log.info(`${hits.length} neue Anzeige(n) in ausgewählten Städten ab ${setting.min} % – Push ist nicht eingerichtet.`);
+    return { ids, sent: 0 };
+  }
+  const de = highlightNotifications(hits, 'de');
+  const en = highlightNotifications(hits, 'en');
+  const sr = highlightNotifications(hits, 'sr');
+  let delivered = 0;
+  for (let i = 0; i < de.length; i++) {
+    const ok = await deliver(db, cfg, log, { ...de[i], highlight: true, i18n: { en: { title: en[i].title, body: en[i].body }, sr: { title: sr[i].title, body: sr[i].body } } });
+    if (ok) delivered++;
+  }
+  log.info(
+    delivered
+      ? `Hervorgehoben: ${hits.length} neue Anzeige(n) in ausgewählten Städten ab ${setting.min} % gemeldet.`
+      : `${hits.length} neue Anzeige(n) in ausgewählten Städten ab ${setting.min} % – kein Gerät hat Benachrichtigungen erlaubt.`,
+  );
+  return { ids, sent: delivered ? hits.length : 0 };
+}
+
+/**
+ * Benachrichtigungen über neue Anzeigen dieses Laufs: zuerst die Treffer in den ausgewählten Städten
+ * (hervorgehoben), dann eine Sammelmeldung für die übrigen ab der allgemeinen Schwelle.
+ */
+export async function sendHighScoreAlert(db: Db, cfg: IngestConfig, log: RunLog, jobs: readonly NewJob[]): Promise<number> {
+  const highlighted = await sendHighlightAlerts(db, cfg, log, jobs).catch((e) => {
+    log.warn(`Hervorhebung: ${e instanceof Error ? e.message : String(e)}`);
+    return { ids: new Set<string>(), sent: 0 };
+  });
+  return highlighted.sent + (await sendDigest(db, cfg, log, highlighted.ids.size ? jobs.filter((j) => !highlighted.ids.has(j.id)) : jobs));
+}
+
 /** Eine Benachrichtigung für alle neuen Anzeigen dieses Laufs ab der eingestellten Schwelle. */
-export async function sendHighScoreAlert(db: Db, cfg: IngestConfig, log: RunLog, jobs: readonly { id: string; title: string; score: number }[]): Promise<number> {
+async function sendDigest(db: Db, cfg: IngestConfig, log: RunLog, jobs: readonly NewJob[]): Promise<number> {
   const setting = parseHighScoreAlert(await getSetting<unknown>(db, 'notifyHighScore', null));
   if (!setting.on) return 0;
   const digest = highScoreDigest(jobs, setting.min);

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { countActiveFilters, deckTier, todayBerlin, topReasons } from '@stellen/core';
 import { useAppState, useDeck, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
+import { highlightChip, highlightOf } from '../lib/highlight';
 import { deadlineOf, employerName, factChips, jobImage, laneLabel, placeLabel } from '../lib/format';
 import { useTestPhotos } from '../data/testPhotos';
 import { Polaroid } from '../ui/Polaroid';
@@ -177,6 +178,7 @@ function DeckCard({
   const why = view.lane.lane !== 'kern' ? (view.lane.reason ?? (view.lane.bridge ? bridgeText(view.lane.bridge) : null)) : null;
   const tilt = tiltOf(job.id);
   const top = depth === 0;
+  const hl = highlightOf(view, s);
 
   const baseTransform = top ? `rotate(${tilt}deg)` : `translateY(${depth * 10}px) scale(${1 - depth * 0.035}) rotate(${tilt}deg)`;
 
@@ -267,7 +269,7 @@ function DeckCard({
   return (
     <article
       ref={ref}
-      className={`card ${top ? 'card--top' : 'card--behind'} card--settle`}
+      className={`card ${top ? 'card--top' : 'card--behind'} card--settle ${hl ? 'card--highlight' : ''}`}
       style={{ ['--tilt' as string]: `${tilt}deg`, transform: top ? undefined : baseTransform, zIndex: 3 - depth }}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -313,8 +315,9 @@ function DeckCard({
         </div>
       )}
       <div className="card__body">
-        {(lane || job.newSite || job.dummy) && (
+        {(lane || job.newSite || job.dummy || hl) && (
           <p className="card__tags">
+            {hl && highlightChip(hl, s.settings.highlight.min)}
             {lane && <span className="lane-tag">{lane}</span>}
             {job.newSite && <span className="chip chip--neutral chip--tiny">{t.newSite}</span>}
             {job.dummy && <span className="chip chip--neutral chip--tiny chip--dummy">{t.demo}</span>}

@@ -1,6 +1,7 @@
 // Fristen-Erinnerungen für Herzensjobs (★).
 
 import { daysUntil, todayBerlin } from './dates';
+import { normalizeText } from './text';
 
 export const DEFAULT_REMINDER_DAYS = [30, 7, 1];
 
@@ -124,4 +125,84 @@ export function highScoreDigest(jobs: readonly { id: string; title: string; scor
         ? `${n} ${srForm(n, 'novi oglas', 'nova oglasa', 'novih oglasa')} od ${pct(min)}`
         : `${n} neue Anzeigen ab ${pct(min)}`;
   return { title, body: `${top.join('\n')}${more}`, url: '/#/alle', tag: 'neu-passend' };
+}
+
+// ---------------------------------------------------------------- Hervorhebung: ausgewählte Städte ab einer Schwelle
+
+/**
+ * Einstellung „highlight“: Anzeigen in diesen Städten, die mindestens zu `min` Prozent passen, werden in
+ * der App markiert und als neue Treffer einzeln (auffälliger als die Sammelmeldung) gemeldet.
+ */
+export interface HighlightSetting {
+  /** IDs aus der Städteliste; leer = Hervorhebung aus */
+  cities: string[];
+  min: number;
+  /** Neue Treffer auch als eigene Benachrichtigung */
+  push: boolean;
+}
+
+export const DEFAULT_HIGHLIGHT: HighlightSetting = { cities: [], min: 70, push: true };
+
+export function parseHighlight(raw: unknown): HighlightSetting {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<HighlightSetting>;
+  const cities = Array.isArray(r.cities) ? [...new Set(r.cities.filter((c): c is string => typeof c === 'string' && c.length > 0))] : [];
+  const min = typeof r.min === 'number' && r.min >= 0 && r.min <= 100 ? Math.round(r.min) : DEFAULT_HIGHLIGHT.min;
+  return { cities, min, push: typeof r.push === 'boolean' ? r.push : DEFAULT_HIGHLIGHT.push };
+}
+
+/**
+ * In welcher der ausgewählten Städte liegt eine Anzeige, die mindestens zu `min` Prozent passt?
+ * Gibt die Stadt-ID zurück, sonst null. Ist der Anzeige keine Stadt zugeordnet, zählt ihr Ortstext.
+ */
+export function highlightCity(
+  job: { cityId: string | null | undefined; locationText?: string | null; score: number },
+  setting: HighlightSetting,
+  cities: ReadonlyMap<string, { name: string }>,
+): string | null {
+  if (setting.cities.length === 0 || job.score < setting.min) return null;
+  if (job.cityId) return setting.cities.includes(job.cityId) ? job.cityId : null;
+  if (!job.locationText) return null;
+  const where = ` ${normalizeText(job.locationText)} `;
+  for (const id of setting.cities) {
+    const name = cities.get(id)?.name;
+    if (name && where.includes(` ${normalizeText(name)} `)) return id;
+  }
+  return null;
+}
+
+export interface HighlightHit {
+  id: string;
+  title: string;
+  score: number;
+  /** Anzeigename der Stadt */
+  city: string;
+}
+
+/**
+ * Benachrichtigungen für neue Treffer in den ausgewählten Städten: bis zu drei einzeln (je eine pro
+ * Anzeige, direkt zu ihr), bei mehr eine gebündelte mit den drei besten. Reihenfolge: beste zuerst.
+ */
+export function highlightNotifications(hits: readonly HighlightHit[], lang: UiLang = 'de'): { title: string; body: string; url: string; tag: string }[] {
+  if (hits.length === 0) return [];
+  const pct = (n: number) => (lang === 'de' ? `${n} %` : `${n}%`);
+  const sorted = [...hits].sort((a, b) => b.score - a.score);
+  if (sorted.length <= 3) {
+    return sorted.map((j) => ({
+      title: `📍 ${j.city}: ${lang === 'en' ? `new posting, ${pct(j.score)} match` : lang === 'sr' ? `novi oglas, poklapanje ${pct(j.score)}` : `neue Anzeige, passt zu ${pct(j.score)}`}`,
+      body: j.title,
+      url: `/#/stelle/${encodeURIComponent(j.id)}`,
+      tag: `hervorgehoben-${j.id}`,
+    }));
+  }
+  const n = sorted.length;
+  const title =
+    lang === 'en'
+      ? `📍 ${n} new postings in your cities`
+      : lang === 'sr'
+        ? `📍 ${n} ${srForm(n, 'novi oglas', 'nova oglasa', 'novih oglasa')} u tvojim gradovima`
+        : `📍 ${n} neue Anzeigen in deinen Städten`;
+  const top = sorted.slice(0, 3).map((j) => `${pct(j.score)} · ${j.city} · ${j.title}`);
+  const rest = n - 3;
+  const more = `\n… ${lang === 'en' ? `and ${rest} more` : lang === 'sr' ? `i još ${rest}` : `und ${rest} weitere`}`;
+  return [{ title, body: `${top.join('\n')}${more}`, url: '/#/alle', tag: 'hervorgehoben' }];
 }

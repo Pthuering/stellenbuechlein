@@ -853,6 +853,16 @@ button.hearts {
   text-decoration-color: var(--primary);
 }
 
+/* Hervorgehoben (Wunschstadt ab Schwelle): zarter Grund und Leiste links */
+.row--highlight {
+  background: color-mix(in srgb, var(--primary-soft) 60%, transparent);
+  box-shadow: inset 3px 0 0 var(--primary-strong);
+}
+
+.card--highlight {
+  border: 2.5px solid var(--primary-strong);
+}
+
 .list-more {
   display: flex;
   justify-content: center;

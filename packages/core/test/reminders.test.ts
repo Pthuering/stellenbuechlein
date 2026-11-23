@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_HIGH_SCORE_ALERT, highScoreDigest, parseHighScoreAlert, reminderText, srForm } from '../src/reminders';
+import { DEFAULT_HIGH_SCORE_ALERT, DEFAULT_HIGHLIGHT, highlightCity, highlightNotifications, highScoreDigest, parseHighlight, parseHighScoreAlert, reminderText, srForm } from '../src/reminders';
 
 describe('Benachrichtigungen', () => {
   it('Fristen-Text', () => {
@@ -45,5 +45,55 @@ describe('Benachrichtigungen', () => {
     expect(parseHighScoreAlert(null)).toEqual(DEFAULT_HIGH_SCORE_ALERT);
     expect(parseHighScoreAlert({ on: false, min: 92 })).toEqual({ on: false, min: 92 });
     expect(parseHighScoreAlert({ on: true, min: 7 }).min).toBe(DEFAULT_HIGH_SCORE_ALERT.min);
+  });
+});
+
+describe('Wunschstädte hervorheben', () => {
+  const cities = new Map([
+    ['leipzig', { name: 'Leipzig' }],
+    ['frankfurt-main', { name: 'Frankfurt am Main' }],
+  ]);
+  const setting = { cities: ['leipzig', 'frankfurt-main'], min: 70, push: true };
+
+  it('Einstellung mit Standardwerten', () => {
+    expect(parseHighlight(null)).toEqual(DEFAULT_HIGHLIGHT);
+    expect(parseHighlight({ cities: ['leipzig', 'leipzig', 3, ''], min: 64.6, push: false })).toEqual({ cities: ['leipzig'], min: 65, push: false });
+    expect(parseHighlight({ min: 140 }).min).toBe(DEFAULT_HIGHLIGHT.min);
+  });
+
+  it('Stadt und Schwelle', () => {
+    expect(highlightCity({ cityId: 'leipzig', score: 70 }, setting, cities)).toBe('leipzig');
+    expect(highlightCity({ cityId: 'leipzig', score: 69 }, setting, cities)).toBeNull();
+    expect(highlightCity({ cityId: 'dresden', score: 95, locationText: 'Leipzig' }, setting, cities)).toBeNull();
+    expect(highlightCity({ cityId: 'leipzig', score: 95 }, { ...setting, cities: [] }, cities)).toBeNull();
+  });
+
+  it('ohne Stadt zählt der Ortstext als ganzes Wort', () => {
+    expect(highlightCity({ cityId: null, locationText: '04109 Leipzig, Sachsen', score: 80 }, setting, cities)).toBe('leipzig');
+    expect(highlightCity({ cityId: null, locationText: 'Frankfurt am Main', score: 80 }, setting, cities)).toBe('frankfurt-main');
+    expect(highlightCity({ cityId: null, locationText: 'Frankfurt (Oder)', score: 80 }, setting, cities)).toBeNull();
+    expect(highlightCity({ cityId: null, locationText: 'Leipziger Land', score: 80 }, setting, cities)).toBeNull();
+  });
+
+  it('bis zu drei einzeln, mehr gebündelt', () => {
+    const hits = [
+      { id: 'a', title: 'Wiss. Mitarbeiter:in', score: 72, city: 'Leipzig' },
+      { id: 'b', title: 'Doktorand:in', score: 91, city: 'Frankfurt am Main' },
+    ];
+    const two = highlightNotifications(hits);
+    expect(two).toHaveLength(2);
+    expect(two[0]).toEqual({ title: '📍 Frankfurt am Main: neue Anzeige, passt zu 91 %', body: 'Doktorand:in', url: '/#/stelle/b', tag: 'hervorgehoben-b' });
+    expect(highlightNotifications(hits, 'en')[1].title).toBe('📍 Leipzig: new posting, 72% match');
+    expect(highlightNotifications(hits, 'sr')[1].title).toBe('📍 Leipzig: novi oglas, poklapanje 72%');
+
+    const five = [...hits, ...['c', 'd', 'e'].map((id, i) => ({ id, title: `Stelle ${id}`, score: 80 + i, city: 'Leipzig' }))];
+    const bundle = highlightNotifications(five);
+    expect(bundle).toHaveLength(1);
+    expect(bundle[0].title).toBe('📍 5 neue Anzeigen in deinen Städten');
+    expect(bundle[0].url).toBe('/#/alle');
+    expect(bundle[0].body.split('\n')[0]).toBe('91 % · Frankfurt am Main · Doktorand:in');
+    expect(bundle[0].body).toMatch(/und 2 weitere$/);
+    expect(highlightNotifications(five, 'sr')[0].title).toBe('📍 5 novih oglasa u tvojim gradovima');
+    expect(highlightNotifications([])).toEqual([]);
   });
 });

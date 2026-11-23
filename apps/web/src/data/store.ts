@@ -9,10 +9,12 @@ import {
   DEFAULT_HOME,
   DEFAULT_GATE_TERMS,
   DEFAULT_HIGH_SCORE_ALERT,
+  DEFAULT_HIGHLIGHT,
   DEFAULT_REMINDER_DAYS,
   parseFreigabe,
   parseDeckOrder,
   parseHighScoreAlert,
+  parseHighlight,
   parseProfile,
   parseUmfrage,
   starterProfile,
@@ -22,6 +24,7 @@ import {
   type Favorite,
   type FavoriteKind,
   type HighScoreAlert,
+  type HighlightSetting,
   type HomeLocation,
   type Institution,
   type Job,
@@ -61,6 +64,8 @@ export interface Settings {
   reminders: { days: number[]; push: boolean };
   /** Benachrichtigung, wenn ein Lauf neue Anzeigen ab min Prozent bringt */
   notifyHighScore: HighScoreAlert;
+  /** Anzeigen in ausgewählten Städten ab min Prozent hervorheben (Liste, Stapel, Anzeige, Benachrichtigung) */
+  highlight: HighlightSetting;
   gateTerms: string[];
   sort: { all: SortKey; saved: SavedSort };
   /** Reihenfolge im Stapel: gut passende zuerst, nahe Fristen zuerst */
@@ -82,6 +87,7 @@ export function defaultSettings(): Settings {
     home: DEFAULT_HOME,
     reminders: { days: DEFAULT_REMINDER_DAYS, push: true },
     notifyHighScore: DEFAULT_HIGH_SCORE_ALERT,
+    highlight: DEFAULT_HIGHLIGHT,
     gateTerms: DEFAULT_GATE_TERMS,
     sort: { all: 'empfohlen', saved: 'frist' },
     deck: DEFAULT_DECK_ORDER,
@@ -100,6 +106,7 @@ function settingsFrom(raw: Record<string, unknown>, base = defaultSettings()): S
   if (raw.home && typeof raw.home === 'object' && typeof (raw.home as HomeLocation).lat === 'number') s.home = raw.home as HomeLocation;
   if (raw.reminders && typeof raw.reminders === 'object') s.reminders = { ...s.reminders, ...(raw.reminders as Settings['reminders']) };
   if (raw.notifyHighScore !== undefined) s.notifyHighScore = parseHighScoreAlert(raw.notifyHighScore);
+  if (raw.highlight !== undefined) s.highlight = parseHighlight(raw.highlight);
   if (Array.isArray(raw.gateTerms) && raw.gateTerms.length) s.gateTerms = raw.gateTerms as string[];
   if (raw.sort && typeof raw.sort === 'object') s.sort = { ...s.sort, ...(raw.sort as Settings['sort']) };
   if (raw.ui && typeof raw.ui === 'object') s.ui = { ...s.ui, ...(raw.ui as Settings['ui']) };

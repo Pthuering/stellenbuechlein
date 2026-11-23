@@ -21,6 +21,8 @@ interface PushPayload {
   body: string;
   url: string;
   tag?: string;
+  /** Treffer in einer ausgewählten Stadt: bleibt stehen, bis er angetippt wird, und meldet sich auch bei gleichem Tag erneut. */
+  highlight?: boolean;
   /** Übersetzungen (en, sr); Deutsch steht in title/body. */
   i18n?: Record<string, { title?: string; body?: string } | undefined>;
 }
@@ -47,13 +49,16 @@ self.addEventListener('push', (event: PushEvent) => {
   event.waitUntil(
     (async () => {
       const t = data.i18n?.[await deviceLang()];
-      await self.registration.showNotification(t?.title ?? data.title, {
+      // renotify und vibrate fehlen in den TypeScript-Typen, die Browser kennen sie aber.
+      const options: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
         body: t?.body ?? data.body,
         icon: inScope('icons/icon-192.png'),
         badge: inScope('icons/badge-96.png'),
         tag: data.tag,
         data: { url: inScope(data.url) },
-      });
+        ...(data.highlight ? { requireInteraction: true, renotify: !!data.tag, vibrate: [200, 100, 200] } : {}),
+      };
+      await self.registration.showNotification(t?.title ?? data.title, options);
     })(),
   );
 });
