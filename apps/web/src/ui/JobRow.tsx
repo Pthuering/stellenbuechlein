@@ -3,7 +3,7 @@
 
 import { useAppState, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
-import { highlightChip, highlightOf } from '../lib/highlight';
+import { alertChip } from '../lib/savedFilters';
 import { deadlineOf, employerName, shortDate } from '../lib/format';
 import { IconHeart, IconStar } from './icons';
 import { fmtKm, texts } from '../i18n';
@@ -70,7 +70,7 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
   const expired = job.status === 'abgelaufen' || !!dl?.past;
   const where = [employerName(job, inst, true), city?.name ?? job.locationText, v.place.distanceKm != null ? fmtKm(v.place.distanceKm) : null].filter(Boolean).join(', ');
   const lane = v.lane.lane === 'horizont' || v.lane.lane === 'weite' ? laneName(v.lane.lane) : null;
-  const hl = highlightOf(v, s);
+  const hl = v.alerts.length > 0;
 
   return (
     <li
@@ -104,7 +104,7 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
         <p className="row__sub">{where}</p>
         {(showDecision && rejected) || mark?.appliedAt || v.favorite || lane || job.newSite || job.dummy || hl ? (
           <p className="row__tags">
-            {hl && highlightChip(hl, s.settings.highlight.min)}
+            {alertChip(v.alerts)}
             {v.favorite && <span className="chip chip--primary chip--tiny">{t.favorite}</span>}
             {lane && <span className="lane-tag lane-tag--tiny">{lane}</span>}
             {job.newSite && <span className="chip chip--neutral chip--tiny">{t.newSite}</span>}

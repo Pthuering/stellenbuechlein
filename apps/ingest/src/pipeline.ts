@@ -385,7 +385,7 @@ export class Pipeline {
       }
       if (this.opts.reminders !== false) {
         this.bump('erinnerungen', await sendReminders(this.db, this.cfg, this.log, this.today));
-        this.bump('benachrichtigtNeu', await sendHighScoreAlert(this.db, this.cfg, this.log, this.newScored));
+        this.bump('benachrichtigtNeu', await sendHighScoreAlert(this.db, this.cfg, this.log, this.newScored, this.now));
       }
       ok = true;
     } catch (e) {

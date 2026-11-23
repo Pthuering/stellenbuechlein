@@ -26,6 +26,10 @@ const waiting = async (page: Page): Promise<number> => {
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 // Die Prüfungen klicken auf deutsche Texte; Englisch und Serbisch kommen am Ende dran.
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, locale: 'de-DE' });
+// Ohne Wahl startet die App auf Serbisch; die Prüfungen brauchen Deutsch (später gewählte Sprachen bleiben)
+await page.addInitScript(() => {
+  if (localStorage.getItem('sb.lang') == null) localStorage.setItem('sb.lang', JSON.stringify('de'));
+});
 const errors: string[] = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));

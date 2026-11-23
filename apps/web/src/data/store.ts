@@ -9,13 +9,13 @@ import {
   DEFAULT_HOME,
   DEFAULT_GATE_TERMS,
   DEFAULT_HIGH_SCORE_ALERT,
-  DEFAULT_HIGHLIGHT,
   DEFAULT_REMINDER_DAYS,
   parseFreigabe,
   parseDeckOrder,
   parseHighScoreAlert,
-  parseHighlight,
+  parseFilter,
   parseProfile,
+  parseSavedFilters,
   parseUmfrage,
   starterProfile,
   type City,
@@ -24,12 +24,12 @@ import {
   type Favorite,
   type FavoriteKind,
   type HighScoreAlert,
-  type HighlightSetting,
   type HomeLocation,
   type Institution,
   type Job,
   type JobFilter,
   type ProfilFreigabe,
+  type SavedFilter,
   type Mark,
   type RunInfo,
   type SortKey,
@@ -64,8 +64,8 @@ export interface Settings {
   reminders: { days: number[]; push: boolean };
   /** Benachrichtigung, wenn ein Lauf neue Anzeigen ab min Prozent bringt */
   notifyHighScore: HighScoreAlert;
-  /** Anzeigen in ausgewählten Städten ab min Prozent hervorheben (Liste, Stapel, Anzeige, Benachrichtigung) */
-  highlight: HighlightSetting;
+  /** Gespeicherte Filter, im Stapel und in der Liste anwendbar; mit Push meldet das Einsammeln neue Treffer */
+  savedFilters: SavedFilter[];
   gateTerms: string[];
   sort: { all: SortKey; saved: SavedSort };
   /** Reihenfolge im Stapel: gut passende zuerst, nahe Fristen zuerst */
@@ -87,7 +87,7 @@ export function defaultSettings(): Settings {
     home: DEFAULT_HOME,
     reminders: { days: DEFAULT_REMINDER_DAYS, push: true },
     notifyHighScore: DEFAULT_HIGH_SCORE_ALERT,
-    highlight: DEFAULT_HIGHLIGHT,
+    savedFilters: [],
     gateTerms: DEFAULT_GATE_TERMS,
     sort: { all: 'empfohlen', saved: 'frist' },
     deck: DEFAULT_DECK_ORDER,
@@ -102,11 +102,12 @@ function settingsFrom(raw: Record<string, unknown>, base = defaultSettings()): S
   const s = { ...base };
   const profile = parseProfile(raw.profile);
   if (profile) s.profile = profile;
-  if (raw.filter && typeof raw.filter === 'object') s.filter = { ...DEFAULT_FILTER, ...(raw.filter as Partial<JobFilter>) };
+  if (raw.filter && typeof raw.filter === 'object') s.filter = parseFilter(raw.filter);
   if (raw.home && typeof raw.home === 'object' && typeof (raw.home as HomeLocation).lat === 'number') s.home = raw.home as HomeLocation;
   if (raw.reminders && typeof raw.reminders === 'object') s.reminders = { ...s.reminders, ...(raw.reminders as Settings['reminders']) };
   if (raw.notifyHighScore !== undefined) s.notifyHighScore = parseHighScoreAlert(raw.notifyHighScore);
-  if (raw.highlight !== undefined) s.highlight = parseHighlight(raw.highlight);
+  // Ohne gespeicherte Filter werden Wunschstädte aus der alten Einstellung „highlight“ zu einem gespeicherten Filter
+  if (raw.savedFilters !== undefined || raw.highlight !== undefined) s.savedFilters = parseSavedFilters(raw.savedFilters, raw.highlight);
   if (Array.isArray(raw.gateTerms) && raw.gateTerms.length) s.gateTerms = raw.gateTerms as string[];
   if (raw.sort && typeof raw.sort === 'object') s.sort = { ...s.sort, ...(raw.sort as Settings['sort']) };
   if (raw.ui && typeof raw.ui === 'object') s.ui = { ...s.ui, ...(raw.ui as Settings['ui']) };

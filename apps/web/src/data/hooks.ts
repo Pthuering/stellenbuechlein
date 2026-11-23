@@ -24,6 +24,7 @@ import {
   type JobPlace,
   type LaneInfo,
   type Mark,
+  type SavedFilter,
   type ScoreResult,
   type SortKey,
   type Suchprofil,
@@ -52,6 +53,8 @@ export interface JobView {
   norm: string;
   /** Ring mit dem aktuellen Profil: Kern, Horizont (Brücke) oder Weite */
   lane: LaneInfo;
+  /** Gespeicherte Filter mit Push, zu denen die Anzeige passt (Marke in Liste, Stapel und Anzeige) */
+  alerts: SavedFilter[];
 }
 
 // Normalisierter Suchtext pro Anzeigen-Objekt (ändert sich nur, wenn die Anzeige neu geladen wird)
@@ -98,28 +101,34 @@ export function useViews(): Map<string, JobView> {
   return useMemo(() => {
     const favKeys = favoriteKeySet(s.favorites);
     const h = horizontOf(s.settings.profile);
+    const pushFilters = s.settings.savedFilters.filter((f) => f.push);
+    const today = todayBerlin();
     const out = new Map<string, JobView>();
     for (const job of s.jobs.values()) {
       const place = placeOf(job, geo);
+      const score = scoreOf(job, s.settings.profile);
+      const norm = normOf(job);
+      const lane = laneFor(job, s.settings.profile, h);
       out.set(job.id, {
         job,
         place,
-        score: scoreOf(job, s.settings.profile),
+        score,
         favorite: isFavoritePlace(job, place, favKeys),
         mark: s.marks.get(job.id),
-        norm: normOf(job),
-        lane: laneFor(job, s.settings.profile, h),
+        norm,
+        lane,
+        alerts: pushFilters.length ? pushFilters.filter((f) => passesFilter(job, f.filter, place, geo, norm, today, lane.lane, score.score)) : [],
       });
     }
     return out;
     // rev deckt Anzeigen, Markierungen und Lieblingsorte ab
-  }, [s.rev, s.jobs, s.marks, s.favorites, s.settings.profile, geo]);
+  }, [s.rev, s.jobs, s.marks, s.favorites, s.settings.profile, s.settings.savedFilters, geo]);
 }
 
 export function filterViews(views: Iterable<JobView>, filter: JobFilter, geo: GeoContext, today = todayBerlin()): JobView[] {
   const out: JobView[] = [];
   for (const v of views) {
-    if (passesFilter(v.job, filter, v.place, geo, v.norm, today, v.lane.lane)) out.push(v);
+    if (passesFilter(v.job, filter, v.place, geo, v.norm, today, v.lane.lane, v.score.score)) out.push(v);
   }
   return out;
 }

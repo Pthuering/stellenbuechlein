@@ -15,6 +15,7 @@ export * from './umfrage';
 export * from './dedup';
 export * from './geo';
 export * from './filters';
+export * from './savedFilters';
 export * from './reminders';
 export * from './summary';
 export * from './aiCost';

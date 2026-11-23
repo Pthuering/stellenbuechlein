@@ -128,6 +128,10 @@ const DE = {
   fLanes: (s: string) => `Ringe ${s}`,
   fNewSites: 'nur neue Websites',
   fText: (s: string) => `Suchtext „${s}“`,
+  fCities: (s: string) => `Städte ${s}`,
+  fMinScore: (pct: number) => `Passung ab ${pct} %`,
+  fMinTerm: (years: number) => `Vertragsdauer mindestens ${years} ${years === 1 ? 'Jahr' : 'Jahre'} (unbefristet zählt mit)`,
+  fTermUnknown: 'auch Anzeigen ohne Angabe zur Dauer',
 };
 
 const t = texts({
@@ -190,6 +194,10 @@ const t = texts({
     fLanes: (s) => `rings ${s}`,
     fNewSites: 'new websites only',
     fText: (s) => `search text “${s}”`,
+    fCities: (s) => `cities ${s}`,
+    fMinScore: (pct) => `match from ${pct}%`,
+    fMinTerm: (years) => `contract at least ${years} ${years === 1 ? 'year' : 'years'} (permanent counts)`,
+    fTermUnknown: 'also postings that say nothing about the duration',
   },
   sr: {
     invalidArgs: (tool) => `${tool}: nevažeći argumenti`,
@@ -249,6 +257,10 @@ const t = texts({
     fLanes: (s) => `prstenovi ${s}`,
     fNewSites: 'samo novi sajtovi',
     fText: (s) => `tekst pretrage „${s}“`,
+    fCities: (s) => `gradovi ${s}`,
+    fMinScore: (pct) => `poklapanje od ${pct}%`,
+    fMinTerm: (years) => `ugovor najmanje ${years} ${srForm(years, 'godina', 'godine', 'godina')} (neodređeno se računa)`,
+    fTermUnknown: 'i oglasi bez podatka o trajanju',
   },
 });
 
@@ -475,7 +487,7 @@ function select(a: Record<string, unknown>, snap: Snapshot, today: string): JobV
       const hay = normalizeText(`${cityOf(v, snap) ?? ''} ${v.job.locationText ?? ''}`);
       if (!staedte.some((c) => hay.includes(c))) return false;
     }
-    return passesFilter(v.job, f, v.place, snap.geo, v.norm, today, v.lane.lane);
+    return passesFilter(v.job, f, v.place, snap.geo, v.norm, today, v.lane.lane, v.score.score);
   });
 }
 
@@ -789,19 +801,24 @@ export function applyProposal(store: Store, v: Vorschlag): string {
 const DATE_LONG = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Berlin' });
 
 /** Filter in Worten. Für die Karte in der Sprache der Oberfläche; mit forAi = true deutsch für den Kontext der KI. */
-export function filterText(f: JobFilter, forAi = false): string {
+/** Filter in Worten; cityName macht aus Stadt-IDs Namen. */
+export function filterText(f: JobFilter, forAi = false, cityName: (id: string) => string = (id) => id): string {
   const d = forAi ? DE : t;
   if (countActiveFilters(f) === 0) return d.noFilter;
   const kind = (k: JobKind) => (forAi ? JOB_KIND_LABELS[k] : jobKindLabel(k));
   const instKind = (k: InstitutionKind) => (forAi ? INSTITUTION_KIND_LABELS[k] : institutionKindLabel(k));
   return [
     f.radiusKm != null ? d.fRadius(f.radiusKm) : '',
+    f.cities?.length ? d.fCities(f.cities.map(cityName).join(', ')) : '',
+    f.minScore != null ? d.fMinScore(f.minScore) : '',
     f.states.length ? d.fStates(f.states.join(', ')) : '',
     f.kinds.length ? d.fKinds(f.kinds.map(kind).join(', ')) : '',
     f.institutionKinds.length ? d.fInstKinds(f.institutionKinds.map(instKind).join(', ')) : '',
     f.payMin != null ? d.fPay(f.payMin) : '',
     f.workloadMin != null ? d.fWorkload(f.workloadMin) : '',
     f.permanentOnly ? d.fPermanent : '',
+    !f.permanentOnly && f.minTermYears != null ? d.fMinTerm(f.minTermYears) : '',
+    (f.permanentOnly || f.minTermYears != null) && f.termUnknown ? d.fTermUnknown : '',
     f.minDaysLeft != null ? d.fDaysLeft(f.minDaysLeft) : '',
     // Die KI bekommt die Werte ihrer Werkzeuge (kern, horizont, weite), die Karte die Namen
     f.lanes.length ? d.fLanes((forAi ? f.lanes : f.lanes.map(laneName)).join(', ')) : '',
@@ -858,7 +875,7 @@ export function turnContext(snap: Snapshot, conv: Pick<Conversation, 'jobId' | '
     `Heute ist ${DATE_LONG.format(new Date())} (${today}, deutsche Zeit).`,
     `Daten in der App: ${open} offene Anzeigen (Kern ${lanes.kern}, Horizont ${lanes.horizont}, Weite ${lanes.weite}), davon ${neu} in den letzten 7 Tagen entdeckt. Letzter Einsammel-Lauf: ${lastRun ? relativeTime(lastRun.finishedAt ?? lastRun.startedAt) : 'noch keiner'}.`,
     `Markierungen: ${gemerkt} gemerkt (${gemerktOffen} noch offen, davon ${baldFrist} mit Frist in den nächsten 14 Tagen), ${herz} Herzensjobs, ${beworben} beworben, ${weg} weggelegt.`,
-    `Filter im Stapel: ${filterText(s.settings.filter, true)}.`,
+    `Filter im Stapel: ${filterText(s.settings.filter, true, (id) => s.cities.get(id)?.name ?? id)}.`,
     `Lieblingsorte (stehen im Stapel oben): ${favs.join(', ') || 'keine'}.`,
   ];
   if (conv.entscheidungen.length) lines.push(`Seit der letzten Antwort hat die Person über deine Vorschläge entschieden: ${conv.entscheidungen.join('; ')}.`);

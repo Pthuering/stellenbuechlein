@@ -6,7 +6,7 @@ import { useAppState, useStore, useViews, type JobView } from '../data/hooks';
 import { closeOverlay, leaveOverlayTo } from '../lib/router';
 import { deadlineCheckText, deadlineOf, employerName, jobImage, laneLabel, shortDate, unknownPlace } from '../lib/format';
 import { setIntent } from '../lib/intent';
-import { highlightChip, highlightOf } from '../lib/highlight';
+import { alertChip } from '../lib/savedFilters';
 import { useTestPhotos } from '../data/testPhotos';
 import { renderMarkdown } from '../lib/markdown';
 import { Sheet } from '../ui/Sheet';
@@ -468,10 +468,7 @@ export function JobDetail({ id }: { id: string }) {
         <IconPin width={16} height={16} /> {city?.name ?? job.locationText ?? unknownPlace()}
         {inst && <span className="chip">{institutionKindLabel(inst.kind)}</span>}
         {job.status === 'abgelaufen' && <span className="chip chip--neutral">{t.expired}</span>}
-        {(() => {
-          const hl = highlightOf(v, s);
-          return hl ? highlightChip(hl, s.settings.highlight.min, 'normal') : null;
-        })()}
+        {alertChip(v.alerts, 'normal')}
       </p>
 
       <div className="detail-actions">

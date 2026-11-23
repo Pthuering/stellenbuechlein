@@ -952,6 +952,47 @@ export function reminderSentStmt(jobId: string, days: number, now = nowIso()): S
   return { sql: 'INSERT OR IGNORE INTO reminders_sent (job_id, days, sent_at) VALUES (?, ?, ?)', params: [jobId, days, now] };
 }
 
+/** Schon gemeldete Treffer gespeicherter Filter, als „filterId:jobId“. */
+export async function filterAlertsSent(db: Db, filterIds: readonly string[]): Promise<Set<string>> {
+  if (filterIds.length === 0) return new Set();
+  const rows = await db.all<{ filter_id: string; job_id: string }>(
+    'SELECT filter_id, job_id FROM filter_alerts_sent WHERE filter_id IN (SELECT value FROM json_each(?))',
+    [JSON.stringify(filterIds)],
+  );
+  return new Set(rows.map((r) => `${r.filter_id}:${r.job_id}`));
+}
+
+export function filterAlertSentStmt(filterId: string, jobId: string, now = nowIso()): Stmt {
+  return { sql: 'INSERT OR IGNORE INTO filter_alerts_sent (filter_id, job_id, sent_at) VALUES (?, ?, ?)', params: [filterId, jobId, now] };
+}
+
+/** Räumt alte Einträge weg: Was vor diesem Zeitpunkt gemeldet wurde, ist längst nicht mehr neu genug für eine Meldung. */
+export function pruneFilterAlertsStmt(olderThanIso: string): Stmt {
+  return { sql: 'DELETE FROM filter_alerts_sent WHERE sent_at < ?', params: [olderThanIso] };
+}
+
+/**
+ * Offene Anzeigen (aktiv, Frist nicht vorbei), die seit dem Zeitpunkt zum ersten Mal gefunden wurden.
+ * In Seiten geladen: Nach einem großen Durchlauf sind das Tausende samt Text, zu viel für eine Antwort des Workers.
+ */
+export async function listRecentOpenJobs(db: Db, sinceIso: string, today: string, pageSize = 200): Promise<Job[]> {
+  const out: Job[] = [];
+  let after: { seen: string; id: string } | null = null;
+  for (;;) {
+    const rows: JobRow[] = await db.all<JobRow>(
+      `SELECT ${JOB_COLUMNS.join(', ')} FROM jobs
+       WHERE status = 'aktiv' AND first_seen_at >= ? AND (deadline IS NULL OR deadline >= ?)
+         ${after ? 'AND (first_seen_at > ? OR (first_seen_at = ? AND id > ?))' : ''}
+       ORDER BY first_seen_at, id LIMIT ?`,
+      after ? [sinceIso, today, after.seen, after.seen, after.id, pageSize] : [sinceIso, today, pageSize],
+    );
+    for (const r of rows) out.push(rowToJob(r));
+    if (rows.length < pageSize) return out;
+    const last = rows[rows.length - 1];
+    after = { seen: last.first_seen_at, id: last.id };
+  }
+}
+
 // ------------------------------------------------------------------ Läufe
 
 export async function startRun(db: Db, now = nowIso()): Promise<number> {

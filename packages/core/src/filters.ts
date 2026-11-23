@@ -1,7 +1,9 @@
 // Filter und Sortierung – vom Nutzer gesetzt, nie automatisch aus dem Steckbrief.
 
 import { daysUntil } from './dates';
+import { termOfText } from './fields';
 import { distanceKm } from './geo';
+import { normalizeText } from './text';
 import type { City, Favorite, HomeLocation, Institution, InstitutionKind, Job, JobKind, Lane, StateCode } from './types';
 
 export interface JobFilter {
@@ -20,6 +22,14 @@ export interface JobFilter {
   /** Nur Anzeigen von Websites, die beim Fund noch nicht im Register standen. */
   newSitesOnly: boolean;
   text: string;
+  /** Nur diese Städte (IDs aus der Städteliste, leer = alle). Ohne zugeordnete Stadt zählt der Ortstext. */
+  cities: string[];
+  /** Passung mindestens so viele Prozent; null = egal */
+  minScore: number | null;
+  /** Vertragsdauer mindestens so viele Jahre; unbefristete Stellen zählen mit. null = egal */
+  minTermYears: number | null;
+  /** Bei „nur unbefristet“ oder einer Mindestdauer auch Anzeigen zeigen, die zur Dauer nichts sagen */
+  termUnknown: boolean;
 }
 
 export const DEFAULT_FILTER: JobFilter = {
@@ -34,11 +44,67 @@ export const DEFAULT_FILTER: JobFilter = {
   lanes: [],
   newSitesOnly: false,
   text: '',
+  cities: [],
+  minScore: null,
+  minTermYears: null,
+  termUnknown: false,
 };
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && x.length > 0))] : []);
+const numOrNull = (v: unknown, min: number, max: number): number | null => (typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : null);
+
+/** Filter aus gespeicherten Daten; fehlende oder kaputte Werte bekommen den Standard. */
+export function parseFilter(raw: unknown): JobFilter {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_FILTER };
+  const r = raw as Record<string, unknown>;
+  return {
+    radiusKm: numOrNull(r.radiusKm, 1, 2000),
+    states: strings(r.states) as StateCode[],
+    kinds: strings(r.kinds) as JobKind[],
+    institutionKinds: strings(r.institutionKinds) as InstitutionKind[],
+    payMin: numOrNull(r.payMin, 1, 20),
+    workloadMin: numOrNull(r.workloadMin, 1, 100),
+    permanentOnly: r.permanentOnly === true,
+    minDaysLeft: numOrNull(r.minDaysLeft, 0, 365),
+    lanes: strings(r.lanes) as Lane[],
+    newSitesOnly: r.newSitesOnly === true,
+    text: typeof r.text === 'string' ? r.text : '',
+    cities: strings(r.cities),
+    minScore: numOrNull(r.minScore, 1, 100),
+    minTermYears: numOrNull(r.minTermYears, 0.5, 10),
+    termUnknown: r.termUnknown === true,
+  };
+}
+
+/** Gleiche Kriterien (Reihenfolge in Listen egal, Leerzeichen im Suchtext auch)? */
+export function sameFilter(a: JobFilter, b: JobFilter): boolean {
+  const set = (x: readonly string[]) => [...x].sort().join('\u0000');
+  return (
+    a.radiusKm === b.radiusKm &&
+    set(a.states) === set(b.states) &&
+    set(a.kinds) === set(b.kinds) &&
+    set(a.institutionKinds) === set(b.institutionKinds) &&
+    a.payMin === b.payMin &&
+    a.workloadMin === b.workloadMin &&
+    a.permanentOnly === b.permanentOnly &&
+    a.minDaysLeft === b.minDaysLeft &&
+    set(a.lanes ?? []) === set(b.lanes ?? []) &&
+    !!a.newSitesOnly === !!b.newSitesOnly &&
+    a.text.trim() === b.text.trim() &&
+    set(a.cities ?? []) === set(b.cities ?? []) &&
+    (a.minScore ?? null) === (b.minScore ?? null) &&
+    (a.minTermYears ?? null) === (b.minTermYears ?? null) &&
+    // „auch ohne Angabe“ zählt nur, wenn nach der Dauer gefiltert wird
+    (!(a.permanentOnly || a.minTermYears != null) || !!a.termUnknown === !!b.termUnknown)
+  );
+}
 
 export function countActiveFilters(f: JobFilter): number {
   let n = 0;
   if (f.radiusKm != null) n++;
+  if (f.cities?.length) n++;
+  if (f.minScore != null) n++;
+  if (f.minTermYears != null) n++;
   if (f.states.length) n++;
   if (f.kinds.length) n++;
   if (f.institutionKinds.length) n++;
@@ -86,10 +152,14 @@ export function passesFilter(
   today: string,
   /** Ring mit dem aktuellen Profil (laneOf); ohne Angabe gilt der Ring vom Einsammeln. */
   lane?: Lane,
+  /** Passung mit dem aktuellen Profil; ohne Angabe greift „Passung mindestens“ nicht. */
+  score?: number,
 ): boolean {
   if (f.lanes?.length && !f.lanes.includes(lane ?? job.lane ?? 'kern')) return false;
   if (f.newSitesOnly && !job.newSite) return false;
+  if (f.minScore != null && score != null && score < f.minScore) return false;
   if (f.radiusKm != null && (place.distanceKm == null || place.distanceKm > f.radiusKm)) return false;
+  if (f.cities?.length && !inCities(job, place, f.cities, ctx)) return false;
   if (f.states.length && (!place.state || !f.states.includes(place.state))) return false;
   if (f.kinds.length && (!job.kind || !f.kinds.includes(job.kind))) return false;
   if (f.institutionKinds.length) {
@@ -98,7 +168,7 @@ export function passesFilter(
   }
   if (f.payMin != null && job.payLevel != null && job.payLevel < f.payMin) return false;
   if (f.workloadMin != null && job.workloadPct != null && job.workloadPct < f.workloadMin) return false;
-  if (f.permanentOnly && job.isPermanent !== true) return false;
+  if ((f.permanentOnly || f.minTermYears != null) && !passesTerm(termOf(job, today), f)) return false;
   if (f.minDaysLeft != null) {
     const d = daysUntil(job.deadline, today);
     if (d != null && d < f.minDaysLeft) return false;
@@ -117,6 +187,36 @@ export function passesFilter(
     if (!words.every((w) => hay.includes(w))) return false;
   }
   return true;
+}
+
+/**
+ * Vertragsdauer einer Anzeige: unbefristet laut Regel (isPermanent) oder laut Text zur Befristung, der auch von
+ * der KI kommen kann; sonst die Dauer in Monaten (null = befristet, Dauer unbekannt). null = keine Angabe.
+ */
+export function termOf(job: Pick<Job, 'fixedTerm' | 'isPermanent'>, today: string): { permanent: boolean; months: number | null } | null {
+  if (job.isPermanent === true) return { permanent: true, months: null };
+  const fromText = termOfText(job.fixedTerm, today);
+  if (fromText) return fromText;
+  return job.isPermanent === false ? { permanent: false, months: null } : null;
+}
+
+function passesTerm(term: ReturnType<typeof termOf>, f: JobFilter): boolean {
+  const unknown = term == null || (!term.permanent && term.months == null);
+  if (term?.permanent) return true;
+  if (f.permanentOnly) return term == null && f.termUnknown;
+  if (unknown) return f.termUnknown;
+  return term!.months! >= (f.minTermYears ?? 0) * 12;
+}
+
+/** Liegt die Anzeige in einer der Städte? Mit zugeordneter Stadt (auch über die Einrichtung) zählt diese, sonst der Ortstext. */
+function inCities(job: Pick<Job, 'locationText'>, place: JobPlace, ids: readonly string[], ctx: GeoContext): boolean {
+  if (place.cityId) return ids.includes(place.cityId);
+  if (!job.locationText) return false;
+  const where = ` ${normalizeText(job.locationText)} `;
+  return ids.some((id) => {
+    const name = ctx.cities.get(id)?.name;
+    return !!name && where.includes(` ${normalizeText(name)} `);
+  });
 }
 
 export function favoriteKeySet(favs: readonly Favorite[]): Set<string> {

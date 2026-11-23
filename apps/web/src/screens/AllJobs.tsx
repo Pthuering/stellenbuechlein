@@ -3,6 +3,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { countActiveFilters, DEFAULT_FILTER, SORT_LABELS, todayBerlin, type SortKey } from '@stellen/core';
 import { filterViews, openViews, sortViews, useAppState, useGeo, useStore, useViews } from '../data/hooks';
+import { savedFilterFor } from '../lib/savedFilters';
 import { Empty } from '../ui/bits';
 import { JobRow } from '../ui/JobRow';
 import { PageHead } from '../ui/PageHead';
@@ -25,6 +26,7 @@ const t = texts({
     searchPlaceholder: 'Titel, Thema, Ort, Einrichtung …',
     sort: 'Sortieren',
     filtersActive: (n: number, query: boolean) => `${n} Filter aktiv${query ? ', dazu die Suche' : ''}.`,
+    savedActive: (name: string, query: boolean) => `Filter „${name}“ aktiv${query ? ', dazu die Suche' : ''}.`,
     searchActive: 'Suche aktiv.',
     showAll: 'alles zeigen',
     noPostings: 'Noch keine Anzeigen',
@@ -43,6 +45,7 @@ const t = texts({
     searchPlaceholder: 'Title, topic, place, institution…',
     sort: 'Sort',
     filtersActive: (n, query) => `${n} ${n === 1 ? 'filter' : 'filters'} active${query ? ', plus the search' : ''}.`,
+    savedActive: (name, query) => `Filter “${name}” active${query ? ', plus the search' : ''}.`,
     searchActive: 'Search active.',
     showAll: 'show all',
     noPostings: 'No postings yet',
@@ -61,6 +64,7 @@ const t = texts({
     searchPlaceholder: 'Naziv, tema, mesto, ustanova…',
     sort: 'Sortiraj',
     filtersActive: (n, query) => `${n} ${srForm(n, 'aktivan filter', 'aktivna filtera', 'aktivnih filtera')}${query ? ', uz to i pretraga' : ''}.`,
+    savedActive: (name, query) => `Aktivan filter „${name}“${query ? ', uz to i pretraga' : ''}.`,
     searchActive: 'Pretraga je aktivna.',
     showAll: 'prikaži sve',
     noPostings: 'Još nema oglasa',
@@ -90,6 +94,7 @@ export function AllJobsScreen() {
   const f = s.settings.filter;
   const sort = s.settings.sort.all;
   const active = countActiveFilters({ ...f, text: '' });
+  const activeSaved = active > 0 ? savedFilterFor(f, s.settings.savedFilters) : null;
 
   const { open, list } = useMemo(() => {
     const today = todayBerlin();
@@ -144,7 +149,7 @@ export function AllJobsScreen() {
       </div>
       {(active > 0 || query) && (
         <p className="hint" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          {active > 0 ? t.filtersActive(active, !!query) : t.searchActive}
+          {activeSaved ? t.savedActive(activeSaved.name, !!query) : active > 0 ? t.filtersActive(active, !!query) : t.searchActive}
           <button
             type="button"
             className="btn btn--quiet btn--small"

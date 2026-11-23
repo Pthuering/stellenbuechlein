@@ -233,6 +233,34 @@ const NUM_WORDS: Record<string, number> = {
   zwei: 2, two: 2, drei: 3, three: 3, vier: 4, four: 4, fuenf: 5, fünf: 5, five: 5, sechs: 6, six: 6,
 };
 
+/**
+ * Vertragsdauer aus dem Text zur Befristung einer Anzeige (Regel-Label wie „befristet, 3 Jahre“ oder
+ * „befristet bis 31.12.2030“, aber auch freier Text der KI wie „in der Regel drei Jahre“).
+ * permanent: unbefristet; months: Dauer in Monaten (bei „bis <Datum>“ ab heute, bei Spannen die untere
+ * Grenze), null = befristet, Dauer unbekannt. Ohne Text: null.
+ */
+export function termOfText(text: string | null | undefined, today: string = todayBerlin()): { permanent: boolean; months: number | null } | null {
+  const t = (text ?? '').trim();
+  if (!t) return null;
+  if (/(?<!un)befrist/i.test(t) === false && /\bunbefristet|\bpermanent\b|\bfestanstellung|\bauf lebenszeit|\bbeamtenverh[äa]ltnis|\bdauerstelle|\bauf dauer\b|\bopen[- ]ended|\btenured?\b/i.test(t)) {
+    return { permanent: true, months: null };
+  }
+  const dur = /(\d+(?:[.,]\d+)?|ein(?:em|en|e)?|zwei|drei|vier|f[üu]nf|sechs|one|two|three|four|five|six)\s*(?:(?:bis|-|–|to)\s*\S+\s*)?(Jahre?n?|Monate?n?|years?|months?)\b/i.exec(t);
+  if (dur) {
+    const raw = dur[1].toLowerCase();
+    const n = /\d/.test(raw) ? Number(raw.replace(',', '.')) : (NUM_WORDS[raw] ?? NUM_WORDS[raw.replace('ü', 'ue')] ?? null);
+    if (n) return { permanent: false, months: Math.round(/^(jahr|year)/i.test(dur[2]) ? n * 12 : n) };
+  }
+  if (/\b(?:bis|until)\b/i.test(t)) {
+    const dates = findDates(t);
+    if (dates.length) {
+      const days = (Date.parse(dates[0].iso) - Date.parse(today)) / 86_400_000;
+      return { permanent: false, months: Math.max(0, Math.floor(days / 30.4375)) };
+    }
+  }
+  return { permanent: false, months: null };
+}
+
 function extractTerm(text: string): { permanent: boolean | null; label: string | null } {
   const permanentRe = /\bunbefristet(?:e[nrsm]?)?\b|\bpermanent (?:position|contract|employment|post)\b|\bopen[- ]ended\b|\bauf Dauer\b|\bDauerstelle\b|\btenured\b/i;
   const fixedRe = /(?<!un)\bbefristet(?:e[nrsm]?)?\b|\bfixed[- ]term\b|\btemporary\b|\blimited (?:to|until|for)\b|WissZeitVG|Wissenschaftszeitvertragsgesetz|\bZeitvertrag\b|(?:Elternzeit|Mutterschutz|Krankheits)vertretung/i;

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { countActiveFilters, deckTier, todayBerlin, topReasons } from '@stellen/core';
 import { useAppState, useDeck, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
-import { highlightChip, highlightOf } from '../lib/highlight';
+import { alertChip, savedFilterFor } from '../lib/savedFilters';
 import { deadlineOf, employerName, factChips, jobImage, laneLabel, placeLabel } from '../lib/format';
 import { useTestPhotos } from '../data/testPhotos';
 import { Polaroid } from '../ui/Polaroid';
@@ -43,6 +43,7 @@ const t = texts({
     waitingSplit: (above: number, rest: number, pct: string) => `${above} ab ${pct}, danach ${rest} weitere`,
     restOnly: (rest: number, pct: string) => `Alle ab ${pct} durch, noch ${rest} weitere`,
     filterLabel: (n: number) => `Filter${n ? ` (${n} aktiv)` : ''}`,
+    savedActive: (name: string) => `Filter: ${name}`,
     historyLabel: 'Verlauf: gemerkte und weggelegte Anzeigen',
     loading: 'Anzeigen werden geladen …',
     noPostings: 'Noch keine Anzeigen',
@@ -82,6 +83,7 @@ const t = texts({
     waitingSplit: (above, rest, pct) => `${above} at ${pct} or more, then ${rest} more`,
     restOnly: (rest, pct) => `Everything at ${pct} or more is done, ${rest} more to go`,
     filterLabel: (n) => (n ? `Filters (${n} active)` : 'Filters'),
+    savedActive: (name) => `Filter: ${name}`,
     historyLabel: 'History: saved and passed postings',
     loading: 'Loading postings…',
     noPostings: 'No postings yet',
@@ -121,6 +123,7 @@ const t = texts({
     waitingSplit: (above, rest, pct) => `${above} sa ${pct} ili više, zatim još ${rest}`,
     restOnly: (rest, pct) => `Sve sa ${pct} ili više je pregledano, još ${rest}`,
     filterLabel: (n) => (n ? `Filteri (aktivno: ${n})` : 'Filteri'),
+    savedActive: (name) => `Filter: ${name}`,
     historyLabel: 'Istorija: sačuvani i preskočeni oglasi',
     loading: 'Učitavam oglase…',
     noPostings: 'Još nema oglasa',
@@ -178,7 +181,7 @@ function DeckCard({
   const why = view.lane.lane !== 'kern' ? (view.lane.reason ?? (view.lane.bridge ? bridgeText(view.lane.bridge) : null)) : null;
   const tilt = tiltOf(job.id);
   const top = depth === 0;
-  const hl = highlightOf(view, s);
+  const hl = view.alerts.length > 0;
 
   const baseTransform = top ? `rotate(${tilt}deg)` : `translateY(${depth * 10}px) scale(${1 - depth * 0.035}) rotate(${tilt}deg)`;
 
@@ -317,7 +320,7 @@ function DeckCard({
       <div className="card__body">
         {(lane || job.newSite || job.dummy || hl) && (
           <p className="card__tags">
-            {hl && highlightChip(hl, s.settings.highlight.min)}
+            {alertChip(view.alerts)}
             {lane && <span className="lane-tag">{lane}</span>}
             {job.newSite && <span className="chip chip--neutral chip--tiny">{t.newSite}</span>}
             {job.dummy && <span className="chip chip--neutral chip--tiny chip--dummy">{t.demo}</span>}
@@ -388,6 +391,7 @@ export function DeckScreen() {
   const [sheet, setSheet] = useState<'filter' | 'verlauf' | null>(null);
   const api = useRef<CardApi | null>(null);
   const activeFilters = countActiveFilters(s.settings.filter);
+  const activeSaved = activeFilters > 0 ? savedFilterFor(s.settings.filter, s.settings.savedFilters) : null;
 
   // Nach "Rückgängig" kommt die Karte oben auf den Stapel zurück.
   const deck = useMemo(() => {
@@ -462,6 +466,11 @@ export function DeckScreen() {
             {t.title}
           </h1>
           <p className="page-sub">{sub}</p>
+          {activeSaved && (
+            <button type="button" className="chip chip--tiny" onClick={() => setSheet('filter')}>
+              {t.savedActive(activeSaved.name)}
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 2 }}>
           <button type="button" className="icon-btn" onClick={() => setSheet('filter')} aria-label={t.filterLabel(activeFilters)}>

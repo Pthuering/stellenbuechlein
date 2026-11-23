@@ -1,8 +1,8 @@
 // Rahmen der App: Seiten, Register-Reiter unten, Anzeigen-Detail als Blatt darüber.
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { daysUntil, todayBerlin } from '@stellen/core';
-import { useAppState } from './data/hooks';
+import { useAppState, useStore } from './data/hooks';
 import { navigate, TABS, useRoute, type Tab } from './lib/router';
 import { DeckScreen } from './screens/Deck';
 import { MapScreen } from './screens/MapScreen';
@@ -92,7 +92,16 @@ function Loading() {
 
 export function App() {
   const s = useAppState();
+  const store = useStore();
   const route = useRoute();
+
+  // #/filter/<id> (Sammel-Benachrichtigung eines gespeicherten Filters): Filter anwenden, dann die Liste zeigen
+  useEffect(() => {
+    if (!route.filterId || s.phase !== 'ready') return;
+    const sf = s.settings.savedFilters.find((f) => f.id === route.filterId);
+    if (sf) store.updateSettings('filter', { ...sf.filter });
+    navigate('/alle', true);
+  }, [route.filterId, s.phase, s.settings.savedFilters, store]);
 
   // Badge am Reiter "Gemerkt": Herzensjobs, deren Frist in höchstens 7 Tagen endet
   const urgent = useMemo(() => {

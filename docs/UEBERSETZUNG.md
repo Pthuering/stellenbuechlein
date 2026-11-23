@@ -17,7 +17,7 @@ Push-Benachrichtigungen schickt der Einsammel-Lauf in allen drei Sprachen mit; d
 - `apps/web/src/i18n/index.ts`: aktuelle Sprache, `texts()`, `tr()`, `srForm()`, Formate für Datum, Zahl, Prozent und km
 - `apps/web/src/i18n/labels.ts`: Stellenarten, Einrichtungsarten, Bundesländer, Kategorien, Sortierung, Ringe, Dosis
 - `apps/web/src/i18n/katalog.ts`: Vorschläge der Umfrage, Startprofil und Start-Brücken; `profileLabel()` übersetzt Einträge im Suchprofil, die aus diesen Listen stammen. Gespeichert wird immer die deutsche Bezeichnung.
-- `packages/core/src/reminders.ts`: Texte der Benachrichtigungen (`reminderText`, `highScoreDigest`, `highlightNotifications` für Wunschstädte, jeweils mit Sprache)
+- `packages/core/src/reminders.ts` und `packages/core/src/savedFilters.ts`: Texte der Benachrichtigungen (`reminderText`, `highScoreDigest`, `filterAlertMessages` für gespeicherte Filter, jeweils mit Sprache). Namen gespeicherter Filter bleiben, wie sie eingegeben wurden.
 
 Jede Datei legt ihre Texte selbst an, alle drei Sprachen mit denselben Schlüsseln (TypeScript prüft das):
 
@@ -109,6 +109,9 @@ Neuer Text: in allen drei Sprachen eintragen. Wer kein Serbisch kann, schreibt d
 | Entgelt, Entgeltgruppe | pay, pay grade | plata, platni razred |
 | Umfang | hours | obim zaposlenja |
 | befristet, unbefristet | fixed-term, permanent | na određeno, na neodređeno |
+| Vertragsdauer | contract length | trajanje ugovora |
+| gespeicherter Filter | saved filter | sačuvani filter |
+| Treffer (eines Filters) | match | pogodak (pogoci) |
 | Promotion (Stellenart) | PhD | doktorat |
 | Wiss. Mitarbeit | research associate | istraživač saradnik |
 | Hilfskraft | student assistant | studentski asistent |

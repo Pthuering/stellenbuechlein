@@ -1,22 +1,50 @@
-// Benachrichtigungen per Web Push: Fristen-Erinnerungen für Herzensjobs (★), neue Treffer in den
-// ausgewählten Städten (Einstellung „highlight“, einzeln und auffällig) und, gebündelt, die übrigen neuen
-// Anzeigen, die besonders gut zum Suchprofil passen (Einstellung „notifyHighScore“).
+// Benachrichtigungen per Web Push: Fristen-Erinnerungen für Herzensjobs (★), neue Treffer der gespeicherten
+// Filter mit Push (Einstellung „savedFilters“, einzeln und auffällig, unabhängig vom Filter, der in der App gerade
+// gilt; löst die Wunschstädte aus „highlight“ ab) und, gebündelt, die übrigen neuen Anzeigen dieses Laufs, die
+// besonders gut zum Suchprofil passen (Einstellung „notifyHighScore“).
 
 import webpush from 'web-push';
 import {
+  DEFAULT_HOME,
   DEFAULT_REMINDER_DAYS,
   dueReminders,
-  highlightCity,
-  highlightNotifications,
+  filterAlertMessages,
   highScoreDigest,
-  parseHighlight,
+  horizontOf,
+  isThematic,
+  laneOf,
   parseHighScoreAlert,
+  parseProfile,
+  parseSavedFilters,
+  passesFilter,
+  placeOf,
   reminderText,
+  scoreJob,
+  searchTextOf,
+  starterProfile,
   todayBerlin,
-  type HighlightHit,
+  type FilterAlertHit,
+  type GeoContext,
+  type HomeLocation,
+  type SavedFilter,
   type UiLang,
 } from '@stellen/core';
-import { getSetting, listMarks, listPushSubscriptions, reminderSentStmt, remindersSent, removePushSubscription, type Db, type Stmt } from '@stellen/db';
+import {
+  filterAlertSentStmt,
+  filterAlertsSent,
+  getSetting,
+  listCities,
+  listInstitutions,
+  listMarks,
+  listPushSubscriptions,
+  listRecentOpenJobs,
+  pruneFilterAlertsStmt,
+  reminderSentStmt,
+  remindersSent,
+  removePushSubscription,
+  type Db,
+  type Stmt,
+} from '@stellen/db';
 import type { IngestConfig } from './config';
 import type { RunLog } from './log';
 
@@ -30,7 +58,7 @@ interface Payload {
   body: string;
   url: string;
   tag?: string;
-  /** Treffer in einer ausgewählten Stadt: bleibt stehen, bis sie angetippt wird, und meldet sich erneut. */
+  /** Treffer eines gespeicherten Filters: bleibt stehen, bis sie angetippt wird, und meldet sich erneut. */
   highlight?: boolean;
   /** Dieselbe Nachricht auf Englisch und Serbisch; der Service Worker zeigt die Sprache des Geräts. */
   i18n?: Partial<Record<UiLang, { title: string; body: string }>>;
@@ -108,63 +136,136 @@ export async function sendReminders(db: Db, cfg: IngestConfig, log: RunLog, toda
 
 type NewJob = { id: string; title: string; score: number };
 
-/**
- * Neue Anzeigen in den ausgewählten Städten ab der dort eingestellten Schwelle: einzeln (bis zu drei),
- * sonst gebündelt. Gibt die IDs der Treffer zurück, damit die Sammelmeldung sie nicht noch einmal nennt.
- */
-async function sendHighlightAlerts(db: Db, cfg: IngestConfig, log: RunLog, jobs: readonly NewJob[]): Promise<{ ids: Set<string>; sent: number }> {
-  const none = { ids: new Set<string>(), sent: 0 };
-  const setting = parseHighlight(await getSetting<unknown>(db, 'highlight', null));
-  if (!setting.push || setting.cities.length === 0) return none;
-  const candidates = jobs.filter((j) => j.score >= setting.min);
-  if (candidates.length === 0) return none;
-  const rows = await db.all<{ id: string; city_id: string | null; location_text: string | null }>(
-    `SELECT j.id, COALESCE(j.city_id, i.city_id) AS city_id, j.location_text
-       FROM jobs j LEFT JOIN institutions i ON i.id = j.institution_id
-      WHERE j.id IN (SELECT value FROM json_each(?))`,
-    [JSON.stringify(candidates.map((j) => j.id))],
-  );
-  const cityRows = await db.all<{ id: string; name: string }>('SELECT id, name FROM cities WHERE id IN (SELECT value FROM json_each(?))', [JSON.stringify(setting.cities)]);
-  const cities = new Map(cityRows.map((c) => [c.id, { name: c.name }]));
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const hits: HighlightHit[] = [];
-  for (const j of candidates) {
-    const r = byId.get(j.id);
-    const city = r ? highlightCity({ cityId: r.city_id, locationText: r.location_text, score: j.score }, setting, cities) : null;
-    if (city) hits.push({ ...j, city: cities.get(city)?.name ?? city });
+const DAY_MS = 86_400_000;
+/** Höchstens so weit zurück gilt ein Treffer als neu, auch wenn Push schon länger an ist. */
+const FILTER_ALERT_DAYS = 14;
+/** Gemeldete Treffer werden so lange gemerkt; ältere können nicht mehr neu genug sein. */
+const FILTER_ALERT_KEEP_DAYS = 30;
+
+/** Wohnort aus den Einstellungen wie in der App: nur mit Koordinaten, sonst der Standard. */
+function homeOf(raw: unknown): HomeLocation {
+  return raw && typeof raw === 'object' && typeof (raw as HomeLocation).lat === 'number' ? (raw as HomeLocation) : DEFAULT_HOME;
+}
+
+/** Ab wann ein Treffer für den Filter neu ist: seit pushSince (ohne: nur aus diesem Lauf), höchstens zwei Wochen zurück. */
+function cutoffOf(f: SavedFilter, runStartedAt: string, earliest: string): string {
+  const t = f.pushSince ? Date.parse(f.pushSince) : NaN;
+  const since = Number.isFinite(t) ? new Date(t).toISOString() : runStartedAt;
+  return since > earliest ? since : earliest;
+}
+
+/** Welche Anzeigen eine Meldung abdeckt: einzeln (Tag „filter-<Filter>-<Anzeige>“) eine, gebündelt alle Treffer. */
+function coveredBy(tag: string, filterId: string, hits: readonly FilterAlertHit[]): string[] {
+  const prefix = `filter-${filterId}-`;
+  if (tag.startsWith(prefix)) {
+    const id = tag.slice(prefix.length);
+    if (hits.some((h) => h.id === id)) return [id];
   }
-  if (hits.length === 0) return none;
-  const ids = new Set(hits.map((h) => h.id));
-  if (!cfg.vapid) {
-    log.info(`${hits.length} neue Anzeige(n) in ausgewählten Städten ab ${setting.min} % – Push ist nicht eingerichtet.`);
-    return { ids, sent: 0 };
-  }
-  const de = highlightNotifications(hits, 'de');
-  const en = highlightNotifications(hits, 'en');
-  const sr = highlightNotifications(hits, 'sr');
-  let delivered = 0;
-  for (let i = 0; i < de.length; i++) {
-    const ok = await deliver(db, cfg, log, { ...de[i], highlight: true, i18n: { en: { title: en[i].title, body: en[i].body }, sr: { title: sr[i].title, body: sr[i].body } } });
-    if (ok) delivered++;
-  }
-  log.info(
-    delivered
-      ? `Hervorgehoben: ${hits.length} neue Anzeige(n) in ausgewählten Städten ab ${setting.min} % gemeldet.`
-      : `${hits.length} neue Anzeige(n) in ausgewählten Städten ab ${setting.min} % – kein Gerät hat Benachrichtigungen erlaubt.`,
-  );
-  return { ids, sent: delivered ? hits.length : 0 };
+  return hits.map((h) => h.id);
 }
 
 /**
- * Benachrichtigungen über neue Anzeigen dieses Laufs: zuerst die Treffer in den ausgewählten Städten
- * (hervorgehoben), dann eine Sammelmeldung für die übrigen ab der allgemeinen Schwelle.
+ * Neue Treffer der gespeicherten Filter mit Push – unabhängig davon, welcher Filter in der App gerade gilt.
+ * Kandidaten sind offene Anzeigen, über die noch nicht entschieden ist und die seit dem Einschalten (pushSince)
+ * zum ersten Mal gefunden wurden, höchstens zwei Wochen zurück; Filter ohne Zeitpunkt (die früheren Wunschstädte)
+ * melden nur Anzeigen aus diesem Lauf. Passung und Ring rechnen mit dem aktuellen Profil wie in der App.
+ * Je Filter bis zu drei Treffer einzeln, sonst gebündelt; jeder Treffer wird je Filter nur einmal gemeldet
+ * (festgehalten erst, wenn die Meldung auf mindestens einem Gerät ankam).
+ * Gibt die IDs der gemeldeten Anzeigen zurück, damit die Sammelmeldung sie nicht noch einmal nennt.
  */
-export async function sendHighScoreAlert(db: Db, cfg: IngestConfig, log: RunLog, jobs: readonly NewJob[]): Promise<number> {
-  const highlighted = await sendHighlightAlerts(db, cfg, log, jobs).catch((e) => {
-    log.warn(`Hervorhebung: ${e instanceof Error ? e.message : String(e)}`);
-    return { ids: new Set<string>(), sent: 0 };
+async function sendFilterAlerts(db: Db, cfg: IngestConfig, log: RunLog, runStartedAt: string): Promise<Set<string>> {
+  const notified = new Set<string>();
+  const [raw, legacy] = await Promise.all([getSetting<unknown>(db, 'savedFilters', null), getSetting<unknown>(db, 'highlight', null)]);
+  const filters = parseSavedFilters(raw, legacy).filter((f) => f.push);
+  if (filters.length === 0) return notified;
+
+  const start = Date.parse(runStartedAt);
+  const today = todayBerlin(new Date(start));
+  const earliest = new Date(start - FILTER_ALERT_DAYS * DAY_MS).toISOString();
+  const cutoffs = new Map(filters.map((f) => [f.id, cutoffOf(f, runStartedAt, earliest)]));
+  const since = [...cutoffs.values()].reduce((a, b) => (a < b ? a : b));
+  // Zuerst die schon gemeldeten: Fehlt die Tabelle noch (Migration 0005), bricht es hier ab, bevor etwas verschickt ist.
+  const sentBefore = await filterAlertsSent(db, filters.map((f) => f.id));
+  const [jobs, marks, insts, cities, profileRaw, homeRaw] = await Promise.all([
+    listRecentOpenJobs(db, since, today),
+    listMarks(db),
+    listInstitutions(db),
+    listCities(db),
+    getSetting<unknown>(db, 'profile', null),
+    getSetting<unknown>(db, 'home', null),
+  ]);
+  const decided = new Set(marks.filter((m) => m.decision).map((m) => m.jobId));
+  const open = jobs.filter((j) => !decided.has(j.id));
+  if (open.length === 0) return notified;
+
+  const profile = parseProfile(profileRaw) ?? starterProfile();
+  const horizon = horizontOf(profile);
+  const geo: GeoContext = { home: homeOf(homeRaw), institutions: new Map(insts.map((i) => [i.id, i])), cities: new Map(cities.map((c) => [c.id, c])) };
+  // Ort, Passung und Ring einmal je Anzeige, wie in der App (useViews)
+  const views = open.map((job) => {
+    const norm = searchTextOf(job);
+    return { job, norm, place: placeOf(job, geo), score: scoreJob(job, norm, profile).score, lane: laneOf(job, norm, horizon, isThematic(job, norm, profile)).lane };
   });
-  return highlighted.sent + (await sendDigest(db, cfg, log, highlighted.ids.size ? jobs.filter((j) => !highlighted.ids.has(j.id)) : jobs));
+
+  const found: { filter: SavedFilter; hits: FilterAlertHit[] }[] = [];
+  for (const f of filters) {
+    const cutoff = cutoffs.get(f.id)!;
+    const hits = views
+      .filter((v) => v.job.firstSeenAt >= cutoff && !sentBefore.has(`${f.id}:${v.job.id}`))
+      .filter((v) => passesFilter(v.job, f.filter, v.place, geo, v.norm, today, v.lane, v.score))
+      .map((v) => ({ id: v.job.id, title: v.job.title, score: v.score }));
+    if (hits.length) found.push({ filter: f, hits });
+  }
+  if (found.length === 0) return notified;
+
+  const total = new Set(found.flatMap((x) => x.hits.map((h) => h.id))).size;
+  const which = found.map((x) => `„${x.filter.name}“: ${x.hits.length}`).join(', ');
+  if (!cfg.vapid) {
+    log.info(`${total} neue Treffer für gespeicherte Filter (${which}) – Push ist nicht eingerichtet.`);
+    return notified;
+  }
+  if ((await listPushSubscriptions(db)).length === 0) {
+    log.info(`${total} neue Treffer für gespeicherte Filter (${which}) – kein Gerät hat Benachrichtigungen erlaubt.`);
+    return notified;
+  }
+
+  const stmts: Stmt[] = [pruneFilterAlertsStmt(new Date(start - FILTER_ALERT_KEEP_DAYS * DAY_MS).toISOString())];
+  let messages = 0;
+  for (const { filter, hits } of found) {
+    // Gleiche Treffer, gleiche Reihenfolge: die Meldungen der drei Sprachen gehören über den Index zusammen
+    const de = filterAlertMessages(filter, hits, 'de');
+    const en = filterAlertMessages(filter, hits, 'en');
+    const sr = filterAlertMessages(filter, hits, 'sr');
+    for (let i = 0; i < de.length; i++) {
+      const ok = await deliver(db, cfg, log, { ...de[i], highlight: true, i18n: { en: { title: en[i].title, body: en[i].body }, sr: { title: sr[i].title, body: sr[i].body } } });
+      if (!ok) continue;
+      messages++;
+      for (const id of coveredBy(de[i].tag, filter.id, hits)) {
+        stmts.push(filterAlertSentStmt(filter.id, id, runStartedAt));
+        notified.add(id);
+      }
+    }
+  }
+  await db.batch(stmts);
+  log.info(
+    messages
+      ? `Gespeicherte Filter: ${notified.size} neue Treffer in ${messages} Benachrichtigung(en) gemeldet (${which}).`
+      : `${total} neue Treffer für gespeicherte Filter (${which}) – keine Benachrichtigung kam an.`,
+  );
+  return notified;
+}
+
+/**
+ * Benachrichtigungen über neue Anzeigen: zuerst die Treffer der gespeicherten Filter mit Push (hervorgehoben),
+ * dann eine Sammelmeldung für die übrigen neuen Anzeigen dieses Laufs ab der allgemeinen Schwelle.
+ * runStartedAt ist der Start des Laufs; so ist auch first_seen_at der Anzeigen dieses Laufs gesetzt.
+ */
+export async function sendHighScoreAlert(db: Db, cfg: IngestConfig, log: RunLog, jobs: readonly NewJob[], runStartedAt: string): Promise<number> {
+  const notified = await sendFilterAlerts(db, cfg, log, runStartedAt).catch((e) => {
+    log.warn(`Gespeicherte Filter: ${e instanceof Error ? e.message : String(e)}`);
+    return new Set<string>();
+  });
+  return notified.size + (await sendDigest(db, cfg, log, notified.size ? jobs.filter((j) => !notified.has(j.id)) : jobs));
 }
 
 /** Eine Benachrichtigung für alle neuen Anzeigen dieses Laufs ab der eingestellten Schwelle. */

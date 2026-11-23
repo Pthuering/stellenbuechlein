@@ -1,20 +1,19 @@
-// Fristen-Erinnerungen für Herzensjobs, Meldung neuer, sehr gut passender Anzeigen, Hervorhebung von
-// Wunschstädten; Benachrichtigungen einschalten.
+// Fristen-Erinnerungen für Herzensjobs, Meldung neuer, sehr gut passender Anzeigen, gespeicherte Filter mit
+// Push (ein- und ausschalten unabhängig vom Filter im Stapel); Benachrichtigungen einschalten.
 
 import { useEffect, useMemo, useState } from 'react';
-import { addDays, DEFAULT_REMINDER_DAYS, daysUntil, normalizeText, todayBerlin } from '@stellen/core';
-import { useAppState, useStore, useViews } from '../../data/hooks';
-import { openJob } from '../../lib/router';
-import { highlightOf } from '../../lib/highlight';
+import { addDays, DEFAULT_REMINDER_DAYS, daysUntil, todayBerlin, type SavedFilter } from '@stellen/core';
+import { filterViews, openViews, useAppState, useGeo, useStore, useViews } from '../../data/hooks';
+import { navigate, openJob } from '../../lib/router';
+import { filterText } from '../../lib/assistant';
+import { removeSavedFilter, updateSavedFilter } from '../../lib/savedFilters';
 import { pushState, subscribePush, unsubscribePush, type PushState } from '../../lib/push';
-import { IconPin, IconPlus, IconSearch, IconX } from '../../ui/icons';
+import { IconBell } from '../../ui/icons';
 import { fmtDate, fmtPct, srForm, texts } from '../../i18n';
-import { stateName } from '../../i18n/labels';
 import { SubPage } from './Settings';
 
 const OPTIONS = [60, 30, 14, 7, 3, 1, 0];
 const HS_OPTIONS = [80, 85, 90, 95];
-const HL_OPTIONS = [50, 60, 70, 80, 90];
 
 const t = texts({
   de: {
@@ -38,30 +37,27 @@ const t = texts({
     noVapid: 'Auf dem Server fehlt noch der Push-Schlüssel (VAPID). Die Betriebsanleitung beschreibt, wie er angelegt wird.',
     pushOn: 'Benachrichtigungen sind an.',
     title: 'Erinnerungen',
-    sub: 'Fristen von Herzensjobs, neue sehr gut passende Anzeigen und Wunschstädte',
+    sub: 'Fristen von Herzensjobs, neue sehr gut passende Anzeigen und gespeicherte Filter',
     intro: 'Markierst du eine gemerkte Anzeige mit dem Stern als Herzensjob, erinnert dich das Büchlein vor der Frist. Fällige Erinnerungen stehen immer oben unter „Gemerkt“, auf Wunsch zusätzlich als Benachrichtigung.',
     whenTitle: 'Wann erinnern?',
     resetDays: 'Zurück auf 1 Monat, 1 Woche und 1 Tag',
     noDays: 'Keine Stufe gewählt: Es gibt keine Erinnerungen.',
     highScoreTitle: 'Neue Anzeigen, die sehr gut passen',
     highScoreToggle: (pct: string) => `Melden, wenn ein Lauf neue Anzeigen ab ${pct} bringt`,
-    highScoreSmall: 'eine gebündelte Benachrichtigung pro Lauf, mit den drei besten',
+    highScoreSmall: 'eine gebündelte Benachrichtigung pro Lauf, mit den drei besten; was schon über einen gespeicherten Filter kam, fehlt darin',
     threshold: 'Schwelle',
     fromPct: (pct: string) => `ab ${pct}`,
     starterHint: (pct: string) => `Mit dem Startprofil liegen fast alle Psychologie-Anzeigen über ${pct}. Trennscharf wird das erst mit deinem Steckbrief.`,
-    hlTitle: 'Wunschstädte hervorheben',
-    hlIntro:
-      'Anzeigen in diesen Städten, die mindestens zur gewählten Schwelle passen, bekommen in Liste, Stapel und Anzeige die Marke „Wunschstadt“. Neue Treffer kommen als eigene Benachrichtigung, die stehen bleibt, bis du sie antippst.',
-    hlNone: 'Noch keine Stadt ausgewählt.',
-    hlRemove: (city: string) => `${city} entfernen`,
-    hlFromFavorites: 'Aus deinen Lieblingsorten',
-    hlSearchLabel: 'Stadt suchen',
-    hlSearchPlaceholder: 'Stadt hinzufügen, z. B. Leipzig',
-    hlNothingFound: 'Keine Stadt gefunden. Zur Auswahl stehen die Städte, in denen das Büchlein Einrichtungen kennt.',
-    hlThreshold: 'Passt mindestens zu',
-    hlPush: 'Neue Treffer einzeln melden',
-    hlPushSmall: 'bis zu drei einzelne Benachrichtigungen pro Lauf, bei mehr eine gebündelte; diese Anzeigen fehlen dann in der Sammelmeldung oben',
-    hlCount: (n: number) => (n === 0 ? 'Gerade erfüllt keine aktuelle Anzeige beides.' : n === 1 ? 'Gerade ist 1 Anzeige hervorgehoben.' : `Gerade sind ${n} Anzeigen hervorgehoben.`),
+    sfTitle: 'Gespeicherte Filter',
+    sfIntro:
+      'Für jeden gespeicherten Filter kannst du dir neue Treffer melden lassen, egal welcher Filter gerade im Stapel gilt. Bis zu drei Treffer kommen einzeln, mehr als eine gebündelte Benachrichtigung; sie bleiben stehen, bis du sie antippst. In Liste, Stapel und Anzeige tragen Treffer eine Marke mit dem Namen des Filters.',
+    sfNone: 'Noch kein Filter gespeichert. Im Stapel oder in der Liste auf das Filter-Symbol tippen, Kriterien wählen und unten speichern.',
+    sfPush: (name: string) => `Benachrichtigung für „${name}“`,
+    sfCount: (n: number) => (n === 0 ? 'passt gerade zu keiner offenen Anzeige' : n === 1 ? 'passt gerade zu 1 offenen Anzeige' : `passt gerade zu ${n} offenen Anzeigen`),
+    sfApply: 'Im Stapel anwenden',
+    sfRemove: 'Löschen',
+    sfRemoved: (name: string) => `„${name}“ gelöscht.`,
+    undo: 'Rückgängig',
     notificationsTitle: 'Benachrichtigungen',
     demoHint: 'In der Demo gibt es keine Benachrichtigungen. In der eingerichteten App kommen sie mit dem täglichen Einsammel-Lauf gegen 12 Uhr.',
     pushToggle: 'Erinnerungen auch als Benachrichtigung',
@@ -94,30 +90,27 @@ const t = texts({
     noVapid: 'The server is still missing the push key (VAPID). The operating manual explains how to create it.',
     pushOn: 'Notifications are on.',
     title: 'Reminders',
-    sub: 'Dream job deadlines, new postings that are a great match, and chosen cities',
+    sub: 'Dream job deadlines, new postings that are a great match, and saved filters',
     intro: 'Mark a saved posting as a dream job with the star, and the little book reminds you before the deadline. Due reminders always appear at the top of “Saved”, and also as notifications if you like.',
     whenTitle: 'When to remind you?',
     resetDays: 'Reset to 1 month, 1 week and 1 day',
     noDays: 'No time selected: there won’t be any reminders.',
     highScoreTitle: 'New postings that are a great match',
     highScoreToggle: (pct) => `Notify me when a run brings new postings at ${pct} or more`,
-    highScoreSmall: 'one combined notification per run, with the top three',
+    highScoreSmall: 'one combined notification per run, with the top three; anything already sent for a saved filter is left out',
     threshold: 'Threshold',
     fromPct: (pct) => `${pct} or more`,
     starterHint: (pct) => `With the starter profile, almost all psychology postings score above ${pct}. It only becomes selective with your profile sheet.`,
-    hlTitle: 'Highlight chosen cities',
-    hlIntro:
-      'Postings in these cities that match at least the chosen threshold get a “Chosen city” label in the list, the stack and the posting. New matches arrive as their own notification, which stays until you tap it.',
-    hlNone: 'No city chosen yet.',
-    hlRemove: (city) => `Remove ${city}`,
-    hlFromFavorites: 'From your favorite places',
-    hlSearchLabel: 'Search for a city',
-    hlSearchPlaceholder: 'Add a city, e.g. Leipzig',
-    hlNothingFound: 'No city found. You can choose from the cities where the little book knows institutions.',
-    hlThreshold: 'Matches at least',
-    hlPush: 'Notify me about each new match',
-    hlPushSmall: 'up to three separate notifications per run, one combined notification if there are more; these postings are then left out of the summary above',
-    hlCount: (n) => (n === 0 ? 'No current posting meets both conditions right now.' : n === 1 ? '1 posting is highlighted right now.' : `${n} postings are highlighted right now.`),
+    sfTitle: 'Saved filters',
+    sfIntro:
+      'For every saved filter, you can get notified about new matches, no matter which filter is active in the stack. Up to three matches arrive one by one, more as one combined notification; they stay until you tap them. In the list, the stack and the posting, matches carry a label with the filter’s name.',
+    sfNone: 'No saved filter yet. Tap the filter icon in the stack or the list, choose some criteria and save at the bottom.',
+    sfPush: (name) => `Notifications for “${name}”`,
+    sfCount: (n) => (n === 0 ? 'matches no open posting right now' : n === 1 ? 'matches 1 open posting right now' : `matches ${n} open postings right now`),
+    sfApply: 'Apply in the stack',
+    sfRemove: 'Delete',
+    sfRemoved: (name) => `“${name}” deleted.`,
+    undo: 'Undo',
     notificationsTitle: 'Notifications',
     demoHint: 'The demo doesn’t send notifications. In the configured app, they arrive with the daily collecting run around noon.',
     pushToggle: 'Reminders as notifications too',
@@ -150,33 +143,27 @@ const t = texts({
     noVapid: 'Na serveru još nedostaje push ključ (VAPID). U uputstvu za rad piše kako se pravi.',
     pushOn: 'Obaveštenja su uključena.',
     title: 'Podsetnici',
-    sub: 'Rokovi poslova iz snova, novi oglasi sa odličnim poklapanjem i izabrani gradovi',
+    sub: 'Rokovi poslova iz snova, novi oglasi sa odličnim poklapanjem i sačuvani filteri',
     intro: 'Kada sačuvani oglas zvezdicom označiš kao posao iz snova, knjižica će te podsetiti pre roka. Podsetnici koji su na redu uvek stoje na vrhu u odeljku „Sačuvano“, a po želji stižu i kao obaveštenje.',
     whenTitle: 'Kada podsetiti?',
     resetDays: 'Vrati na 1 mesec, 1 nedelju i 1 dan',
     noDays: 'Nije izabran nijedan termin: podsetnika neće biti.',
     highScoreTitle: 'Novi oglasi sa odličnim poklapanjem',
     highScoreToggle: (pct) => `Javi mi kada prolaz donese nove oglase sa poklapanjem od ${pct} i više`,
-    highScoreSmall: 'jedno zbirno obaveštenje po prolazu, sa tri najbolja oglasa',
+    highScoreSmall: 'jedno zbirno obaveštenje po prolazu, sa tri najbolja oglasa; ono što je već stiglo preko sačuvanog filtera, tu se ne ponavlja',
     threshold: 'Prag',
     fromPct: (pct) => `od ${pct}`,
     starterHint: (pct) => `Sa početnim profilom skoro svi oglasi iz psihologije imaju poklapanje preko ${pct}. Pravu razliku ovo pravi tek uz tvoj lični karton.`,
-    hlTitle: 'Istakni izabrane gradove',
-    hlIntro:
-      'Oglasi u ovim gradovima čije je poklapanje bar na izabranom pragu dobijaju oznaku „Izabrani grad“ u listi, u špilu i u oglasu. Novi pogoci stižu kao posebno obaveštenje, koje ostaje dok ga ne dodirneš.',
-    hlNone: 'Još nije izabran nijedan grad.',
-    hlRemove: (city) => `Ukloni ${city}`,
-    hlFromFavorites: 'Iz tvojih omiljenih mesta',
-    hlSearchLabel: 'Pretraži grad',
-    hlSearchPlaceholder: 'Dodaj grad, npr. Leipzig',
-    hlNothingFound: 'Grad nije pronađen. Možeš da biraš među gradovima u kojima knjižica poznaje ustanove.',
-    hlThreshold: 'Poklapanje najmanje',
-    hlPush: 'Javi mi za svaki novi pogodak',
-    hlPushSmall: 'do tri posebna obaveštenja po prolazu, a ako ih je više, jedno zajedničko; ti oglasi se onda ne ponavljaju u zbirnom obaveštenju iznad',
-    hlCount: (n) =>
-      n === 0
-        ? 'Trenutno nijedan aktuelni oglas ne ispunjava oba uslova.'
-        : `Trenutno ${srForm(n, 'je istaknut', 'su istaknuta', 'je istaknuto')} ${n} ${srForm(n, 'oglas', 'oglasa', 'oglasa')}.`,
+    sfTitle: 'Sačuvani filteri',
+    sfIntro:
+      'Za svaki sačuvani filter možeš da dobijaš obaveštenja o novim pogocima, bez obzira na to koji filter trenutno važi u špilu. Do tri pogotka stižu pojedinačno, a više njih kao jedno zbirno obaveštenje; ostaju dok ih ne dodirneš. U listi, u špilu i u oglasu pogoci nose oznaku sa imenom filtera.',
+    sfNone: 'Još nema sačuvanog filtera. U špilu ili u listi dodirni ikonu filtera, izaberi kriterijume i sačuvaj ih na dnu.',
+    sfPush: (name) => `Obaveštenja za „${name}“`,
+    sfCount: (n) => (n === 0 ? 'trenutno ne odgovara nijednom otvorenom oglasu' : `trenutno odgovara ${n} ${srForm(n, 'otvorenom oglasu', 'otvorena oglasa', 'otvorenih oglasa')}`),
+    sfApply: 'Primeni u špilu',
+    sfRemove: 'Obriši',
+    sfRemoved: (name) => `„${name}“ je obrisan.`,
+    undo: 'Opozovi',
     notificationsTitle: 'Obaveštenja',
     demoHint: 'U demu nema obaveštenja. U podešenoj aplikaciji stižu uz svakodnevni prolaz prikupljanja, oko podneva.',
     pushToggle: 'Podsetnici i kao obaveštenja',
@@ -197,8 +184,8 @@ export function RemindersPage() {
   const views = useViews();
   const r = s.settings.reminders;
   const hs = s.settings.notifyHighScore;
-  const hl = s.settings.highlight;
-  const [cityQ, setCityQ] = useState('');
+  const geo = useGeo();
+  const saved = s.settings.savedFilters;
   const [push, setPush] = useState<PushState | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -226,20 +213,17 @@ export function RemindersPage() {
       .sort((a, b) => a.left - b.left);
   }, [views, r.days]);
 
-  const setHl = (next: Partial<typeof hl>) => store.updateSettings('highlight', { ...hl, ...next });
-  const toggleCity = (id: string) => setHl({ cities: hl.cities.includes(id) ? hl.cities.filter((c) => c !== id) : [...hl.cities, id] });
-  const cityHits = useMemo(() => {
-    const n = normalizeText(cityQ);
-    if (n.length < 2) return [];
-    return [...s.cities.values()].filter((c) => normalizeText(c.name).includes(n)).slice(0, 8);
-  }, [cityQ, s.cities]);
-  const favCities = s.favorites.filter((f) => f.kind === 'city' && s.cities.has(f.ref) && !hl.cities.includes(f.ref));
-  const hlCount = useMemo(
-    () => (hl.cities.length ? [...views.values()].filter((v) => v.job.status === 'aktiv' && highlightOf(v, s)).length : 0),
-    // highlightOf liest aus s nur settings.highlight und cities
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [views, hl, s.cities],
-  );
+  // Wie viele offene Anzeigen passen gerade zu jedem gespeicherten Filter?
+  const counts = useMemo(() => {
+    const today = todayBerlin();
+    const open = openViews(views, today);
+    return new Map(saved.map((sf) => [sf.id, filterViews(open, sf.filter, geo, today).length]));
+  }, [views, saved, geo]);
+  const cityName = (id: string) => s.cities.get(id)?.name ?? id;
+  const remove = (sf: SavedFilter) => {
+    removeSavedFilter(store, saved, sf.id);
+    store.toast(t.sfRemoved(sf.name), { label: t.undo, run: () => store.updateSettings('savedFilters', saved) });
+  };
 
   const enable = async () => {
     if (!s.vapidPublicKey) return setMsg(t.noVapid);
@@ -309,92 +293,41 @@ export function RemindersPage() {
       )}
       {hs.on && s.settings.profile.origin === 'start' && <p className="hint">{t.starterHint(fmtPct(75))}</p>}
 
-      <h2 className="section-title">{t.hlTitle}</h2>
-      <p className="hint">{t.hlIntro}</p>
-      {hl.cities.length === 0 ? (
-        <p className="hint">{t.hlNone}</p>
+      <h2 className="section-title">{t.sfTitle}</h2>
+      <p className="hint">{t.sfIntro}</p>
+      {saved.length === 0 ? (
+        <p className="hint">{t.sfNone}</p>
       ) : (
-        <div className="chips">
-          {hl.cities.map((id) => {
-            const name = s.cities.get(id)?.name ?? id;
-            return (
-              <span key={id} className="chip chip--highlight chip--removable">
-                <IconPin width={14} height={14} aria-hidden="true" /> {name}
-                <button type="button" onClick={() => toggleCity(id)} aria-label={t.hlRemove(name)}>
-                  <IconX width={14} height={14} />
-                </button>
+        saved.map((sf) => (
+          <div key={sf.id} style={{ marginBottom: 14 }}>
+            <label className="toggle">
+              <span>
+                {sf.push && <IconBell width={16} height={16} aria-hidden="true" style={{ verticalAlign: -3, marginRight: 4 }} />}
+                <strong>{sf.name}</strong>
+                <br />
+                <small className="hint">{filterText(sf.filter, false, cityName)}</small>
+                <br />
+                <small className="hint">{t.sfCount(counts.get(sf.id) ?? 0)}</small>
               </span>
-            );
-          })}
-        </div>
-      )}
-      {favCities.length > 0 && (
-        <>
-          <p className="hint" style={{ marginBottom: 4 }}>
-            {t.hlFromFavorites}
-          </p>
-          <div className="chips">
-            {favCities.map((f) => (
-              <button key={f.ref} type="button" className="chip" onClick={() => toggleCity(f.ref)}>
-                <IconPlus width={14} height={14} aria-hidden="true" /> {s.cities.get(f.ref)!.name}
+              <input type="checkbox" checked={sf.push} aria-label={t.sfPush(sf.name)} onChange={(e) => updateSavedFilter(store, saved, sf.id, { push: e.target.checked })} />
+            </label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn--small"
+                onClick={() => {
+                  store.updateSettings('filter', { ...sf.filter });
+                  navigate('/stapel');
+                }}
+              >
+                {t.sfApply}
               </button>
-            ))}
-          </div>
-        </>
-      )}
-      <label className="search" style={{ display: 'block', marginTop: 8 }}>
-        <span className="visually-hidden">{t.hlSearchLabel}</span>
-        <IconSearch />
-        <input className="input" type="search" value={cityQ} onChange={(e) => setCityQ(e.target.value)} placeholder={t.hlSearchPlaceholder} />
-      </label>
-      {cityQ.trim().length >= 2 && cityHits.length === 0 && <p className="hint">{t.hlNothingFound}</p>}
-      {cityHits.length > 0 && (
-        <ul className="list">
-          {cityHits.map((c) => {
-            const on = hl.cities.includes(c.id);
-            return (
-              <li key={c.id} className="pick">
-                <button
-                  type="button"
-                  className="pick__btn"
-                  aria-pressed={on}
-                  onClick={() => {
-                    toggleCity(c.id);
-                    if (!on) setCityQ('');
-                  }}
-                >
-                  <IconPin width={20} height={20} style={{ color: on ? 'var(--primary-strong)' : 'var(--text-subtle)' }} />
-                  <span>
-                    {c.name} <small>{stateName(c.state)}</small>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {hl.cities.length > 0 && (
-        <>
-          <p className="hint" style={{ marginBottom: 4 }}>
-            {t.hlThreshold}
-          </p>
-          <div className="chips" role="group" aria-label={t.hlThreshold}>
-            {HL_OPTIONS.map((m) => (
-              <button key={m} type="button" className="chip" aria-pressed={hl.min === m} onClick={() => setHl({ min: m })}>
-                {t.fromPct(fmtPct(m))}
+              <button type="button" className="btn btn--small btn--quiet" onClick={() => remove(sf)}>
+                {t.sfRemove}
               </button>
-            ))}
+            </div>
           </div>
-          <label className="toggle">
-            <span>
-              {t.hlPush}
-              <br />
-              <small className="hint">{t.hlPushSmall}</small>
-            </span>
-            <input type="checkbox" checked={hl.push} onChange={(e) => setHl({ push: e.target.checked })} />
-          </label>
-          <p className="hint">{t.hlCount(hlCount)}</p>
-        </>
+        ))
       )}
 
       <h2 className="section-title">{t.notificationsTitle}</h2>

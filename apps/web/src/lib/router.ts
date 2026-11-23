@@ -1,4 +1,5 @@
-// Kleiner Hash-Router: #/stapel, #/karte, #/gemerkt, #/alle, #/ich[/unterseite], #/stelle/<id>
+// Kleiner Hash-Router: #/stapel, #/karte, #/gemerkt, #/alle, #/ich[/unterseite], #/stelle/<id>,
+// #/filter/<id> (gespeicherten Filter anwenden und die Liste zeigen, z. B. aus einer Benachrichtigung)
 
 import { useEffect, useState } from 'react';
 
@@ -9,6 +10,8 @@ export interface Route {
   tab: Tab;
   sub: string | null;
   jobId: string | null;
+  /** Gespeicherter Filter, der angewendet werden soll (#/filter/<id>) */
+  filterId?: string | null;
 }
 
 let lastTab: Tab = 'stapel';
@@ -18,6 +21,11 @@ let inAppNavigations = 0;
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
   if (parts[0] === 'stelle' && parts[1]) return { tab: lastTab, sub: lastSub, jobId: parts[1] };
+  if (parts[0] === 'filter' && parts[1]) {
+    lastTab = 'alle';
+    lastSub = null;
+    return { tab: 'alle', sub: null, jobId: null, filterId: parts[1] };
+  }
   const tab = (TABS as string[]).includes(parts[0] ?? '') ? (parts[0] as Tab) : 'stapel';
   lastTab = tab;
   lastSub = parts[1] ?? null;
