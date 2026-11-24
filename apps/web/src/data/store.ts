@@ -121,6 +121,21 @@ function settingsFrom(raw: Record<string, unknown>, base = defaultSettings()): S
   return s;
 }
 
+/**
+ * Unveränderte Teile der Einstellungen behalten ihr bisheriges Objekt. Score, Ring und Stapel merken sich
+ * ihre Ergebnisse je Profil-Objekt: Ein inhaltlich gleiches, aber neues Profil nach jedem Abgleich mit dem
+ * Server hieße, alles für alle Anzeigen noch einmal zu berechnen.
+ */
+function keepUnchanged(prev: Settings, next: Settings): Settings {
+  const out = { ...next } as Record<keyof Settings, unknown>;
+  let same = true;
+  for (const k of Object.keys(next) as (keyof Settings)[]) {
+    if (prev[k] === next[k] || JSON.stringify(prev[k]) === JSON.stringify(next[k])) out[k] = prev[k];
+    else same = false;
+  }
+  return same ? prev : (out as Settings);
+}
+
 export interface Toast {
   id: number;
   text: string;
@@ -281,7 +296,7 @@ export class Store {
         cities: new Map(b.cities.map((c) => [c.id, c])),
         marks,
         favorites,
-        settings: settingsFrom(settingsRaw),
+        settings: keepUnchanged(this.state.settings, settingsFrom(settingsRaw)),
         runs: b.runs,
         sourceSummary: b.sourceSummary,
         vapidPublicKey: b.vapidPublicKey,
@@ -317,17 +332,21 @@ export class Store {
       let cursor = this.state.sync.cursor;
       const deletedSince = this.state.sync.lastSyncAt ?? '';
       let serverTime = boot.serverTime;
+      let changed = false;
       for (let i = 0; i < 200; i++) {
         const page = await this.backend.sync(cursor, deletedSince);
         for (const j of page.jobs) jobs.set(j.id, j);
-        if (i === 0) for (const id of page.deleted) jobs.delete(id);
+        if (page.jobs.length) changed = true;
+        if (i === 0) for (const id of page.deleted) if (jobs.delete(id)) changed = true;
         serverTime = page.serverTime;
         if (page.jobs.length) cursor = `${page.jobs[page.jobs.length - 1].updatedAt}|${page.jobs[page.jobs.length - 1].id}`;
         if (!page.next) break;
       }
-      this.set({ jobs, phase: 'ready', sync: { cursor, lastSyncAt: serverTime, busy: false, error: null } }, true);
+      // Ohne Änderungen bleibt die bisherige Sammlung (spart das Neuberechnen aller Ansichten)
+      this.set({ jobs: changed ? jobs : this.state.jobs, phase: 'ready', sync: { cursor, lastSyncAt: serverTime, busy: false, error: null } }, true);
       const ck = (k: string) => `${this.state.demo ? 'demo.' : ''}${k}`;
-      void idbSet(ck(CACHE_JOBS), [...jobs.values()]);
+      // Alle Anzeigen zusammen sind zig Megabyte: nur neu ablegen, wenn sich etwas geändert hat
+      if (changed) void idbSet(ck(CACHE_JOBS), [...jobs.values()]);
       void idbSet(ck(CACHE_META), { cursor, lastSyncAt: serverTime });
       void idbSet(ck(CACHE_BOOT), cached);
     } catch (e) {
