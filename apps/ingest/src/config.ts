@@ -52,6 +52,11 @@ export interface IngestConfig {
     /** Suchanfragen pro Lauf (rotieren täglich), bei Bedarf mehr bis maxQueries. */
     queriesPerRun: number;
     maxQueries: number;
+    /**
+     * Brave-Anfragen pro Tag (Websuche und Suchseiten mit site:). Der Wochenplan verteilt sie so, dass jede Wortgruppe
+     * einmal pro Durchgang drankommt; reicht das Budget nicht für eine Woche, dauert der Durchgang länger.
+     */
+    braveProTag: number;
   };
   /** Horizont und Weite: KI-Urteil für Anzeigen außerhalb des Kernbereichs. */
   horizon: {
@@ -124,6 +129,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
       maxReads: num(env.EXPLORE_MAX_READS, UNBEGRENZT),
       queriesPerRun: num(env.EXPLORE_QUERIES, 6),
       maxQueries: num(env.EXPLORE_MAX_QUERIES, UNBEGRENZT),
+      // Brave rechnet über ein Monatsguthaben ab: 30 am Tag sind rund 900 im Monat
+      braveProTag: num(env.EXPLORE_BRAVE_PER_DAY, 30),
     },
     horizon: {
       maxWeiteChecks: num(env.WEITE_MAX_CHECKS, UNBEGRENZT),

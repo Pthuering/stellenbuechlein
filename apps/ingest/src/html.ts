@@ -18,6 +18,8 @@ export function absolutize(href: string | undefined | null, base: string): strin
     const u = new URL(h, base);
     if (!/^https?:$/.test(u.protocol)) return null;
     u.hash = '';
+    // Sitzungskennung im Pfad (service.bund.de, ältere Java-Seiten): wechselt bei jedem Abruf, gehört nicht zur Adresse
+    u.pathname = u.pathname.replace(/;jsessionid=[^/;?]*/gi, '');
     return u.toString();
   } catch {
     return null;
@@ -141,7 +143,9 @@ export function mainRoot($: CheerioAPI) {
   return $('body').first();
 }
 
-export function extractLinks($: CheerioAPI, baseUrl: string): PageLink[] {
+export function extractLinks($: CheerioAPI, pageUrl: string): PageLink[] {
+  // <base href="…"> legt fest, wogegen relative Links aufgelöst werden (service.bund.de: „IMPORTE/…“ gegen die Startseite)
+  const baseUrl = absolutize($('base[href]').first().attr('href'), pageUrl) ?? pageUrl;
   const main = mainRoot($);
   const mainSet = new Set(main.find('a').toArray());
   const out: PageLink[] = [];

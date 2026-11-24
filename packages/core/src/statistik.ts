@@ -81,6 +81,17 @@ export interface StatSchnappschuss {
     /** offene KI-Aufgaben nach dem Lauf */
     kiOffen: number;
   };
+  /**
+   * Auffällige Quellen nach dem Lauf (seit 24.11.2026; ältere Schnappschüsse haben das Feld nicht): Fehler, gesperrt,
+   * leer oder fast leer, oder ein Portal fand dort eine fehlende Anzeige. Markierte Quellen untersucht ein Probelauf.
+   */
+  quellen?: {
+    liste: StatQuelle[];
+    /** aktive Quellen insgesamt */
+    aktiv: number;
+    /** in diesem Lauf automatisch übernommene Reparaturen */
+    repariert: number;
+  };
   /** Was Tara bisher entschieden hat (alle Entscheidungen zu Anzeigen, die es noch gibt), mit dem Profil von heute */
   wirkung: {
     nachRing: Record<StatRing, GemerktWeggelegt>;
@@ -89,6 +100,64 @@ export interface StatSchnappschuss {
     herz: number;
     beworben: number;
   };
+}
+
+// ------------------------------------------------------------------ Auffällige Quellen
+
+export const QUELLEN_GRUENDE = ['fehler', 'blockiert', 'leer', 'mager', 'warnung'] as const;
+export type QuellenGrund = (typeof QUELLEN_GRUENDE)[number];
+
+export interface StatQuellenPruefung {
+  id: number;
+  /** wartet, laeuft, fertig, fehler, uebernommen, verworfen */
+  status: string;
+  am: string | null;
+  urteil: string | null;
+  /** Anzeigen, die der Probelauf fand */
+  anzeigen: number | null;
+  /** Stellenliste laut Probelauf, wenn sie von der bisherigen abweicht */
+  adresse: string | null;
+  hinweis: string | null;
+}
+
+export interface StatQuelle {
+  id: string;
+  name: string;
+  url: string | null;
+  /** Art der Einrichtung (universitaet, hochschule …) oder „portal“ */
+  art: string;
+  grund: QuellenGrund;
+  /** Einträge im letzten Lauf */
+  anzahl: number | null;
+  /** Läufe in Folge mit diesem Befund */
+  laeufe: number;
+  seit: string;
+  /** Schwelle erreicht: wird gezeigt und untersucht */
+  markiert: boolean;
+  notiz: string | null;
+  pruefung: StatQuellenPruefung | null;
+}
+
+/**
+ * Befund einer Quelle nach dem Lauf. „mager“: höchstens ein Eintrag, obwohl eine Universität fast immer mehrere
+ * Stellen offen hat (Göttingen las wochenlang nur eine Übersichtsseite und galt als „ok“).
+ */
+export function quellenGrund(s: { status: string; lastCount: number | null }, art: string): QuellenGrund | null {
+  if (s.status === 'fehler' || s.status === 'blockiert' || s.status === 'warnung' || s.status === 'leer') return s.status as QuellenGrund;
+  if (s.status === 'ok' && (s.lastCount ?? 0) <= 1 && (art === 'universitaet' || art === 'hochschule' || art === 'ph')) return 'mager';
+  return null;
+}
+
+/**
+ * Ab wie vielen Läufen in Folge eine Quelle markiert wird. Große Einrichtungen und Portale haben praktisch immer
+ * Stellen offen, kleine Institute oft wochenlang keine.
+ */
+export function quellenSchwelle(grund: QuellenGrund, art: string): number {
+  const gross = art === 'universitaet' || art === 'portal';
+  if (grund === 'warnung') return 1;
+  if (grund === 'fehler' || grund === 'blockiert') return 2;
+  if (grund === 'leer') return gross || art === 'hochschule' || art === 'ph' ? 2 : 7;
+  return gross ? 3 : 7;
 }
 
 /** KI-Ergebnisse je Tag (aus ki_aufgaben): art, Ergebnis (Urteil, Anzeige ja/nein, Frist ja/nein, fehler), Wartezeit. */

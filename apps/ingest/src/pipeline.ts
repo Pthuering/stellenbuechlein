@@ -66,6 +66,9 @@ import {
   type PostingCheck,
   type Source,
   type Suchprofil,
+  registrableHost,
+  type StatQuelle,
+  type StatSchnappschuss,
 } from '@stellen/core';
 import {
   addSuggestionStmt,
@@ -102,6 +105,10 @@ import {
   type Stmt,
   enqueueAiTaskStmt,
   statistikStmt,
+  createSourceCheck,
+  listSourceChecks,
+  patchSource,
+  setSourceCheckStatus,
   NOT_A_POSTING,
   type AiTaskKind,
 } from '@stellen/db';
@@ -121,10 +128,10 @@ import { wikipediaImage } from './images';
 import { findJobsPage } from './sourceDiscovery';
 import { sendHighScoreAlert, sendReminders } from './push';
 import { Registry } from './registry';
-import { exploreBa, exploreQueries, exploreWeb } from './explore';
-import { processPendingChecks } from './sourceCheck';
+import { exploreBa, exploreWeb, suchmuster, sucheOf, wochenplan, type Suchziel } from './explore';
+import { processPendingChecks, type SourceCheckResult } from './sourceCheck';
 import { lockForIngest, unlockAfterIngest } from './sperre';
-import { buildSnapshot } from './statistik';
+import { buildSnapshot, letzteQuellen, quellenBefund } from './statistik';
 
 export interface PipelineOptions {
   only?: string[];
@@ -141,6 +148,8 @@ export interface PipelineOptions {
   /** Fortsetzung eines großen Durchlaufs: Quellen, die seit diesem Zeitpunkt gelesen wurden, überspringen */
   skipSourcesSince?: string;
   maxSources?: number;
+  /** Alle Wortgruppen des Suchmusters auf einmal statt nach Wochenplan (Probe oder voller Durchgang von Hand) */
+  suchplanVoll?: boolean;
   fetchImpl?: typeof fetch;
   /** fester Zeitpunkt (für Tests) */
   now?: Date;
@@ -246,6 +255,8 @@ export class Pipeline {
   /** Auslandsanzeigen: die Einstellung und was dieser Lauf noch aufnehmen darf (Deckel). */
   private abroad: AuslandSetting = { ...DEFAULT_AUSLAND };
   private abroadLeft = { alle: 0, weltweit: 0 };
+  /** Wochenplan der Suchen: Wortgruppen je Ziel (web, ba, Suchseiten-Quellen) für heute */
+  private suchplan = new Map<string, string[]>();
   private horizon: Horizont = horizontOf(this.profile);
   private summaryForAi = '';
   /** Neue Anzeigen dieses Laufs mit Score, für die Benachrichtigung über sehr gut passende */
@@ -396,6 +407,7 @@ export class Pipeline {
         if (n) this.bump('probelaeufe', n);
       }
       const sources = await this.load();
+      this.planSearch(sources);
       const full = this.opts.sources !== false;
       if (full && this.opts.images !== false) await this.resolveImages();
       if (full && this.opts.discovery !== false) await this.findMissingJobPages(sources);
@@ -403,11 +415,21 @@ export class Pipeline {
       if (full && (this.opts.explore ?? (this.cfg.explore.enabled && !this.opts.only?.length))) await this.explore();
       if (this.pool) await this.processBrowserQueue(sources);
       await this.flushHealthWarnings();
+      // Auffällige Quellen markieren und untersuchen (Probelauf), solange der Browser noch offen ist
+      if (full && !this.opts.only?.length) await this.investigateSources().catch((e) => this.log.warn(`Quellen-Untersuchung: ${errText(e)}`));
       if (full) {
         const t = Date.parse(this.now);
         this.bump(
           'abgelaufen',
-          await expireJobs(this.db, this.today, new Date(t - this.cfg.goneAfterDays * 86_400_000).toISOString(), this.now, new Date(t - 45 * 86_400_000).toISOString()),
+          await expireJobs(
+            this.db,
+            this.today,
+            new Date(t - this.cfg.goneAfterDays * 86_400_000).toISOString(),
+            this.now,
+            new Date(t - 45 * 86_400_000).toISOString(),
+            // Suchseiten sehen eine Anzeige nur, wenn ihre Wortgruppe dran ist (einmal pro Woche): drei Durchgänge abwarten
+            new Date(t - 21 * 86_400_000).toISOString(),
+          ),
         );
         this.bump('geloescht', await purgeExpired(this.db, new Date(t - this.cfg.purgeAfterDays * 86_400_000).toISOString(), this.now));
         this.bump('freigegeben', await releaseCheckedJobs(this.db, this.today, this.now));
@@ -438,8 +460,72 @@ export class Pipeline {
 
   private async saveSnapshot(runId: number, ok: boolean): Promise<void> {
     const ende = new Date().toISOString();
-    const daten = await buildSnapshot(this.db, this.profile, { start: new Date(this.startedMs).toISOString(), ende, ok, stats: this.stats }, this.today);
+    const daten = await buildSnapshot(this.db, this.profile, { start: new Date(this.startedMs).toISOString(), ende, ok, stats: this.stats }, this.today, this.quellenStand ?? undefined);
     await this.db.batch([statistikStmt(runId, ende, daten)]);
+  }
+
+  /** Auffällige Quellen dieses Laufs für den Schnappschuss (investigateSources). */
+  private quellenStand: StatSchnappschuss['quellen'] | null = null;
+
+  /**
+   * Auffällige Quellen (Fehler, gesperrt, leer, fast leer, Portal fand Fehlendes) über die Läufe zählen, ab der
+   * Schwelle markieren und untersuchen lassen: Ein Probelauf liest die Seite neu, sucht bei toter Adresse die
+   * Stellenseite der Website und schlägt Adresse und Einstellungen vor. Klare Verbesserungen übernimmt der Lauf
+   * selbst (vorher höchstens ein Eintrag, jetzt mindestens drei Anzeigen auf derselben Website); alles andere
+   * steht mit Befund in der Statistik. In der App gibt es dafür keine Warnung.
+   */
+  private async investigateSources(): Promise<void> {
+    const vorher = await letzteQuellen(this.db);
+    const erst = await quellenBefund(this.db, vorher, this.today);
+    const markiert = erst.liste.filter((q) => q.markiert && q.url);
+    const frisch = addDays(this.today, -14);
+    let eingereiht = 0;
+    for (const q of markiert) {
+      const p = q.pruefung;
+      // Schon untersucht (oder in Arbeit) in den letzten zwei Wochen: nicht noch einmal
+      if (p && (p.status === 'wartet' || p.status === 'laeuft' || (p.am ?? '') >= frisch)) continue;
+      await createSourceCheck(this.db, q.url!, q.id, this.now);
+      eingereiht++;
+    }
+    // Abarbeiten, solange der Lauf Zeit hat (10 Minuten Reserve für Aufräumen und Statistik)
+    const until = this.startedMs + this.cfg.runBudgetMs - 10 * 60_000;
+    const done = eingereiht || markiert.length ? await processPendingChecks(this.db, this.ctx, 10_000, until) : 0;
+    const repariert = await this.adoptClearFixes(markiert);
+    this.bump('quellenMarkiert', markiert.length);
+    if (eingereiht) this.bump('quellenUntersuchung', eingereiht);
+    if (done) this.bump('probelaeufe', done);
+    if (repariert) this.bump('quellenRepariert', repariert);
+    const nachher = await quellenBefund(this.db, vorher, this.today);
+    this.quellenStand = { ...nachher, repariert };
+    this.log.info(`Quellen: ${markiert.length} markiert, ${eingereiht} zur Untersuchung eingereiht, ${done} Probeläufe, ${repariert} repariert.`);
+  }
+
+  /** Übernimmt Probeläufe, die eine markierte Quelle eindeutig reparieren. */
+  private async adoptClearFixes(markiert: StatQuelle[]): Promise<number> {
+    if (!markiert.length) return 0;
+    const ids = new Set(markiert.map((q) => q.id));
+    const checks = (await listSourceChecks<SourceCheckResult>(this.db, 2000)).filter((c) => c.status === 'fertig' && c.sourceId && ids.has(c.sourceId));
+    const sources = new Map((await listSources(this.db)).map((s) => [s.id, s]));
+    const seen = new Set<string>();
+    let n = 0;
+    for (const c of checks) {
+      if (seen.has(c.sourceId!)) continue;
+      seen.add(c.sourceId!);
+      const q = markiert.find((x) => x.id === c.sourceId)!;
+      const s = sources.get(c.sourceId!);
+      const r = c.result;
+      if (!s || !r || !s.url) continue;
+      const sameSite = registrableHost(r.listUrl) === registrableHost(s.url);
+      const clear = (q.anzahl ?? 0) <= 1 && r.candidates >= 3 && r.verdict !== 'ungeeignet' && sameSite && r.samples.some((x) => x.complete);
+      if (!clear) continue;
+      const note = `Automatisch repariert am ${this.today} (Probelauf ${c.id}: ${r.candidates} Anzeigen${r.listUrl !== s.url ? `, neue Adresse` : ''})`;
+      // Bestätigt: Beim nächsten Einspielen der Startdaten bleiben Adresse und Einstellungen erhalten
+      await patchSource(this.db, s.id, { url: r.listUrl, config: { ...s.config, ...r.config, note }, verified: true });
+      await setSourceCheckStatus(this.db, c.id, 'uebernommen');
+      this.log.info(`Quelle ${s.id} repariert: ${r.listUrl} (${r.candidates} Anzeigen)`);
+      n++;
+    }
+    return n;
   }
 
   // ---------------------------------------------------------------- Bilder und fehlende Stellenseiten
@@ -476,8 +562,45 @@ export class Pipeline {
 
   // ---------------------------------------------------------------- Quellen
 
+  /**
+   * Wochenplan der Suchen: Welche Wortgruppen des Suchmusters gehen heute an die Websuche, die Arbeitsagentur und
+   * jede Suchseite (Quellen mit config.suche)? Über eine Woche kommt jede Wortgruppe bei jedem Ziel einmal dran.
+   */
+  private planSearch(sources: Source[]): void {
+    const ziele: Suchziel[] = [];
+    const brave = !!this.cfg.search.braveKey;
+    if (this.cfg.explore.enabled && brave) ziele.push({ id: 'web', sprache: 'alle', brave: true });
+    if (this.cfg.explore.enabled) ziele.push({ id: 'ba', sprache: 'alle', brave: false });
+    for (const s of sources) {
+      const su = sucheOf(s.config);
+      if (!su || !s.enabled) continue;
+      const viaBrave = !su.adresse && !!su.website;
+      if (viaBrave && !brave) continue;
+      ziele.push({ id: s.id, sprache: su.sprache ?? 'alle', brave: viaBrave });
+    }
+    const plan = wochenplan(ziele, suchmuster(this.horizon), this.today, this.cfg.explore.braveProTag);
+    if (this.opts.suchplanVoll) {
+      // Ganze Woche auf einmal: alle Tage des Plans zusammenlegen (Brave-Budget gilt dann nicht)
+      plan.heute = new Map();
+      for (let i = 0; i < Math.max(7, plan.braveZyklus); i++) {
+        const tag = addDays(this.today, i);
+        for (const [z, qs] of wochenplan(ziele, suchmuster(this.horizon), tag, this.cfg.explore.braveProTag).heute) plan.heute.set(z, [...new Set([...(plan.heute.get(z) ?? []), ...qs])]);
+      }
+    }
+    this.suchplan = plan.heute;
+    this.ctx.suchplan = plan.heute;
+    const n = [...plan.heute.values()].reduce((a, q) => a + q.length, 0);
+    this.stats.suchplanTag = plan.tag;
+    this.stats.suchplanSuchen = n;
+    this.stats.suchplanBrave = plan.braveHeute;
+    this.log.info(
+      `Wochenplan Tag ${plan.tag + 1}/7: ${n} Suchen an ${plan.heute.size} Ziele (Brave ${plan.braveHeute}, Durchgang über ${plan.braveZyklus} Tage für ${plan.braveGesamt} Brave-Suchen, insgesamt ${plan.gesamt} Paare).`,
+    );
+  }
+
   private async processSources(all: Source[]): Promise<void> {
-    let sources = all.filter((s) => s.url);
+    // Suchseiten ohne Wortgruppen im heutigen Plan bleiben unberührt (kein „leer“, Anzeigen bleiben stehen)
+    let sources = all.filter((s) => s.url && (!sucheOf(s.config) || this.suchplan.has(s.id)));
     const since = this.opts.skipSourcesSince;
     if (since) sources = sources.filter((s) => !s.lastRunAt || s.lastRunAt < since);
     if (this.opts.only?.length) sources = sources.filter((s) => this.opts.only!.includes(s.id));
@@ -599,9 +722,10 @@ export class Pipeline {
     // Ausland (nur bei Portalen): ohne Freigabe verwerfen; mit Freigabe entscheidet unten abroadVerdict
     const place = data.locationText ?? c.hints?.locality ?? null;
     const land = source.kind === 'portal' ? countryOf({ country: data.country ?? c.hints?.country, locationText: place, title: data.title || c.title, text: data.descriptionMd, germanCity: !!this.cityMatcher.match(place) }) : null;
-    // Quellen ohne Länderfilter (config.ausland): Was kein erkennbares Land hat, zählt als Ausland („ZZ“ = unbekannt),
-    // damit Regeln und Deckel auch dafür gelten
-    const abroad = land && land !== 'DE' ? land : !land && source.kind === 'portal' && source.config.ausland === true ? 'ZZ' : null;
+    // Quellen ohne Länderfilter (config.ausland): Was kein erkennbares Land hat, zählt als Ausland, mit dem Land der
+    // Quelle (config.land, etwa „NL“ bei AcademicTransfer), sonst als „ZZ“ (unbekannt), damit Regeln und Deckel gelten
+    const quellenLand = typeof source.config.land === 'string' && /^[A-Z]{2}$/.test(source.config.land) ? source.config.land : 'ZZ';
+    const abroad = land && land !== 'DE' ? land : !land && source.kind === 'portal' && source.config.ausland === true ? quellenLand : null;
     if (abroad && !this.abroad.an) {
       this.bump('ausland');
       return null;
@@ -679,7 +803,8 @@ export class Pipeline {
       }
       return null;
     }
-    if (source.kind === 'portal' && job.institutionId) this.portalHealth(job, source);
+    // Suchseiten (LinkedIn, StepStone …) zeigen Anzeigen ganzer Konzerne und Töchter: kein Hinweis an die Quelle
+    if (source.kind === 'portal' && job.institutionId && !sucheOf(source.config)) this.portalHealth(job, source);
     this.holdIfUnclear(job, posting);
     stmts.push(upsertJobStmt(job), touchJobSourceStmt(job.id, source.id, c.url, this.now));
     this.flushAi(job.id, stmts);
@@ -827,7 +952,7 @@ export class Pipeline {
         return this.withHints({ url: c.url, title: d.title, descriptionMd: md, locationText: d.location, method: 'ats:workday', complete: a.complete, incompleteReason: a.reason }, c);
       }
     }
-    if (c.via === 'ats:smartrecruiters' || c.via === 'ats:hpcareer') {
+    if (c.via === 'ats:smartrecruiters' || c.via === 'ats:hpcareer' || c.via === 'json-liste') {
       const d = await atsDetail(this.http, c, !!source.config.ignoreRobots);
       if (d) return this.withHints(d, c);
     }
@@ -1124,7 +1249,10 @@ export class Pipeline {
     const target = this.cfg.explore.minNew;
     if (target <= 0) return;
     const budget = { left: this.cfg.explore.maxReads };
-    const queries = exploreQueries(this.horizon, this.today, this.cfg.explore.maxQueries);
+    // Heute laut Wochenplan: Wortgruppen für die Websuche (Brave) und die Arbeitsagentur
+    const web = new Set(this.suchplan.get('web') ?? []);
+    const ba = new Set(this.suchplan.get('ba') ?? []);
+    const queries = [...new Set([...web, ...ba])].slice(0, this.cfg.explore.maxQueries);
     const tried = new Set<string>();
     const stmts: Stmt[] = [];
     let found = 0;
@@ -1137,8 +1265,8 @@ export class Pipeline {
       const cands: Candidate[] = [];
       for (const q of batch) {
         searches++;
-        cands.push(...(await exploreBa(this.ctx, q).catch((e) => (this.log.warn(`Erkundung „${q}“ (Arbeitsagentur): ${errText(e)}`), []))));
-        cands.push(...(await exploreWeb(this.ctx, q).catch((e) => (this.log.warn(`Erkundung „${q}“ (Websuche): ${errText(e)}`), []))));
+        if (ba.has(q)) cands.push(...(await exploreBa(this.ctx, q).catch((e) => (this.log.warn(`Erkundung „${q}“ (Arbeitsagentur): ${errText(e)}`), []))));
+        if (web.has(q)) cands.push(...(await exploreWeb(this.ctx, q).catch((e) => (this.log.warn(`Erkundung „${q}“ (Websuche): ${errText(e)}`), []))));
       }
       // Nur Unbekanntes: weder als Anzeige noch als Website im Register
       const fresh = cands.filter((c) => {

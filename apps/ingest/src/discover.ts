@@ -8,7 +8,8 @@ import { extractLinks, findFeedLinks, jobPostingsFrom, load, looksLikeJsShell, v
 import { candidatesFromJson, parseFeed, parseJsonFeed, parsePersonioXml, parseSitemap } from './feeds';
 import { baDiscover } from './portals';
 import { InteramtSession, viaInteramt } from './interamt';
-import { biteListingsIn, JSON_ATS, jsonAtsOf, viaBite, viaJsonAts, type JsonAts } from './ats';
+import { biteListingsIn, JSON_ATS, jsonAtsOf, jsonListeOf, viaBite, viaJsonAts, viaJsonListe, type JsonAts } from './ats';
+import { exploreWeb, sucheOf, sucheUrl, type SucheConfig } from './explore';
 import type { Candidate } from './extract';
 import type { Http } from './http';
 import type { Llm } from './llm';
@@ -22,6 +23,8 @@ export interface DiscoverContext {
   browser: BrowserPool | null;
   cfg: IngestConfig;
   log: RunLog;
+  /** Wochenplan: Wortgruppen je Suchseite (Quellen-ID) für heute */
+  suchplan?: Map<string, string[]>;
 }
 
 export interface DiscoveryResult {
@@ -162,6 +165,8 @@ async function viaWorkday(url: string, ctx: DiscoverContext, maxPages: number): 
   if (!site) return [];
   const api = `${u.origin}/wday/cxs/${tenant}/${site}/jobs`;
   const out: Candidate[] = [];
+  // Workday nennt die Gesamtzahl nur auf der ersten Seite (DATEV: sonst Abbruch nach 40 von 61)
+  let total = 0;
   for (let page = 0; page < maxPages * 3; page++) {
     const r = await ctx.http.get(api, {
       method: 'POST',
@@ -170,14 +175,21 @@ async function viaWorkday(url: string, ctx: DiscoverContext, maxPages: number): 
       noCache: true,
     });
     if (!r.ok) break;
-    const data = JSON.parse(r.text) as { total?: number; jobPostings?: { title?: string; externalPath?: string; locationsText?: string; postedOn?: string }[] };
+    let data: { total?: number; jobPostings?: { title?: string; externalPath?: string; locationsText?: string; postedOn?: string }[] };
+    try {
+      data = JSON.parse(r.text);
+    } catch {
+      // Keine JSON-Antwort (Sperrseite, Wartung): mit dem bisher Gefundenen aufhören statt die Quelle auf „fehler“ zu setzen
+      break;
+    }
     const list = data.jobPostings ?? [];
     for (const j of list) {
       if (!j.externalPath) continue;
       const detailUrl = `${u.origin}/${site}${j.externalPath}`;
       out.push({ url: detailUrl, title: j.title ?? null, via: 'ats:workday', hints: { locality: j.locationsText ?? null } });
     }
-    if (list.length < 20 || out.length >= (data.total ?? 0)) break;
+    if (data.total) total = data.total;
+    if (list.length < 20 || out.length >= total) break;
   }
   return out;
 }
@@ -255,8 +267,67 @@ function candidatesFromListHtml(html: string, url: string, cfg: SourceConfig, vi
     if (jp.url) candidates.push({ url: new URL(jp.url, url).toString(), title: jp.title, via: `${via}:jsonld`, hints: { locality: jp.locality, org: jp.hiringOrganization } });
   }
   const links = extractLinks($, url);
-  for (const l of pickPostingLinks(links, url, cfg)) candidates.push({ url: l.url, title: l.text || null, via });
+  for (const l of pickPostingLinks(links, url, cfg)) candidates.push({ url: cfg.ohneParameter ? withoutQuery(l.url) : l.url, title: cleanListTitle(l.text) || null, via });
   return { candidates, links, feeds: findFeedLinks($, url) };
+}
+
+/**
+ * Suchseite abfragen: je Wortgruppe aus dem heutigen Wochenplan die eigene Suche der Seite (Trefferseiten wie eine
+ * Liste gelesen, ohne Browser und KI für leere Treffer) oder die Websuche mit site:. Steht die Quelle heute nicht im
+ * Plan, kommt nichts zurück; die Pipeline lässt sie dann aus.
+ */
+async function discoverSuche(source: Source, cfg: SourceConfig, suche: SucheConfig, ctx: DiscoverContext): Promise<DiscoveryResult> {
+  const queries = ctx.suchplan?.get(source.id) ?? [];
+  const found = new Map<string, Candidate>();
+  const notes: string[] = [];
+  let ok = 0;
+  let blocked = 0;
+  const { suche: _plan, ...rest } = cfg;
+  const pattern = cfg.linkPattern ? new RegExp(cfg.linkPattern, 'i') : null;
+  for (const q of queries) {
+    let list: Candidate[] = [];
+    if (suche.adresse) {
+      const sub: Source = { ...source, url: sucheUrl(suche.adresse, q), config: { ...rest, maxPages: suche.seiten ?? 1, _suchtreffer: true } };
+      const r = await discover(sub, ctx);
+      if (r.status === 'ok' || r.status === 'leer') ok++;
+      else {
+        if (r.status === 'blockiert') blocked++;
+        if (r.note && notes.length < 3) notes.push(`„${q}“: ${r.note}`);
+      }
+      list = r.candidates;
+    } else if (suche.website) {
+      list = (await exploreWeb(ctx, q, suche.website)).filter((c) => !pattern || pattern.test(c.url));
+      ok++;
+    }
+    merge(
+      found,
+      list.map((c) => ({ ...c, url: cfg.ohneParameter ? withoutQuery(c.url) : c.url, hints: { ...c.hints, query: q } })),
+    );
+  }
+  const status: SourceStatus = found.size ? 'ok' : ok || !queries.length ? 'leer' : blocked ? 'blockiert' : 'fehler';
+  return { candidates: [...found.values()], methods: [`suche (${queries.length} Wortgruppen)`], status, note: notes.join('; ') || (queries.length ? null : 'heute nicht im Wochenplan') };
+}
+
+/** config.ohneParameter: Suchparameter gehören nicht zur Anzeige (service.bund.de hängt Suchwort und Treffertyp an). */
+function withoutQuery(u: string): string {
+  try {
+    const x = new URL(u);
+    x.search = '';
+    return x.toString();
+  } catch {
+    return u;
+  }
+}
+
+/** Weiche Trennstriche (service.bund.de) und Feldnamen vor dem Titel („StellenbezeichnungWissenschaftliche/r …“). */
+function cleanListTitle(t: string): string {
+  return t
+    .replace(/­/g, '')
+    .replace(/^Stellenbezeichnung\s*/, '')
+    // Eingebettete Stilregeln im Link (StepStone): „.res-xrpel9{box-sizing:border-box;…}“
+    .replace(/(?:[.#@][\w-]+[^{}]*\{[^{}]*\}\s*)+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function merge(into: Map<string, Candidate>, list: Candidate[]): number {
@@ -288,6 +359,13 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
 
   if (!source.url) return { candidates: [], methods, status: 'url-fehlt', note: 'Keine Adresse hinterlegt' };
 
+  // config.abstandMs: höflicher Abstand, wo eine Website schnelle Abrufe sperrt (LinkedIn); gilt auch für das Lesen der Anzeigen
+  if (typeof cfg.abstandMs === 'number') ctx.http.slowDown(registrableHost(source.url) ?? '', cfg.abstandMs);
+
+  // Suchseite: heute die Wortgruppen aus dem Wochenplan abfragen statt einer festen Liste
+  const suche = sucheOf(cfg);
+  if (suche) return discoverSuche(source, cfg, suche, ctx);
+
   // Portale mit eigener Schnittstelle
   if (source.adapter === 'ba-jobsuche') {
     try {
@@ -309,6 +387,18 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
       return { candidates: [...found.values()], methods: ['portal:interamt'], status: list.length ? 'ok' : 'leer', note: `${session.requests} Abrufe` };
     } catch (e) {
       return { candidates: [], methods, status: 'fehler', note: `Interamt: ${e instanceof Error ? e.message : String(e)}` };
+    }
+  }
+
+  // Versteckte JSON-Schnittstelle der Stellenseite (Liste mit Kennungen, Text aus der Detail-Schnittstelle)
+  const jl = jsonListeOf(cfg);
+  if (jl) {
+    try {
+      const list = await viaJsonListe(jl, ctx.http, ignoreRobots);
+      merge(found, list);
+      return { candidates: [...found.values()], methods: ['json-liste'], status: list.length ? 'ok' : 'leer', note: null };
+    } catch (e) {
+      return { candidates: [], methods, status: 'fehler', note: `JSON-Liste: ${e instanceof Error ? e.message : String(e)}` };
     }
   }
 
@@ -355,7 +445,8 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
   // Die Adresse ist eine JSON-Schnittstelle, keine Seite: kein Browser, keine Sitemap
   let isApi = false;
   let biteApi = false;
-  const first = await ctx.http.get(source.url, { ignoreRobots });
+  // config.cookie: Einwilligung, ohne die die Seite die Liste gar nicht einbindet (HSHL: BITE erst nach „Stellenanzeigen aktivieren“)
+  const first = await ctx.http.get(source.url, typeof cfg.cookie === 'string' ? { ignoreRobots, headers: { cookie: cfg.cookie }, noCache: true } : { ignoreRobots });
   listStatus = first.status;
   if (first.blockedByRobots) {
     blocked = true;
@@ -393,6 +484,8 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
       merge(found, bite);
       methods.push('ats:bite');
       biteApi = true;
+      // Mit eigenem Link-Muster zählen auch die übrigen Anzeigen der Seite (Passau: PDF-Ausschreibungen neben BITE)
+      if (cfg.linkPattern && merge(found, candidates) > 0) methods.push('liste');
     } else if (merge(found, candidates) > 0) methods.push('liste');
     for (const f of feeds.slice(0, 2)) {
       if (f === cfg.feedUrl) continue;
@@ -426,6 +519,11 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
       for (const n of findNextPages(res.links, r.url)) if (!visited.has(canonicalUrl(n))) queue.push(n);
     }
     if (pages > 1) methods.push(`${pages} Listenseiten`);
+  }
+
+  // Trefferseite einer Suchseite: Leer heißt hier „keine Treffer“, nicht „Seite falsch gelesen“
+  if (cfg._suchtreffer) {
+    return { candidates: [...found.values()], methods, status: found.size ? 'ok' : first.ok ? 'leer' : blocked || listStatus === 403 ? 'blockiert' : 'fehler', note: notes.join('; ') || null };
   }
 
   // 4) Browser, wenn statisch nichts kam oder die Seite JavaScript braucht

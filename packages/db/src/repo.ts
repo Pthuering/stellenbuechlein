@@ -370,7 +370,11 @@ export function upsertSourceStmt(s: Source, now = nowIso()): Stmt {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET institution_id = excluded.institution_id, kind = excluded.kind, label = excluded.label,
           url = CASE WHEN sources.verified = 1 THEN sources.url ELSE excluded.url END,
-          adapter = excluded.adapter, config = excluded.config, gate = excluded.gate, updated_at = excluded.updated_at`,
+          -- Bestätigte Quellen (Probelauf übernommen, von Hand oder automatisch repariert): ihre Einstellungen gelten,
+          -- die Startdaten ergänzen nur fehlende Felder. Sonst ginge jede Reparatur beim nächsten Einspielen verloren.
+          adapter = excluded.adapter,
+          config = CASE WHEN sources.verified = 1 AND json_valid(sources.config) THEN json_patch(excluded.config, sources.config) ELSE excluded.config END,
+          gate = excluded.gate, updated_at = excluded.updated_at`,
     params: [
       s.id, s.institutionId, s.kind, s.label, s.url, s.adapter, JSON.stringify(s.config ?? {}), s.gate,
       s.enabled ? 1 : 0, s.verified ? 1 : 0, s.url ? s.status : 'url-fehlt', s.statusNote ?? null, now,
@@ -623,19 +627,34 @@ export async function releaseCheckedJobs(db: Db, today: string, now = nowIso()):
  * Setzt Anzeigen auf "abgelaufen": Frist vorbei, oder seit `goneDays` Tagen in keiner Quelle mehr gesehen
  * (aber nur, wenn ihre Quellen inzwischen erfolgreich gelaufen sind – sonst wäre ein Quellenausfall ein falscher Ablauf).
  */
-export async function expireJobs(db: Db, today: string, goneBeforeIso: string, now = nowIso(), exploredGoneBeforeIso?: string): Promise<number> {
+/** Quellen mit config.suche fragen ihre Wortgruppen nach Wochenplan ab, sehen eine Anzeige also nicht jeden Tag. */
+const SUCHSEITE = `s.config LIKE '%"suche":%'`;
+
+export async function expireJobs(db: Db, today: string, goneBeforeIso: string, now = nowIso(), exploredGoneBeforeIso?: string, searchGoneBeforeIso?: string): Promise<number> {
   const a = await db.run(
     "UPDATE jobs SET status = 'abgelaufen', updated_at = ? WHERE status = 'aktiv' AND deadline IS NOT NULL AND deadline < ?",
     [now, today],
   );
+  // Nicht mehr gelistet: nur bei Anzeigen, die mindestens eine Quelle mit fester Liste hat
   const b = await db.run(
     `UPDATE jobs SET status = 'abgelaufen', updated_at = ? WHERE status = 'aktiv' AND last_seen_at < ?
      AND NOT EXISTS (
        SELECT 1 FROM job_sources js JOIN sources s ON s.id = js.source_id
        WHERE js.job_id = jobs.id AND (s.last_ok_at IS NULL OR s.last_ok_at < ?)
-     )`,
+     )
+     AND EXISTS (SELECT 1 FROM job_sources js JOIN sources s ON s.id = js.source_id WHERE js.job_id = jobs.id AND NOT (${SUCHSEITE}))`,
     [now, goneBeforeIso, goneBeforeIso],
   );
+  // Nur über Suchseiten gefunden, ohne Frist: abgelaufen, wenn mehrere Wochenpläne lang kein neuer Fund kam
+  let d = { changes: 0 };
+  if (searchGoneBeforeIso) {
+    d = await db.run(
+      `UPDATE jobs SET status = 'abgelaufen', updated_at = ? WHERE status = 'aktiv' AND deadline IS NULL AND last_seen_at < ?
+       AND EXISTS (SELECT 1 FROM job_sources js JOIN sources s ON s.id = js.source_id WHERE js.job_id = jobs.id AND ${SUCHSEITE})
+       AND NOT EXISTS (SELECT 1 FROM job_sources js JOIN sources s ON s.id = js.source_id WHERE js.job_id = jobs.id AND NOT (${SUCHSEITE}))`,
+      [now, searchGoneBeforeIso],
+    );
+  }
   // Über die Erkundung gefundene Anzeigen ohne Frist werden nicht jeden Tag wieder gelistet:
   // Sie gelten nach längerer Zeit ohne neuen Fund als abgelaufen.
   let c = { changes: 0 };
@@ -646,7 +665,7 @@ export async function expireJobs(db: Db, today: string, goneBeforeIso: string, n
       [now, exploredGoneBeforeIso],
     );
   }
-  return a.changes + b.changes + c.changes;
+  return a.changes + b.changes + c.changes + d.changes;
 }
 
 /** Eine Anzeige, die zuerst ohne Einrichtung gefunden wurde, taucht jetzt in einer Quelle mit Einrichtung auf. */

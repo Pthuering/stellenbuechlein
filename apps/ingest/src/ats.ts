@@ -251,7 +251,8 @@ export async function viaJsonAts(ats: JsonAts, listUrl: string, http: Http, maxP
 /** Listen, die eine Seite per BITE einbindet: data-bite-jobs-api-listing="kunde:liste" oder das Listen-Skript. */
 export function biteListingsIn(html: string): { customer: string; listing: string }[] {
   const out = new Map<string, { customer: string; listing: string }>();
-  for (const m of html.matchAll(/data-bite-jobs-api-listing=["']([a-z0-9-]+):([a-z0-9_-]+)["']/gi)) out.set(`${m[1]}:${m[2]}`, { customer: m[1], listing: m[2] });
+  // Manche Seiten hängen eine Prüfsumme an („hs-nuertingen:beschaeftigte-listing#integrity:sha384-…“)
+  for (const m of html.matchAll(/data-bite-jobs-api-listing=["']([a-z0-9-]+):([a-z0-9_-]+)(?:#[^"']*)?["']/gi)) out.set(`${m[1]}:${m[2]}`, { customer: m[1], listing: m[2] });
   for (const m of html.matchAll(/cs-assets\.b-ite\.com\/([a-z0-9-]+)\/jobs-api\/([a-z0-9_-]+?)(?:\.min)?\.js/gi)) {
     if (!/^(?:loader|api)-/.test(m[2])) out.set(`${m[1]}:${m[2]}`, { customer: m[1], listing: m[2] });
   }
@@ -264,19 +265,31 @@ export function biteListingsIn(html: string): { customer: string; listing: strin
  * bleibt weg (dann kommen alle Stellen des Kanals, der Grobfilter sortiert).
  */
 export function parseBiteListingScript(js: string): { key: string; channel: number; filter: Record<string, { in: string[] }> | null } | null {
-  const key = /key:\s*"([0-9a-f]{40})"/.exec(js)?.[1];
-  if (!key) return null;
   const vars = new Map<string, string[]>();
   for (const m of js.matchAll(/\b([a-zA-Z_$][\w$]?)\s*=\s*("(?:[^"\\]|\\.)*"|\d+|\[(?:\s*"[^"]*"\s*,?)*\])/g)) {
     const v = m[2];
     vars.set(m[1], v.startsWith('[') ? [...v.matchAll(/"([^"]*)"/g)].map((x) => x[1]) : [v.replace(/^"|"$/g, '')]);
   }
+  // Variable gezielt über ihren Namen auflösen; die allgemeine Suche oben kann ein langer CSS-Text mit
+  // Anführungszeichen davor aus dem Takt bringen (BTU Cottbus)
+  const resolve = (name: string): string[] => {
+    const hit = new RegExp(`(?:^|[^\\w$.])${name.replace(/\$/g, '\\$')}\\s*=\\s*("(?:[^"\\\\]|\\\\.)*"|\\d+)`).exec(js)?.[1];
+    return hit != null ? [hit.replace(/^"|"$/g, '')] : vars.get(name) ?? [];
+  };
+  // Schlüssel direkt oder über eine Variable (Rostock: var l="5b5c…", createClient({key:l})). Gesucht wird am
+  // Aufruf createClient, weil der Darstellungscode davor eigene „key:“ hat (BTU Cottbus: {key:e.id,class:…}).
+  const k = /createClient\(\{\s*key:\s*(?:"([0-9a-f]{40})"|([a-zA-Z_$][\w$]*)\b)/.exec(js) ?? /key:\s*"([0-9a-f]{40})"/.exec(js);
+  const key = k?.[1] ?? (k?.[2] ? resolve(k[2])[0] : undefined);
+  if (!key || !/^[0-9a-f]{40}$/.test(key)) return null;
   const chRaw = /channel:\s*(\d+|[a-zA-Z_$][\w$]?)/.exec(js)?.[1] ?? '0';
-  const channel = /^\d+$/.test(chRaw) ? Number(chRaw) : Number(vars.get(chRaw)?.[0] ?? 0) || 0;
+  const channel = /^\d+$/.test(chRaw) ? Number(chRaw) : Number(resolve(chRaw)[0] ?? 0) || 0;
+  // Werte einer Liste: Texte oder Variablen (Münster: "custom.zuordnung":{in:[r]} mit r="wissenschaftich_beschaeftigte")
+  const values = (raw: string): string[] =>
+    raw.startsWith('[') ? [...raw.slice(1, -1).matchAll(/"([^"]*)"|([a-zA-Z_$][\w$]*)/g)].flatMap((x) => (x[1] != null ? [x[1]] : resolve(x[2]))) : resolve(raw);
   const filter: Record<string, { in: string[] }> = {};
-  for (const m of js.matchAll(/"(custom\.[\w.]+)":\s*\{\s*in:\s*(\[[^\]]*\]|[a-zA-Z_$][\w$]?)\s*\}/g)) {
-    const values = m[2].startsWith('[') ? [...m[2].matchAll(/"([^"]*)"/g)].map((x) => x[1]) : vars.get(m[2]);
-    if (values?.length) filter[m[1]] = { in: values };
+  for (const m of js.matchAll(/"?((?:custom\.[\w.]+)|locale)"?:\s*\{\s*in:\s*(\[[^\]]*\]|[a-zA-Z_$][\w$]?)\s*\}/g)) {
+    const v = values(m[2]);
+    if (v.length) filter[m[1]] = { in: v };
   }
   return { key, channel, filter: Object.keys(filter).length ? filter : null };
 }
@@ -300,8 +313,10 @@ export async function viaBite(html: string, http: Http, maxPages: number, ignore
     const js = await http.get(`https://cs-assets.b-ite.com/${customer}/jobs-api/${listing}.min.js`, { accept: '*/*', ignoreRobots });
     const cfg = js.ok ? parseBiteListingScript(js.text) : null;
     if (!cfg) continue;
+    // Englischsprachige Anzeigen gehören dazu (die Listen der Hochschulen filtern selbst auf de und en)
+    const filter = { locale: { in: ['de', 'en'] }, ...(cfg.filter ?? {}) };
     for (let page = 0; page < maxPages * 2; page++) {
-      const body = { key: cfg.key, channel: cfg.channel, locale: 'de', page: { num: 100, offset: page * 100 }, ...(cfg.filter ? { filter: cfg.filter } : {}) };
+      const body = { key: cfg.key, channel: cfg.channel, locale: 'de', page: { num: 100, offset: page * 100 }, filter };
       const r = await http.get('https://jobs.b-ite.com/api/v1/postings/search', { method: 'POST', body: JSON.stringify(body), headers: { 'content-type': 'application/json', accept: 'application/json' }, noCache: true, ignoreRobots });
       if (!r.ok) break;
       const { candidates, total } = parseBitePostings(r.text);
@@ -312,12 +327,106 @@ export async function viaBite(html: string, http: Http, maxPages: number, ignore
   return out;
 }
 
+// ------------------------------------------------------------------ Eigene JSON-Listen (config.jsonListe)
+
+/**
+ * Versteckte JSON-Schnittstelle einer Stellenseite, deren Liste nur Kennungen statt Adressen enthält
+ * (Uni Göttingen: Liste unter /api/v1/get/vacancies, Text unter /api/v1/get/vacancies/{id}, Anzeige unter
+ * 644546.html?details={id}). Platzhalter in seite und detail: {id}.
+ */
+export interface JsonListe {
+  /** Adresse der Liste */
+  api: string;
+  /** Weg zur Liste in der Antwort, z. B. "rows" oder "data.items"; leer = die Antwort ist die Liste */
+  zeilen?: string;
+  /** Feld mit der Kennung */
+  id: string;
+  /** Feld mit dem Titel (HTML wird entfernt) */
+  titel: string;
+  /** Adresse der Anzeige für Menschen */
+  seite: string;
+  /** Schnittstelle mit dem Anzeigentext */
+  detail?: string;
+  /** Felder der Detail-Antwort mit dem Text (HTML); Standard: Description, description, beschreibung, text */
+  textFelder?: string[];
+}
+
+export function jsonListeOf(cfg: Record<string, unknown>): JsonListe | null {
+  const j = cfg.jsonListe as Partial<JsonListe> | undefined;
+  return j && typeof j.api === 'string' && typeof j.id === 'string' && typeof j.titel === 'string' && typeof j.seite === 'string' ? (j as JsonListe) : null;
+}
+
+const fill = (tpl: string, id: string) => tpl.replace(/\{id\}/g, encodeURIComponent(id));
+const plain = (v: unknown) => (typeof v === 'string' || typeof v === 'number' ? load(`<p>${String(v)}</p>`)('p').text().replace(/\s+/g, ' ').trim() : '');
+
+/** Zeilen einer JSON-Liste in Kandidaten umwandeln (ohne Netz, für Tests getrennt). */
+export function parseJsonListe(body: string, jl: JsonListe): Candidate[] {
+  let rows: unknown = JSON.parse(body);
+  for (const k of (jl.zeilen ?? '').split('.').filter(Boolean)) rows = (rows as Record<string, unknown> | null)?.[k];
+  if (!Array.isArray(rows)) return [];
+  const out: Candidate[] = [];
+  for (const r of rows as Record<string, unknown>[]) {
+    const id = r?.[jl.id];
+    const title = plain(r?.[jl.titel]);
+    if ((typeof id !== 'string' && typeof id !== 'number') || !title) continue;
+    const key = String(id);
+    out.push({ url: fill(jl.seite, key), title, via: 'json-liste', hints: { detailApi: jl.detail ? fill(jl.detail, key) : null, textFelder: jl.textFelder ?? null } });
+  }
+  return out;
+}
+
+const JSON_TEXT_FELDER = ['Description', 'description', 'beschreibung', 'Beschreibung', 'text', 'content'];
+
+/** Anzeigentext aus einer JSON-Detailantwort: Titel, Text (HTML), dazu Frist, Abteilung und Ort, wenn vorhanden. */
+export function parseJsonDetail(body: string, url: string, textFelder?: string[] | null): PostingData | null {
+  const d = o(JSON.parse(body));
+  const title = plain(d.Title ?? d.title ?? d.titel ?? d.name);
+  // Ausdrücklich genannte Felder gehören zusammen (Text, Vergütung, Befristung …); ohne Angabe das erste übliche Textfeld
+  const texte = (textFelder?.length ? textFelder : JSON_TEXT_FELDER).map((k) => s(d[k])).filter((x): x is string => !!x);
+  const html = textFelder?.length ? texte.join('<br><br>') : texte[0];
+  if (!title || !html) return null;
+  // Felder rund um den Text, die oft nur in der Schnittstelle stehen (Göttingen: ApplicationDeadline, Facilitie)
+  const extra: string[] = [];
+  let department: string | null = null;
+  let locationText: string | null = null;
+  for (const [k, v] of Object.entries(d)) {
+    if (/deadline|frist|bewerbungsschluss/i.test(k) && typeof v === 'string' && /\d/.test(v)) extra.push(`Bewerbungsfrist: ${plain(v)}`);
+    else if (/^(grade|entgelt|besoldung)/i.test(k) && typeof v === 'string' && v.trim()) extra.push(`Vergütung: ${plain(v)}`);
+    else if (/^(timelimit|befristung|dauer)$/i.test(k) && typeof v === 'string' && v.trim()) extra.push(`Befristung: ${plain(v)}`);
+    else if (/facilit|institut|department|abteilung/i.test(k) && v && typeof v === 'object') {
+      const f = o(v);
+      department = plain(f.Designation ?? f.name ?? f.Name) || department;
+      locationText = plain(f.Loaction ?? f.Location ?? f.city ?? f.Ort) || locationText;
+    }
+  }
+  const md = htmlToMarkdown(html) + (extra.length ? `\n\n${extra.join('\n\n')}` : '');
+  const a = assessCompleteness(md);
+  return { url, title, descriptionMd: md, department, locationText, method: 'json-liste', complete: a.complete, incompleteReason: a.reason };
+}
+
+export async function viaJsonListe(jl: JsonListe, http: Http, ignoreRobots = false): Promise<Candidate[]> {
+  const r = await http.get(jl.api, { accept: 'application/json', ignoreRobots });
+  if (!r.ok) throw new Error(`HTTP ${r.status || r.error}`);
+  return parseJsonListe(r.text, jl);
+}
+
 /**
  * Anzeigentext über die Schnittstelle, wenn die Liste ihn nicht mitliefert:
- * SmartRecruiters (jobs.smartrecruiters.com/<firma>/<id>) und Hidden Professionals (…/<kürzel>/job/<id>).
+ * SmartRecruiters (jobs.smartrecruiters.com/<firma>/<id>), Hidden Professionals (…/<kürzel>/job/<id>) und
+ * eigene JSON-Listen (config.jsonListe, Text unter hints.detailApi).
  * Null, wenn der Kandidat nicht von dort stammt oder nichts kam.
  */
-export async function atsDetail(http: Http, c: { via: string; url: string }, ignoreRobots = false): Promise<PostingData | null> {
+export async function atsDetail(http: Http, c: { via: string; url: string; hints?: Candidate['hints'] }, ignoreRobots = false): Promise<PostingData | null> {
+  if (c.via === 'json-liste') {
+    if (!c.hints?.detailApi) return null;
+    const r = await http.get(c.hints.detailApi, { accept: 'application/json', ignoreRobots });
+    if (!r.ok) return null;
+    try {
+      return parseJsonDetail(r.text, c.url, c.hints.textFelder);
+    } catch {
+      return null;
+    }
+  }
   let api: string;
   let parse: (body: string, url: string) => PostingData | null;
   if (c.via === 'ats:smartrecruiters') {

@@ -86,6 +86,20 @@ export class Http {
     return info?.sitemaps ?? [];
   }
 
+  /** Mindestabstand je Website; Workday drosselt schnelle Abrufe mit HTTP 429 (DATEV, Airbus, Galileo-Hochschulen) */
+  private domainDelay = new Map<string, number>([['myworkdayjobs.com', 3000]]);
+
+  /** Größerer Abstand für alle Hosts einer Website (z. B. linkedin.com samt de.linkedin.com), etwa gegen Sperren nach schnellen Abrufen. */
+  slowDown(domain: string, ms: number): void {
+    if (domain && ms > 0) this.domainDelay.set(domain.toLowerCase(), Math.max(ms, this.domainDelay.get(domain.toLowerCase()) ?? 0));
+  }
+
+  private delayFor(host: string): number {
+    let d = this.hostDelay.get(host) ?? this.cfg.minHostIntervalMs;
+    for (const [domain, ms] of this.domainDelay) if (host === domain || host.endsWith(`.${domain}`)) d = Math.max(d, ms);
+    return d;
+  }
+
   /** Reiht Anfragen pro Host hintereinander, mit Mindestabstand (oder Crawl-delay). */
   private schedule<T>(host: string, task: () => Promise<T>): Promise<T> {
     const prev = this.hostChain.get(host) ?? Promise.resolve();
@@ -93,7 +107,7 @@ export class Http {
       try {
         return await task();
       } finally {
-        await sleep(this.hostDelay.get(host) ?? this.cfg.minHostIntervalMs);
+        await sleep(this.delayFor(host));
       }
     });
     this.hostChain.set(host, run.catch(() => undefined));

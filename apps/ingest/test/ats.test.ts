@@ -93,8 +93,17 @@ describe('BITE (Stellenlisten vieler Hochschulen)', () => {
     const html = '<div data-bite-jobs-api-listing="universitaet-x:wissenschaftliches-personal-listing"></div><script src="https://cs-assets.b-ite.com/universitaet-x/jobs-api/loader-v1/api-loader-v1.min.js"></script>';
     expect(biteListingsIn(html)).toEqual([{ customer: 'universitaet-x', listing: 'wissenschaftliches-personal-listing' }]);
     const js = 'var i,o,e;i=0,o="homepage",e="wissenschaftliches_personal",function(t){}; var l=r.createClient({key:"772b368818c51d27683efccde180c440264ab3eb"}),a=r.createSearchConfig({channel:i,locale:"de",page:{num:1e3},filter:{"custom.zuordnung":{in:e},locale:{in:["de","en"]}}})';
-    expect(parseBiteListingScript(js)).toEqual({ key: '772b368818c51d27683efccde180c440264ab3eb', channel: 0, filter: { 'custom.zuordnung': { in: ['wissenschaftliches_personal'] } } });
+    expect(parseBiteListingScript(js)).toEqual({
+      key: '772b368818c51d27683efccde180c440264ab3eb',
+      channel: 0,
+      filter: { 'custom.zuordnung': { in: ['wissenschaftliches_personal'] }, locale: { in: ['de', 'en'] } },
+    });
     expect(parseBiteListingScript('kein Schlüssel')).toBeNull();
+    // Rostock: Schlüssel in einer Variable; Münster: Variable in der Filterliste (sonst kam der ganze Kanal, 73 statt 8)
+    const rostock = 'var a="homepage",i="Wiss",l="0a1b2c3d4e5f60718293a4b5c6d7e8f901234567",d=t.createClient({key:l}),c=t.createSearchConfig({channel:r,locale:"de",filter:{locale:{in:["de","en"]},"custom.Zuordnung":{in:[i]}}})';
+    expect(parseBiteListingScript(rostock)).toEqual({ key: '0a1b2c3d4e5f60718293a4b5c6d7e8f901234567', channel: 0, filter: { locale: { in: ['de', 'en'] }, 'custom.Zuordnung': { in: ['Wiss'] } } });
+    const muenster = 'o="homepage",r="wissenschaftich_beschaeftigte";var f=c.createClient({key:"1234567890abcdef1234567890abcdef12345678"}),d=c.createSearchConfig({channel:i,locale:"de",filter:{"custom.zuordnung":{in:[r]},locale:{in:["de","en"]}}})';
+    expect(parseBiteListingScript(muenster)?.filter).toEqual({ 'custom.zuordnung': { in: ['wissenschaftich_beschaeftigte'] }, locale: { in: ['de', 'en'] } });
     const { candidates, total } = parseBitePostings(JSON.stringify({ total: 1, jobPostings: [{ title: 'Wiss. Mitarbeiter*in Psychologie', url: 'https://stellen.uni-x.de/jobposting/abc', address: { city: 'Lübeck' }, employer: { name: 'Uni X' } }] }));
     expect(total).toBe(1);
     expect(candidates[0]).toMatchObject({ url: 'https://stellen.uni-x.de/jobposting/abc', via: 'ats:bite', hints: { locality: 'Lübeck', org: 'Uni X' } });

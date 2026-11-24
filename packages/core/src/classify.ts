@@ -3,7 +3,7 @@
 import type { JobKind } from './types';
 
 const TITLE_RULES: Array<[JobKind, RegExp]> = [
-  ['professur', /(?:junior)?professur|\bprofessor(?:in|ship)?\b|\bW\s?[123]\b|tenure[- ]track|lehrstuhl/i],
+  ['professur', /(?:junior)?professur|\bprofessor(?:in|innen|ship|ships|s)?\b|\bW\s?[123]\b|tenure[- ]track|lehrstuhl/i],
   ['shk', /studentische[rn]?\s+(?:hilfskr|besch[äa]ftigt|mitarbeit)|\bshk\b|\bwhk\b|\bwhf\b|\bwhb\b|wissenschaftliche[rn]?\s+hilfskr|hilfskraft|hilfskr[äa]fte|\bhiwi|tutor(?:in|en|innen)?\b|student assistant|werkstudent/i],
   ['postdoc', /post-?\s?doc|postdoktorand|postdoctoral|promovierte[rn]?|nachwuchsgruppenleit|junior research group lead|research fellow|habilitand|akademische[rn]? r[äa]t/i],
   ['promotion', /doktorand|promotionsstelle|promotionsstipend|\bpromotion\b|zur promotion|\bph\.?\s?d\b|doctoral|doctorate|qualifikationsstelle|pre-?doc|graduiertenkolleg|stipendi/i],
@@ -20,9 +20,16 @@ const AT_A_CHAIR = /mitarbeit|assisten[zt]|sekret[äa]r|referent|koordinat|coord
 const POSTDOC_TEXT = /abgeschlossene[rn]?\s+promotion|promotion\s+(?:in|im)\s+[^.]{0,60}(?:erforderlich|vorausgesetzt|voraussetzung)|promoviert(?:e|en)?\b|completed (?:ph\.?d|doctorate)|ph\.?d\.?\s+(?:degree|in)\b|doctoral degree|postdoc/i;
 const PROMOTION_TEXT = /m[öo]glichkeit zur promotion|gelegenheit zur promotion|promotion wird (?:unterst[üu]tzt|erm[öo]glicht|angestrebt)|eigene[rn]? (?:wissenschaftlichen )?(?:weiter)?qualifi[zk]\w* \(promotion\)|zur eigenen wissenschaftlichen qualifizierung|promotionsvorhaben|promotionsprojekt|dissertation|pursue a ph\.?d|ph\.?d\.? (?:position|project|student|candidate)|doctoral (?:position|researcher|candidate|student)|kumulative promotion/i;
 
+/**
+ * Lecturer in Großbritannien, Irland, Neuseeland und Australien: feste Stelle mit eigener Forschung, entspricht einer
+ * Juniorprofessur. Reine Lehre („Lecturer in Academic Skills“) erkennt man daran, dass der Text keine Forschung verlangt.
+ */
+const LECTURER_RESEARCH = /research[- ]active|(?:develop|establish|lead|build|conduct|pursue|maintain)\w*\s+(?:an?\s+|your\s+own\s+|the\s+)?(?:independent\s+|internationally\s+\w+\s+|high[- ]quality\s+|externally[- ]funded\s+)?research|research (?:programme|program|agenda|portfolio|profile|excellence)|teaching and research|research and teaching|research[- ]led teaching|eigene forschung/i;
+
 export function classifyKind(title: string, text = ''): JobKind {
   const t = title || '';
   const atChair = AT_A_CHAIR.test(t);
+  if (/\b(?:senior\s+)?lecturer\b/i.test(t) && !/lehrkraft|lehrbeauftragt/i.test(t) && LECTURER_RESEARCH.test(text.slice(0, 8000))) return 'professur';
   for (const [kind, re] of TITLE_RULES) {
     if (!re.test(t)) continue;
     if (kind === 'professur' && atChair) continue;

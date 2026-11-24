@@ -29,6 +29,8 @@ interface SeedSource {
   verified?: boolean;
   note?: string;
   gate?: Gate;
+  /** weitere Einstellungen der Quelle (linkPattern, jsonListe, ignoreRobots …), gehen unverändert in config */
+  config?: SourceConfig;
 }
 
 interface SeedInstitution {
@@ -58,7 +60,7 @@ interface SeedPortal {
 const NO_ATS = new Set(['cms', 'unbekannt', '', undefined]);
 
 export function sourceFromSeed(inst: SeedInstitution, s: SeedSource, index: number): Source {
-  const config: SourceConfig = {};
+  const config: SourceConfig = { ...(s.config ?? {}) };
   if (s.ats && !NO_ATS.has(s.ats)) config.ats = s.ats;
   if (s.format === 'js-nachgeladen') config.render = true;
   if (s.rss) config.feedUrl = s.rss;

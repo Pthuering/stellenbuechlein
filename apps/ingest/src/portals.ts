@@ -35,22 +35,29 @@ function b64(s: string): string {
  * Suche über die (inoffizielle, öffentliche) Jobsuche-Schnittstelle der Bundesagentur für Arbeit.
  * Liefert je Suchbegriff bis zu `size` Anzeigen; `anyOk` sagt, ob die Schnittstelle überhaupt geantwortet hat.
  */
-export async function baSearch(ctx: DiscoverContext, queries: string[], size = 100, extra = ''): Promise<{ candidates: Candidate[]; anyOk: boolean }> {
+export async function baSearch(ctx: DiscoverContext, queries: string[], size = 100, extra = ''): Promise<{ candidates: Candidate[]; anyOk: boolean; diagnose: string | null }> {
   const base = ctx.cfg.baApiBase;
   const out = new Map<string, Candidate>();
   let anyOk = false;
+  // Aufbau der Antworten, solange nichts gefunden wird: zeigt im Protokoll, ob sich das Format geändert hat
+  let diagnose: string | null = null;
   for (const q of queries) {
     let items: BaListItem[] = [];
     for (const version of ['v4', 'v6']) {
       const url = `${base}/pc/${version}/jobs?was=${encodeURIComponent(q)}&angebotsart=1&page=1&size=${size}${extra}`;
       const r = await ctx.http.get(url, { headers: BA_HEADERS, accept: 'application/json', ignoreRobots: true });
-      if (!r.ok) continue;
+      if (!r.ok) {
+        diagnose ??= `${version}: HTTP ${r.status || r.error}`;
+        continue;
+      }
       try {
-        const data = JSON.parse(r.text) as { stellenangebote?: BaListItem[] };
+        const data = JSON.parse(r.text) as { stellenangebote?: BaListItem[]; maxErgebnisse?: unknown };
         items = data.stellenangebote ?? [];
         anyOk = true;
+        if (!items.length && !diagnose) diagnose = `${version}: Felder ${Object.keys(data).slice(0, 8).join(', ') || '–'}, maxErgebnisse ${String(data.maxErgebnisse ?? '–')}`;
         break;
       } catch {
+        diagnose ??= `${version}: keine JSON-Antwort (${r.text.slice(0, 80).replace(/\s+/g, ' ')})`;
         continue;
       }
     }
@@ -78,13 +85,15 @@ export async function baSearch(ctx: DiscoverContext, queries: string[], size = 1
       });
     }
   }
-  return { candidates: [...out.values()], anyOk };
+  return { candidates: [...out.values()], anyOk, diagnose: out.size ? null : diagnose };
 }
 
 export async function baDiscover(source: Source, ctx: DiscoverContext): Promise<Candidate[]> {
   const queries = (source.config.queries as string[] | undefined) ?? ['wissenschaftlicher Mitarbeiter Psychologie'];
   const r = await baSearch(ctx, queries);
-  if (!r.anyOk) throw new Error('Schnittstelle nicht erreichbar oder Format geändert');
+  if (!r.anyOk) throw new Error(`Schnittstelle nicht erreichbar oder Format geändert (${r.diagnose ?? '–'})`);
+  // Bei mehreren breiten Suchwörtern ist „nichts“ kein plausibles Ergebnis, sondern ein Zeichen für ein geändertes Format
+  if (!r.candidates.length && queries.length >= 3) throw new Error(`Schnittstelle antwortet, aber ohne Treffer für ${queries.length} Suchwörter (${r.diagnose ?? '–'})`);
   return r.candidates;
 }
 

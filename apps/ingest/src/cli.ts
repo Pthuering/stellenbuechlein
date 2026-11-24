@@ -90,6 +90,8 @@ async function main(): Promise<void> {
         reminders: !flag('no-reminders') && !onlyBrowser,
         explore: flag('no-explore') ? false : undefined,
         maxSources: option('max') ? Number(option('max')) : undefined,
+        // --suchplan-voll: alle Wortgruppen des Suchmusters auf einmal (Probe einer Suchseite, voller Durchgang)
+        suchplanVoll: flag('suchplan-voll'),
       });
       console.log(stats);
       if (gross) {

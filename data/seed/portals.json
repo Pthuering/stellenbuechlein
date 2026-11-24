@@ -64,7 +64,7 @@
     "gate": "none",
     "enabled": true,
     "verified": true,
-    "config": {}
+    "config": { "render": true, "linkPattern": "academicpositions\\.com/ad/[^/]+/\\d{4}/", "note": "Cloudflare-Prüfung: nur per Browser lesbar (auch die Anzeigen). Anzeigen unter /ad/<arbeitgeber>/<jahr>/<titel>; ohne Muster kamen nur Filter- und Sprachlinks. Geprüft am 24.11.2026." }
   },
   {
     "id": "aps-jobs",
@@ -145,5 +145,425 @@
     "enabled": true,
     "verified": true,
     "config": {"ausland": true, "note": "Stellenmarkt der Association for Psychological Science, überwiegend Nordamerika. Was davon aufgenommen wird, regelt die Einstellung „ausland“ (eigener Deckel für Länder außerhalb Europas). Geprüft am 23.11.2026."}
+  },
+  {
+    "id": "linkedin-de",
+    "label": "LinkedIn – Suche Deutschland (Suchmuster)",
+    "url": "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"suche":{"adresse":"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={q}&location=Germany&f_TPR=r604800","sprache":"alle"},"linkPattern":"/jobs/view/","ohneParameter":true,"abstandMs":4000,"note":"Öffentliche Gastsuche ohne Anmeldung, Anzeigen der letzten 7 Tage. Fragt die Wortgruppen des Suchmusters nach Wochenplan ab. LinkedIn sperrt schnelle Abrufe (HTTP 429), deshalb 4 s Abstand. LinkedIn untersagt automatisches Auslesen; privat genutzt. Eingerichtet am 24.11.2026."}
+  },
+  {
+    "id": "linkedin-europa",
+    "label": "LinkedIn – Suche Europa (Suchmuster)",
+    "url": "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"suche":{"adresse":"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={q}&location=Europe&f_TPR=r604800","sprache":"en"},"linkPattern":"/jobs/view/","ohneParameter":true,"abstandMs":4000,"ausland":true,"note":"Wie LinkedIn Deutschland, aber ganz Europa (mit Großbritannien, Schweiz, Norwegen) und englische Wortgruppen; ersetzt jobs.ac.uk (sperrt jeden automatischen Abruf) und nationale Portale ohne Schnittstelle. Eingerichtet am 24.11.2026."}
+  },
+  {
+    "id": "stepstone",
+    "label": "StepStone – Suche (Suchmuster)",
+    "url": "https://www.stepstone.de/jobs/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"suche":{"adresse":"https://www.stepstone.de/jobs/{slug}","sprache":"de"},"linkPattern":"/stellenangebote--","note":"Suche über die Adresse /jobs/<wortgruppe> (robots.txt erlaubt sie ohne Parameter); nur die erste Trefferseite, die Suche ist unscharf. Für Firmenstellen in Human Factors, UX und angewandter Forschung. Eingerichtet am 24.11.2026."}
+  },
+  {
+    "id": "academictransfer",
+    "label": "AcademicTransfer – Niederlande (Suchmuster)",
+    "url": "https://www.academictransfer.com/en/jobs/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"suche":{"adresse":"https://www.academictransfer.com/en/jobs/?q={q}&vacancy_type=scientific","sprache":"en"},"linkPattern":"/en/jobs/[0-9]+/","ausland":true,"note":"Zentrales Portal der niederländischen Hochschulen; ohne JavaScript 10 Treffer je Suche, deshalb mit den englischen Wortgruppen des Suchmusters. Eingerichtet am 24.11.2026.","land":"NL"}
+  },
+  {
+    "id": "service-bund",
+    "label": "service.bund.de – Stellen mit Psychologie",
+    "url": "https://www.service.bund.de/Content/DE/Stellen/Suche/Formular.html?nn=4642046&resultsPerPage=100&templateQueryString=Psychologie",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"/IMPORTE/Stellenangebote/","ohneParameter":true,"note":"Stellenportal des Bundes: bündelt Bund, Länder (u. a. NRW-Stellenmarkt) und Interamt. Volltextsuche „Psychologie“ wie bei Interamt; Links relativ zu <base href>, Sitzungskennung im Pfad wird entfernt. Eingerichtet am 24.11.2026."}
+  },
+  {
+    "id": "akademische-jobs-psych",
+    "label": "akademische-jobs.de – Psychologie",
+    "url": "https://akademische-jobs.de/fachgebiet/psychologie/",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"akademische-jobs[.]de/job/[^/?#]+/?$","note":"Das Muster lässt nur /job/-Seiten durch (Kategorieseiten wie /professur/ und /postdoc/ bleiben draußen); 15 Folgeseiten über /page/N/, Einzelanzeigen per JSON-LD vollständig lesbar. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 210 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "akademische-jobs-cogsci",
+    "label": "akademische-jobs.de – Cognitive Science",
+    "url": "https://akademische-jobs.de/fachgebiet/cognitive-science/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"akademische-jobs[.]de/job/[^/?#]+/?$","note":"Kleine Zusatzliste mit Gedächtnis- und Kognitionsstellen, die nicht alle unter Psychologie einsortiert sind. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 7 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "akademische-jobs-wipsy",
+    "label": "akademische-jobs.de – Wirtschaftspsychologie",
+    "url": "https://akademische-jobs.de/fachgebiet/wirtschaftspsychologie/",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"akademische-jobs[.]de/job/[^/?#]+/?$","note":"Arbeits- und Wirtschaftspsychologie, überschneidet sich teilweise mit der Psychologie-Liste (3 Listenseiten). Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 17 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "wissenschaftsstellen-psych",
+    "label": "wissenschaftsstellen.de – Psychologie",
+    "url": "https://wissenschaftsstellen.de/psychologie",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"wissenschaftsstellen[.]de/stelle/[a-z0-9-]+$","note":"Das Muster schließt Kategorie- und Rechnerseiten aus; 3 Listenseiten (?seite=N), Einzelanzeigen per JSON-LD vollständig. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 136 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "hochschul-job-psych",
+    "label": "hochschul-job.de – Psychologie (Stellen-Feed)",
+    "url": "https://hochschul-job.de/?feed=job_feed&job_categories=psychologie&posts_per_page=300",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://hochschul-job.de/?feed=job_feed&job_categories=psychologie&posts_per_page=300","linkPattern":"hochschul-job[.]de/job/[^/?#]+/?$","note":"Der auf der Seite verlinkte Kategorie-Feed liefert HTML statt RSS, und die Listenseite zieht den Blog-Feed der Seite mit (10 Artikel). Deshalb ist der Feed des Stellen-Plugins (job_categories=psychologie, posts_per_page=300) selbst die Adresse, so kommen 80 saubere Anzeigen mit Volltext. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 80 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "stellenticket-psych",
+    "label": "Stellenticket HU Berlin (mehrere Hochschulen) – Stichwort Psycholog",
+    "url": "https://hu-berlin.stellenticket.de/de/rss/fulltextsearch/Psycholog/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://hu-berlin.stellenticket.de/de/rss/fulltextsearch/Psycholog/","note":"Es gibt keinen Fachfilter, nur die Stichwortsuche (/de/offers/results/fulltextsearch/Psycholog/). Die HTML-Suchseite zieht den ungefilterten Gesamt-Feed mit 180 Einträgen mit, daher dient der gefilterte Atom-Feed als Adresse; die Einträge führen zu PDF-Anzeigen, der Volltext steckt im Feed. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 17 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "dggg-stellen",
+    "label": "DGGG – Stellenangebote Gerontologie",
+    "url": "https://www.dggg-online.de/studium-karriere/stellenangebote.html",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"^https?://(?!(?:www[.])?dggg-online[.]de/)|dggg-online[.]de/fileadmin/.*[.]pdf","note":"Die Seite verlinkt nur nach außen; das Muster nimmt alle fremden Links (auf der Seite gibt es sonst keine) und PDFs der DGGG. Die Zielseiten (z. B. Uni Frankfurt) brauchen zum Lesen den Browser. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 2 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "escop-jobmarket",
+    "label": "ESCoP Job Market",
+    "url": "https://www.escop.eu/news/news/job-market",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"escop[.]eu/news/news/job-market/[^/?#]+$","ausland":true,"note":"Alle Anzeigen stehen auf einer Seite und reichen bis Anfang 2026 zurück; außer Europa auch Israel, USA und Neuseeland. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 63 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "psychjob-ch",
+    "label": "PsychJOB.ch",
+    "url": "https://www.psychjob.ch/en/jobs",
+    "adapter": "auto",
+    "gate": "none",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"psychjob[.]ch/(de|en)/job/","ausland":true,"note":"Entspricht dem vorhandenen Adapter „psychjob“ (gleiches Muster, falls schon angelegt nicht doppelt aufnehmen); Facetten-Links bleiben draußen, 2 Listenseiten, viele Klinikstellen. curl bekam zeitweise eine Bot-Prüfung, der Abruf der App nicht. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 32 Anzeigen in der Probe).","land":"CH"}
+  },
+  {
+    "id": "ku-copenhagen",
+    "label": "University of Copenhagen – All vacancies",
+    "url": "https://employment.ku.dk/all-vacancies/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"employment[.]ku[.]dk/all-vacancies/[?]show=[0-9]+","ausland":true,"note":"Die ganze Liste steht im HTML (Sortierung im Browser). Der RSS-Feed (?get_rss=1) hat kaputte Links (cms.ku.dkObvius…) und taugt nicht. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 21 Anzeigen in der Probe).","land":"DK"}
+  },
+  {
+    "id": "aarhus-vacancies",
+    "label": "Aarhus University – Vacant positions",
+    "url": "https://international.au.dk/about/profile/vacant-positions",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"render":true,"linkPattern":"international[.]au[.]dk/about/profile/vacant-positions/job/","ausland":true,"note":"Es gibt weder Feed noch eigene Schnittstelle: Die Stellen stecken als JSON (EmplyData) in einem Skript und werden per React gezeigt. Mit render:true kamen alle 74 (geprüft mit Chrome); die Listentitel tragen Frist und Institut als Präfix, die Detailseiten sind sauber lesbar. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 74 Anzeigen in der Probe).","land":"DK"}
+  },
+  {
+    "id": "uantwerpen-academic",
+    "label": "University of Antwerp – Academic staff vacancies",
+    "url": "https://www.uantwerpen.be/en/jobs/vacancies/academic-staff/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"uantwerpen[.]be/en/jobs/vacancies/academic-staff/[?]q=[0-9]+","ausland":true,"note":"Einzelanzeigen haben ?q=<Nummer>; die Navigationslinks (Verwaltungsstellen, Partner, niederländische Seite) bleiben draußen. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 16 Anzeigen in der Probe).","land":"BE"}
+  },
+  {
+    "id": "varbi-umu",
+    "label": "Umeå universitet (Varbi)",
+    "url": "https://umu.varbi.com/en/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://umu.varbi.com/what:rssfeed/","linkPattern":"umu[.]varbi[.]com/en/what:job/jobID:[0-9]+","ausland":true,"note":"Feed mit Volltext; das Muster behält nur /en/-Links, damit die /se/-Dubletten derselben jobID wegfallen. Die Feedtitel sind oft schwedisch. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 38 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "varbi-lu",
+    "label": "Lunds universitet (Varbi)",
+    "url": "https://lu.varbi.com/en/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://lu.varbi.com/what:rssfeed/","linkPattern":"lu[.]varbi[.]com/en/what:job/jobID:[0-9]+","ausland":true,"note":"Größte Varbi-Liste; Psychologie und Kognitionswissenschaft sind vertreten, die Feedtitel meist schwedisch. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 127 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "varbi-su",
+    "label": "Stockholms universitet (Varbi)",
+    "url": "https://su.varbi.com/en/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://su.varbi.com/what:rssfeed/","linkPattern":"su[.]varbi[.]com/en/what:job/jobID:[0-9]+","ausland":true,"note":"Die englische Listenseite zeigt nur 5 Stellen, der Feed alle 26; heute keine Psychologiestelle, die Abteilung Psychologie schreibt aber hier aus. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 26 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "varbi-ki",
+    "label": "Karolinska Institutet (Varbi)",
+    "url": "https://ki.varbi.com/en/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://ki.varbi.com/what:rssfeed/","linkPattern":"ki[.]varbi[.]com/en/what:job/jobID:[0-9]+","ausland":true,"note":"Medizinisch geprägt (Altern, Neurologie, klinische Psychologie); Feed und Listenseite zusammen. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 84 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "varbi-kau",
+    "label": "Karlstads universitet (Varbi)",
+    "url": "https://kau.varbi.com/en/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://kau.varbi.com/what:rssfeed/","linkPattern":"kau[.]varbi[.]com/en/what:job/jobID:[0-9]+","ausland":true,"note":"Kleine Liste, heute ohne Psychologiestelle (Karlstad hat ein Psychologie-Fach). Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 18 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "varbi-uu",
+    "label": "Uppsala universitet (Varbi)",
+    "url": "https://uu.varbi.com/en/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://uu.varbi.com/what:rssfeed/","linkPattern":"uu[.]varbi[.]com/en/what:job/jobID:[0-9]+","ausland":true,"note":"Nicht in der Vorgabe, aber auf Varbi mit Psychologie-Institut (heute „Forskare i psykologi“). Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 79 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "varbi-miun",
+    "label": "Mittuniversitetet (Varbi)",
+    "url": "https://miun.varbi.com/en/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://miun.varbi.com/what:rssfeed/","linkPattern":"miun[.]varbi[.]com/en/what:job/jobID:[0-9]+","ausland":true,"note":"Nicht in der Vorgabe, aber heute mit zwei Psychologiestellen. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 14 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "varbi-kth",
+    "label": "KTH Stockholm (Varbi)",
+    "url": "https://kth.varbi.com/en/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://kth.varbi.com/what:rssfeed/","linkPattern":"kth[.]varbi[.]com/en/what:job/jobID:[0-9]+","ausland":true,"note":"Für Mensch-Technik-Interaktion und Human Factors (Bereich MID); technische Hochschule ohne Psychologie-Institut. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 67 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "gu-vacancies",
+    "label": "Göteborgs universitet – Vacancies (ReachMee)",
+    "url": "https://www.gu.se/en/vacancies",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"rmpage=job&rmjob=[0-9]+","ausland":true,"note":"Nicht auf Varbi (gu.varbi.com: 404). Die Liste verlinkt ReachMee-Anzeigen, die ohne Browser lesbar sind; als Alternative gibt es einen englischen RSS-Feed: https://site106.reachmee.com/Public/rssfeed/external.ashx?id=7&InstallationID=I005&CustomerName=gu&lang=UK (33). Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 33 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "liu-vacancies",
+    "label": "Linköpings universitet – Vacancies (RSS, englisch)",
+    "url": "https://liu.se/rss/liu-jobs-en.rss",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://liu.se/rss/liu-jobs-en.rss","ausland":true,"note":"Nicht auf Varbi, sondern ReachMee mit eigenen Feeds. Der englische Feed enthält die international ausgeschriebenen Stellen; der schwedische (https://liu.se/rss/liu-jobs-sv.rss) hat alle 81, aber mit anderen IDs, also Dubletten. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 31 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "oru-vacancies",
+    "label": "Örebro universitet – Lediga jobb (ReachMee-RSS)",
+    "url": "https://site106.reachmee.com/Public/rssfeed/external.ashx?id=5&InstallationID=I003&CustomerName=oru&lang=UK",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://site106.reachmee.com/Public/rssfeed/external.ashx?id=5&InstallationID=I003&CustomerName=oru&lang=UK","ausland":true,"note":"Nicht auf Varbi. Die Seite oru.se/jobba-hos-oss/lediga-jobb/ zieht News-Feeds mit (65 Nachrichten), daher dient der ReachMee-Feed selbst als Adresse; er enthält dieselben 10 Stellen wie die Liste. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 10 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "mdu-vacancies",
+    "label": "Mälardalens universitet – Lediga jobb (ReachMee-RSS)",
+    "url": "https://site106.reachmee.com/Public/rssfeed/external.ashx?id=6&InstallationID=I018&CustomerName=mdu&lang=UK",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"feedUrl":"https://site106.reachmee.com/Public/rssfeed/external.ashx?id=6&InstallationID=I018&CustomerName=mdu&lang=UK","ausland":true,"note":"Nicht auf Varbi (mdu/mdh.varbi.com gibt es nicht); auf der HTML-Seite steht nur eine Stelle, der ReachMee-Feed hat alle 21. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 21 Anzeigen in der Probe).","land":"SE"}
+  },
+  {
+    "id": "jobbnorge-uni4",
+    "label": "Jobbnorge – UiO, UiB, NTNU, UiT (Hochschule und Forschung)",
+    "url": "https://publicapi.jobbnorge.no/v3/jobs?Employer=688&Employer=1741&Employer=724&Employer=617&Category=108&Category=35&language=2",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"ausland":true,"note":"Öffentliche JSON-Schnittstelle der Jobbnorge-Suche (Titel und Link, die App liest sie als JSON-Liste); Employer 688 NTNU, 1741 UiO, 724 UiB, 617 UiT; Category 108 Hochschule, 35 Forschung. Das Stichwort (Keywords) filtert nicht, Category 83 „Psychologists and Therapists“ ist fast nur Klinik. Detailseiten laden per JavaScript, die Pipeline nimmt dafür den Browser (geprüft: 19 000 Zeichen). Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 124 Anzeigen in der Probe).","land":"NO"}
+  },
+  {
+    "id": "univie-jobs",
+    "label": "Universität Wien – Jobportal",
+    "url": "https://jobs.univie.ac.at/search/?q=&sortColumn=referencedate&sortDirection=desc",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"ats":"successfactors","linkPattern":"jobs[.]univie[.]ac[.]at/job/[^/]+/[0-9]+/?$","ausland":true,"note":"SuccessFactors-Suche, mit ats=successfactors über startrow geblättert (5 Seiten, alle 97 Stellen). Die /go/-Kategorieseiten liefern nur die erste Seite und ziehen einen RSS mit utm-Dubletten mit, daher die Suchadresse. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 98 Anzeigen in der Probe).","land":"AT"}
+  },
+  {
+    "id": "uni-graz-jobs",
+    "label": "Universität Graz – Jobportal",
+    "url": "https://jobs.uni-graz.at/de/jobs",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"render":true,"linkPattern":"jobs[.]uni-graz[.]at/de/jobs/[0-9a-f-]{36}","ausland":true,"note":"Angular-App: Liste und Detailseiten brauchen den Browser (Detail gerendert 4 800 Zeichen). Die JSON-Schnittstelle personal.uni-graz.at/api/erec/public/job-postings liefert keine Links und taugt für die App nicht; alle Personalgruppen in einer Liste. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 10 Anzeigen in der Probe).","land":"AT"}
+  },
+  {
+    "id": "plus-salzburg-wiss",
+    "label": "Universität Salzburg – Wissenschaftliches Universitätspersonal",
+    "url": "https://www.plus.ac.at/personalabteilung-amt-der-universitaet/jobs/wissenschaftliches-universitaetspersonal/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"karriere[.]plus[.]ac[.]at/de/jobs/[0-9a-f-]{36}","ausland":true,"note":"Die statische Liste verlinkt nur mit „Detaillierte Informationen“, der Titel kommt erst von der Detailseite. Die Detailseiten (karriere.plus.ac.at, gleiches System wie Graz) brauchen den Browser, gerendert 4 200 Zeichen. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 11 Anzeigen in der Probe).","land":"AT"}
+  },
+  {
+    "id": "plus-salzburg-prof",
+    "label": "Universität Salzburg – Universitätsprofessuren",
+    "url": "https://www.plus.ac.at/personalabteilung-amt-der-universitaet/jobs/universitaetsprofessuren/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"plus[.]ac[.]at/personalabteilung-amt-der-universitaet/jobs/universitaetsprofessuren/[^/?#]+/?$","ausland":true,"note":"Professuren stehen auf einer eigenen Seite, nicht im Karriereportal. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 4 Anzeigen in der Probe).","land":"AT"}
+  },
+  {
+    "id": "uibk-stellen",
+    "label": "Universität Innsbruck – Stellenangebote",
+    "url": "https://www.uibk.ac.at/de/karriere/stellenangebote/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"lfuonline[.]uibk[.]ac[.]at/public/karriereportal[.]details[?]asg_id_in=[0-9]+","ausland":true,"note":"Alle Personalgruppen in einer Liste; die Titel sind generisch, das Institut steht erst im Anzeigentext (ohne Browser lesbar). Der Atom-Feed /de/karriere/karriere.atom enthält nur News. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 29 Anzeigen in der Probe).","land":"AT"}
+  },
+  {
+    "id": "uibk-professuren",
+    "label": "Universität Innsbruck – Professuren (Ausschreibungen)",
+    "url": "https://www.uibk.ac.at/de/info-berufungsverfahren/aktuelle-ausschreibungen/",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"uibk[.]ac[.]at/media/filer_public/.+[.]pdf","ausland":true,"note":"Professuren und Tenure-Track-Stellen als PDF, jede Ausschreibung zweimal (deutsch und englisch). Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 2 Anzeigen in der Probe).","land":"AT"}
+  },
+  {
+    "id": "uzh-academic",
+    "label": "Universität Zürich – Akademische Stellen (prospective Careercenter)",
+    "url": "https://ohws.prospective.ch/public/v2/careercenter/1002007/?lang=en&limit=200&f=10:1170344,1170335,1647263,1170342",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"render":true,"linkPattern":"jobs[.]uzh[.]ch/(offene-stellen|job-vacancies)/[^/]+/[0-9a-f-]{36}","ausland":true,"note":"uzh.ch bettet das Careercenter als iframe ein, das allein liefert keine Links. Direkt aufgerufen nimmt es limit=200 und den Kategoriefilter f=10:… (Postdocs, Professuren, Academic Associates, PhD) entgegen; ohne f= kommen alle 111 Stellen. Die JSON-Schnittstelle ohws…/jobs hat den Link nur verschachtelt (links.directlink), deshalb render:true. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 58 Anzeigen in der Probe).","land":"CH"}
+  },
+  {
+    "id": "unibas-jobs",
+    "label": "Universität Basel – Offene Stellen",
+    "url": "https://jobs.unibas.ch/?lang=en&limit=100&offset=0",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"linkPattern":"jobs[.]unibas[.]ch/(offene-stellen|job-vacancies)/[^/]+/[0-9a-f-]{36}","ausland":true,"note":"Die Uni-Seite bettet jobs.unibas.ch als iframe ein. Das Careercenter blättert sonst per POST in 10er-Schritten, nimmt aber limit=100 auch per GET an (alle 46); die Details sind per JSON-LD ohne Browser lesbar. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 46 Anzeigen in der Probe).","land":"CH"}
+  },
+  {
+    "id": "unibe-jobs",
+    "label": "Universität Bern – Offene Stellen",
+    "url": "https://jobs.unibe.ch/?lang=en&limit=200",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"render":true,"linkPattern":"jobs[.]unibe[.]ch/(offene-stellen|job-vacancies)/[^/]+/[0-9a-f-]{36}","ausland":true,"note":"Die Seite karriere.unibe.ch lädt per JavaScript nur 6 Stellen; jobs.unibe.ch mit limit=200 und render:true liefert 55 von 57, die Details sind ohne Browser lesbar. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 55 Anzeigen in der Probe).","land":"CH"}
+  },
+  {
+    "id": "ugent-jobs",
+    "label": "Ghent University – Jobs",
+    "url": "https://jobs.ugent.be/search/?q=&locale=en_GB",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"ats":"successfactors","linkPattern":"jobs[.]ugent[.]be/job/[^/]+/[0-9]+/?$","ausland":true,"note":"Externes SuccessFactors-Portal (von ugent.be/en/work verlinkt), 2 Seiten über startrow; die ugent-Seite selbst listet nichts. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 24 Anzeigen in der Probe).","land":"BE"}
+  },
+  {
+    "id": "canonical",
+    "label": "Canonical – Careers (Greenhouse)",
+    "url": "https://boards-api.greenhouse.io/v1/boards/canonical/jobs",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"ausland":true,"note":"Sehr breite, weltweite Remote-Liste (317) mit seltenen UX-Research-Stellen; nur mit Gate sinnvoll, Text kommt fertig aus der Schnittstelle. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 317 Anzeigen in der Probe)."}
+  },
+  {
+    "id": "prolific",
+    "label": "Prolific – Careers (Greenhouse)",
+    "url": "https://boards-api.greenhouse.io/v1/boards/prolific/jobs",
+    "adapter": "auto",
+    "gate": "psych",
+    "enabled": true,
+    "verified": true,
+    "config": {"ausland":true,"note":"Die Anzeigen-Links führen auf job-boards.eu.greenhouse.io; der Text kommt aus der Schnittstelle. Eingerichtet am 24.11.2026 (Blind-Spot-Abgleich, 34 Anzeigen in der Probe).","land":"GB"}
   }
 ]

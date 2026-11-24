@@ -100,6 +100,11 @@ describe('Stellenart', () => {
     ['Wissenschaftlicher Mitarbeiter für Lehrstuhl für Pädagogische Psychologie', 'Die Möglichkeit zur Promotion ist gegeben.', 'promotion'],
     ['Sekretär/in am Lehrstuhl für Sozialpsychologie', 'Der Lehrstuhl gehört zur Universitätsprofessur für Sozialpsychologie.', 'verwaltung'],
     ['Visiting Assistant Professor', '', 'professur'],
+    // Mehrzahl (Aarhus) und britische/neuseeländische Lecturer-Stellen mit Forschung (Canterbury)
+    ['Associate professorships in Psychology', '', 'professur'],
+    ['Lecturer/Senior Lecturer in Cognitive Psychology', 'You will develop an independent research programme and teach at all levels.', 'professur'],
+    ['Lecturer in Academic Skills', 'You will teach academic writing to first-year students.', 'lehre'],
+    ['Lehrkraft für besondere Aufgaben (Psychologie)', '', 'lehre'],
   ])('%s', (title, text, kind) => {
     expect(classifyKind(title, text)).toBe(kind);
   });

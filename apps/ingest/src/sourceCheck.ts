@@ -116,7 +116,9 @@ export async function runSourceCheck(rawUrl: string, existingSourceId: string | 
 
   // Startseite statt Stellenliste angegeben? Dann die Stellenseite suchen.
   if (res.candidates.length === 0 && res.status !== 'blockiert') {
-    const found = await findJobsPage({ id: 'probe', name: new URL(url).hostname, kind: 'sonstige', cityId: null, website: url, active: true, origin: 'user' }, ctx).catch(() => null);
+    // Tote Adresse (etwa nach einem Umbau der Website): von der Startseite aus suchen, nicht von der toten Seite
+    const website = res.status === 'fehler' ? `${new URL(url).origin}/` : url;
+    const found = await findJobsPage({ id: 'probe', name: new URL(url).hostname, kind: 'sonstige', cityId: null, website, active: true, origin: 'user' }, ctx).catch(() => null);
     if (found && canonicalUrl(found.url) !== canonicalUrl(url)) {
       const second = await discover(probeSource(found.url, config), ctx);
       if (second.candidates.length > 0) {
@@ -284,13 +286,18 @@ export async function runSourceCheck(rawUrl: string, existingSourceId: string | 
   };
 }
 
-/** Arbeitet wartende Probeläufe ab (eigener Workflow „Quelle prüfen“ oder am Anfang jedes Laufs). */
-export async function processPendingChecks(db: Db, ctx: DiscoverContext, limit = 5): Promise<number> {
+/**
+ * Arbeitet wartende Probeläufe ab (eigener Workflow „Quelle prüfen“, am Anfang jedes Laufs und am Ende für die
+ * Untersuchung auffälliger Quellen). Mit `untilMs` endet die Abarbeitung zu dieser Uhrzeit; der Rest wartet auf den
+ * nächsten Lauf.
+ */
+export async function processPendingChecks(db: Db, ctx: DiscoverContext, limit = 5, untilMs?: number): Promise<number> {
   const pending = await pendingSourceChecks(db, new Date(Date.now() - 60 * 60_000).toISOString(), limit);
   if (pending.length === 0) return 0;
   const [institutions, cities, sources] = await Promise.all([listInstitutions(db), listCities(db), listSources(db)]);
   let done = 0;
   for (const check of pending) {
+    if (untilMs && Date.now() >= untilMs) break;
     await startSourceCheck(db, check.id);
     ctx.log.info(`Probelauf ${check.id}: ${check.url}`);
     try {

@@ -59,7 +59,8 @@ export function parseFeed(body: string, baseUrl: string, via = 'feed'): Candidat
     const link = txt(it.link) ?? txt(it.guid);
     if (!link) continue;
     const content = txt(it['content:encoded']) ?? txt(it.description);
-    out.push(itemToCandidate(new URL(link, baseUrl).toString(), txt(it.title), content, txt(it.pubDate) ?? txt(it['dc:date']), via));
+    const url = feedUrl(link, baseUrl);
+    if (url) out.push(itemToCandidate(url, txt(it.title), content, txt(it.pubDate) ?? txt(it['dc:date']), via));
   }
   const feed = doc.feed as Record<string, unknown> | undefined;
   for (const e of asArray(feed?.entry as unknown[] | undefined) as Record<string, unknown>[]) {
@@ -68,9 +69,19 @@ export function parseFeed(body: string, baseUrl: string, via = 'feed'): Candidat
     const href = (alt?.['@_href'] as string | undefined) ?? txt(e.id);
     if (!href) continue;
     const content = txt(e.content) ?? txt(e.summary);
-    out.push(itemToCandidate(new URL(href, baseUrl).toString(), txt(e.title), content, txt(e.updated) ?? txt(e.published), via));
+    const url = feedUrl(href, baseUrl);
+    if (url) out.push(itemToCandidate(url, txt(e.title), content, txt(e.updated) ?? txt(e.published), via));
   }
   return out;
+}
+
+/** Adresse eines Feed-Eintrags; ein kaputter Link (etwa nur ein Leerzeichen-Text) überspringt nur diesen Eintrag. */
+function feedUrl(link: string, baseUrl: string): string | null {
+  try {
+    return new URL(link.trim(), baseUrl).toString();
+  } catch {
+    return null;
+  }
 }
 
 /** JSON Feed (jsonfeed.org) oder JSON mit schema.org JobPosting (z. B. softgarden jobs.feed.json). */
@@ -176,8 +187,8 @@ export function parsePersonioXml(body: string, origin: string): Candidate[] {
   });
 }
 
-const JSON_TITLE_KEYS = ['title', 'job_title', 'jobTitle', 'titel', 'name', 'position', 'stellenbezeichnung', 'bezeichnung', 'text'];
-const JSON_URL_KEYS = ['url', 'link', 'href', 'detailUrl', 'detail_url', 'advertUrl', 'jobUrl', 'hostedUrl', 'absolute_url', 'careers_url', 'applyOnlineUrl', 'publicUrl', 'permalink'];
+const JSON_TITLE_KEYS = ['title', 'job_title', 'jobTitle', 'titel', 'name', 'position', 'stellenbezeichnung', 'bezeichnung', 'text', 'PositionTitle'];
+const JSON_URL_KEYS = ['url', 'link', 'href', 'detailUrl', 'detail_url', 'advertUrl', 'jobUrl', 'hostedUrl', 'absolute_url', 'careers_url', 'applyOnlineUrl', 'publicUrl', 'permalink', 'PositionURI'];
 
 /**
  * Beliebige JSON-Stellenliste (eigene Schnittstellen von Kliniken, Hochschulen, Firmen): sucht Objekte

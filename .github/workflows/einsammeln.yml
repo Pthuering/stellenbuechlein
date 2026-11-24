@@ -47,6 +47,8 @@ jobs:
     timeout-minutes: 355
     env:
       API_URL: ${{ secrets.API_URL }}
+      # Zwischenzertifikate (GÉANT/HARICA), die manche Hochschul-Server nicht mitschicken (apps/ingest/certs)
+      NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/apps/ingest/certs/zwischenzertifikate.pem
       INGEST_KEY: ${{ secrets.INGEST_KEY }}
       BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
       VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}

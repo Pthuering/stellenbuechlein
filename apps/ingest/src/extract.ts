@@ -55,6 +55,9 @@ export interface Candidate {
     baRef?: string | null;
     /** Suchbegriff, über den die Erkundung die Anzeige fand. */
     query?: string | null;
+    /** JSON-Liste (config.jsonListe): Schnittstelle mit dem Anzeigentext und die Felder, in denen er steht. */
+    detailApi?: string | null;
+    textFelder?: string[] | null;
   };
 }
 

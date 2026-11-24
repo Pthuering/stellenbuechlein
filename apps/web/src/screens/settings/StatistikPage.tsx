@@ -3,7 +3,8 @@
 // Anzeigen gemacht hat. Dazu kommen die Urteile der KI und die Entscheidungen je Tag. Hier wird alles nur gezeigt.
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { laufKennzahlen, PASSUNG_STUFEN, STAT_RINGE, type GemerktWeggelegt, type StatRing, type StatSchnappschuss } from '@stellen/core';
+import { laufKennzahlen, PASSUNG_STUFEN, QUELLEN_GRUENDE, STAT_RINGE, type GemerktWeggelegt, type QuellenGrund, type StatQuelle, type StatRing, type StatSchnappschuss } from '@stellen/core';
+import { navigate } from '../../lib/router';
 import type { StatistikDaten } from '../../data/backend';
 import { useAppState, useStore } from '../../data/hooks';
 import { fmtDate, fmtDayMonth, fmtNum, fmtPct, LANG_TAGS, lang, srForm, texts, useLang } from '../../i18n';
@@ -133,6 +134,39 @@ const t = texts({
     runs: 'Alle Läufe',
     day: 'Tag',
     runsHead: ['Lauf', 'Dauer', 'Seiten', 'bekannt', 'Titel', 'Grobfilter', 'keine Anzeige', 'neu', 'Brücke', 'Ausland', 'Horizont-Kand.', 'Quellen mit Fehler'],
+
+    quellen: 'Auffällige Quellen',
+    quellenSub: (n: number, aktiv: number) => `${fmtInt(n)} von ${fmtInt(aktiv)} Quellen markiert`,
+    quellenKeine: 'Keine Quelle ist auffällig.',
+    markiert: 'markiert',
+    markiertSub: 'mehrere Läufe in Folge auffällig',
+    beobachtet: 'beobachtet',
+    beobachtetSub: 'auffällig, Schwelle noch nicht erreicht',
+    inPruefung: 'in Untersuchung',
+    inPruefungSub: 'Probelauf wartet oder läuft',
+    repariert: 'repariert',
+    repariertSub: 'in diesem Lauf übernommen',
+    grund: {
+      fehler: 'Fehler beim Abruf',
+      blockiert: 'Abruf gesperrt',
+      leer: 'liefert keine Einträge',
+      mager: 'nur ein Eintrag',
+      warnung: 'ein Portal fand hier eine fehlende Anzeige',
+    } as Record<QuellenGrund, string>,
+    laeufe: (n: number) => (n === 1 ? 'seit diesem Lauf' : `seit ${n} Läufen`),
+    pruefung: {
+      wartet: 'Untersuchung wartet',
+      laeuft: 'wird untersucht',
+      fertig: 'untersucht',
+      fehler: 'Untersuchung fehlgeschlagen',
+      uebernommen: 'repariert',
+      verworfen: 'Vorschlag verworfen',
+    } as Record<string, string>,
+    pruefErgebnis: (n: number, neu: boolean) => `Probelauf: ${n === 1 ? '1 Anzeige' : `${fmtInt(n)} Anzeigen`}${neu ? ', andere Stellenseite gefunden' : ''}`,
+    nichtUntersucht: 'noch nicht untersucht',
+    quellenHint:
+      'Markiert wird eine Quelle, wenn sie mehrere Läufe in Folge auffällt (Universitäten und Portale nach zwei bis drei Läufen, kleine Institute nach einer Woche). Jede markierte Quelle bekommt einen Probelauf. Eindeutige Reparaturen übernimmt der Lauf selbst; die übrigen Vorschläge stehen unter Quellen & Läufe.',
+    toSources: 'Zu den Quellen',
   },
   en: {
     title: 'Statistics',
@@ -235,6 +269,39 @@ const t = texts({
     runs: 'All runs',
     day: 'Day',
     runsHead: ['Run', 'Duration', 'Pages', 'known', 'title', 'pre-filter', 'not a posting', 'new', 'Bridge', 'Abroad', 'Horizon cand.', 'sources with errors'],
+
+    quellen: 'Sources that stand out',
+    quellenSub: (n, aktiv) => `${fmtInt(n)} of ${fmtInt(aktiv)} sources flagged`,
+    quellenKeine: 'No source stands out.',
+    markiert: 'flagged',
+    markiertSub: 'stood out several runs in a row',
+    beobachtet: 'watched',
+    beobachtetSub: 'stands out, threshold not reached yet',
+    inPruefung: 'being checked',
+    inPruefungSub: 'test run waiting or running',
+    repariert: 'repaired',
+    repariertSub: 'applied in this run',
+    grund: {
+      fehler: 'error while fetching',
+      blockiert: 'fetching blocked',
+      leer: 'delivers no entries',
+      mager: 'only one entry',
+      warnung: 'a portal found a posting missing here',
+    },
+    laeufe: (n) => (n === 1 ? 'since this run' : `for ${n} runs`),
+    pruefung: {
+      wartet: 'check waiting',
+      laeuft: 'being checked',
+      fertig: 'checked',
+      fehler: 'check failed',
+      uebernommen: 'repaired',
+      verworfen: 'suggestion discarded',
+    },
+    pruefErgebnis: (n, neu) => `Test run: ${n === 1 ? '1 posting' : `${fmtInt(n)} postings`}${neu ? ', found a different jobs page' : ''}`,
+    nichtUntersucht: 'not checked yet',
+    quellenHint:
+      'A source is flagged once it stands out several runs in a row (universities and portals after two or three runs, small institutes after a week). Every flagged source gets a test run. Clear repairs are applied by the run itself; the other suggestions are under Sources & runs.',
+    toSources: 'Go to sources',
   },
   sr: {
     title: 'Statistika',
@@ -337,6 +404,39 @@ const t = texts({
     runs: 'Svi prolazi',
     day: 'Dan',
     runsHead: ['Prolaz', 'Trajanje', 'Stranice', 'poznato', 'naslov', 'grubi filter', 'nije oglas', 'novo', 'Most', 'Inostranstvo', 'kand. Horizont', 'izvori sa greškom'],
+
+    quellen: 'Izvori koji odstupaju',
+    quellenSub: (n, aktiv) => `označeno ${fmtInt(n)} od ${fmtInt(aktiv)} ${srForm(aktiv, 'izvora', 'izvora', 'izvora')}`,
+    quellenKeine: 'Nijedan izvor ne odstupa.',
+    markiert: 'označeno',
+    markiertSub: 'odstupa više prolaza zaredom',
+    beobachtet: 'pod nadzorom',
+    beobachtetSub: 'odstupa, prag još nije dostignut',
+    inPruefung: 'u proveri',
+    inPruefungSub: 'probni prolaz čeka ili traje',
+    repariert: 'popravljeno',
+    repariertSub: 'preuzeto u ovom prolazu',
+    grund: {
+      fehler: 'greška pri preuzimanju',
+      blockiert: 'preuzimanje blokirano',
+      leer: 'ne isporučuje unose',
+      mager: 'samo jedan unos',
+      warnung: 'portal je našao oglas koji ovde nedostaje',
+    },
+    laeufe: (n) => (n === 1 ? 'od ovog prolaza' : `već ${n} ${srForm(n, 'prolaz', 'prolaza', 'prolaza')}`),
+    pruefung: {
+      wartet: 'provera čeka',
+      laeuft: 'proverava se',
+      fertig: 'provereno',
+      fehler: 'provera nije uspela',
+      uebernommen: 'popravljeno',
+      verworfen: 'predlog odbačen',
+    },
+    pruefErgebnis: (n, neu) => `Probni prolaz: ${fmtInt(n)} ${srForm(n, 'oglas', 'oglasa', 'oglasa')}${neu ? ', pronađena druga stranica sa oglasima' : ''}`,
+    nichtUntersucht: 'još nije provereno',
+    quellenHint:
+      'Izvor se označava kad odstupa nekoliko prolaza zaredom (univerziteti i portali posle dva do tri prolaza, mali instituti posle nedelju dana). Svaki označeni izvor dobija probni prolaz. Jasne popravke prolaz preuzima sam; ostali predlozi su pod Izvori i prolazi.',
+    toSources: 'Ka izvorima',
   },
 });
 
@@ -482,7 +582,14 @@ export function StatistikPage() {
         <Wirkung data={data} seit={seit} snap={letzterSchnapp ?? null} />
       </Section>
 
-      {/* 7 · Alle Läufe */}
+      {/* 7 · Auffällige Quellen (Schnappschüsse ab 24.11.2026) */}
+      {letzterSchnapp?.quellen && (
+        <Section title={t.quellen} sub={t.quellenSub(letzterSchnapp.quellen.liste.filter((q) => q.markiert).length, letzterSchnapp.quellen.aktiv)}>
+          <AuffaelligeQuellen q={letzterSchnapp.quellen} />
+        </Section>
+      )}
+
+      {/* 8 · Alle Läufe */}
       {laeufe.length > 0 && (
         <Section title={t.runs}>
           <DataTable
@@ -655,6 +762,58 @@ function Bestand({ schnapp }: { schnapp: { runId: number; erstelltAt: string; da
         head={[t.runsHead[0], ...STAT_RINGE.map((r) => t.ring[r]), t.waiting, t.open]}
         rows={[...schnapp].reverse().map((x, i, arr) => [`${fmtDate(x.erstelltAt)}, ${fmtTime(x.erstelltAt)}`, ...values[arr.length - 1 - i], x.daten.bestand.wartetAufKi, x.daten.bestand.offen])}
       />
+    </>
+  );
+}
+
+/** Auffällige Quellen: markierte mit Befund und Stand der Untersuchung, dazu die Verteilung nach Befund. */
+function AuffaelligeQuellen({ q }: { q: NonNullable<StatSchnappschuss['quellen']> }) {
+  const markiert = q.liste.filter((x) => x.markiert);
+  const beobachtet = q.liste.length - markiert.length;
+  const inArbeit = markiert.filter((x) => x.pruefung && (x.pruefung.status === 'wartet' || x.pruefung.status === 'laeuft')).length;
+  const pruefText = (x: StatQuelle): string => {
+    const p = x.pruefung;
+    if (!p) return t.nichtUntersucht;
+    const status = t.pruefung[p.status] ?? p.status;
+    return p.status === 'fertig' && p.anzeigen != null ? `${status} · ${t.pruefErgebnis(p.anzeigen, !!p.adresse)}` : status;
+  };
+  return (
+    <>
+      <Tiles
+        items={[
+          { key: 'markiert', label: t.markiert, value: fmtInt(markiert.length), sub: t.markiertSub },
+          { key: 'beobachtet', label: t.beobachtet, value: fmtInt(beobachtet), sub: t.beobachtetSub },
+          { key: 'pruefung', label: t.inPruefung, value: fmtInt(inArbeit), sub: t.inPruefungSub },
+          { key: 'repariert', label: t.repariert, value: fmtInt(q.repariert), sub: t.repariertSub },
+        ]}
+      />
+      {markiert.length ? (
+        <>
+          <HBars
+            ariaLabel={t.quellen}
+            rows={QUELLEN_GRUENDE.map((g) => ({ key: g, label: t.grund[g], value: markiert.filter((x) => x.grund === g).length })).filter((r) => r.value > 0)}
+          />
+          <ul className="list">
+            {markiert.map((x) => (
+              <li key={x.id} className="row">
+                <div className="row__main">
+                  <p className="row__title">{x.name}</p>
+                  <p className="row__sub">
+                    {t.grund[x.grund]}, {t.laeufe(x.laeufe)}
+                  </p>
+                  <p className="row__sub">{pruefText(x)}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <Hint>{t.quellenKeine}</Hint>
+      )}
+      <Hint>{t.quellenHint}</Hint>
+      <button type="button" className="btn btn--small" onClick={() => navigate('/ich/quellen')}>
+        {t.toSources}
+      </button>
     </>
   );
 }
