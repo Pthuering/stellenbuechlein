@@ -108,6 +108,8 @@ In jeder Anzeige zeigt „warum?“, welche Einträge gegriffen haben. Im Profil
 
 **Reihenfolge:** Lieblingsorte zuerst (Bundesland, Stadt oder Einrichtung), dann Score, dann Frist. Im Stapel wird leicht gemischt: Jede Karte rutscht um bis zu fünf Punkte nach oben oder unten (pro Tag fest), damit ähnlich gut passende Anzeigen durcheinander kommen.
 
+**Wenn die gut passenden durch sind** (Filter im Stapel → Reihenfolge, Einstellung `deck.lowBelow`/`deck.lowMode`): Normale Einträge unter der Schwelle (Standard 51 %, wählbar 40, 51, 60, 70 % oder aus) gelten als weniger passend. Liegt keiner der übrigen normalen Einträge im Stapel mehr darüber, fragt ein kleiner Hinweis über den Karten, ob jetzt öfter Brücken, Horizont und Auslandsstellen kommen sollen oder ob es normal weitergeht. Die Antwort bleibt gespeichert und lässt sich im Filter ändern („nachfragen“ holt die Frage zurück). Bei „öfter“ kommen nach dem letzten gut passenden normalen Eintrag die Brücken- und Horizont-Karten eine Stufe häufiger (selten wird normal, normal wird oft, oft wird jede 2. Karte; aus bleibt aus) und Auslandsstellen genau jede dritte Karte, also so oft, wie die Obergrenze von 33 % erlaubt. Die Karten davor bleiben, wo sie waren, und es kommen keine Karten dazu oder fallen weg.
+
 **Wortgruppen statt Einzelwörter:** Themen, Brücken und Suchwörter arbeiten mit Wortgruppen („kognitive Psychologie“, „visuelle Suche“, „Psychologie Künstliche Intelligenz“), nicht mit einzelnen Allerweltswörtern („kognitiv“, „Aufmerksamkeit“, „Gedächtnis“ stehen auch in Anzeigen für Ergotherapie und Verhaltenstherapie). In einer Wortgruppe darf jedes Wort ab vier Buchstaben gebeugt sein („der Kognitiven Psychologie“).
 
 ## Steckbrief

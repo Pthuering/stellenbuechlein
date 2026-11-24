@@ -1,7 +1,7 @@
 // Der Stapel: Karteikarten zum Wischen. Rechts = merken, links = weglegen, hoch/tippen = alles lesen.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { countActiveFilters, deckTier, isOuterLane, todayBerlin, topReasons } from '@stellen/core';
+import { countActiveFilters, deckTier, goodMatchesUsedUp, isAbroad, isOuterLane, todayBerlin, topReasons, type DeckOrder } from '@stellen/core';
 import { useAppState, useDeck, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
 import { alertChip, savedFilterFor } from '../lib/savedFilters';
@@ -56,6 +56,12 @@ const t = texts({
     passLabel: 'Weglegen (Nö)',
     starLabel: 'Herzensjob: merken und vor der Frist erinnern',
     save: 'Merken',
+    lowTitle: 'Die gut passenden Stellen sind erst mal durch.',
+    lowText: (pct: string) => `Der Rest liegt unter ${pct}. Sollen jetzt öfter Brücken, Horizont und Stellen im Ausland kommen?`,
+    lowMore: 'Ja, öfter',
+    lowNormal: 'Nein, normal weiter',
+    lowMoreToast: 'Ab jetzt öfter Brücken, Horizont und Ausland. Ändern lässt sich das im Filter.',
+    lowNormalToast: 'Es geht normal weiter. Ändern lässt sich das im Filter.',
   },
   en: {
     fromHome: (km) => `${km} from home`,
@@ -96,6 +102,12 @@ const t = texts({
     passLabel: 'Pass (nope)',
     starLabel: 'Dream job: save and remind me before the deadline',
     save: 'Save',
+    lowTitle: 'The good matches are used up for now.',
+    lowText: (pct) => `The rest is below ${pct}. Should Bridges, Horizon and postings abroad come more often now?`,
+    lowMore: 'Yes, more often',
+    lowNormal: 'No, carry on as usual',
+    lowMoreToast: 'From now on, more Bridges, Horizon and abroad. You can change this in the filters.',
+    lowNormalToast: 'Carrying on as usual. You can change this in the filters.',
   },
   sr: {
     fromHome: (km) => `${km} od kuće`,
@@ -136,6 +148,12 @@ const t = texts({
     passLabel: 'Preskoči (ma ne)',
     starLabel: 'Posao iz snova: sačuvaj i podseti me pre roka',
     save: 'Sačuvaj',
+    lowTitle: 'Za sada nema više oglasa sa dobrim poklapanjem.',
+    lowText: (pct) => `Ostali su ispod ${pct}. Da li da sada češće dolaze Mostovi, Horizont i oglasi iz inostranstva?`,
+    lowMore: 'Da, češće',
+    lowNormal: 'Ne, nastavi normalno',
+    lowMoreToast: 'Od sada češće Mostovi, Horizont i inostranstvo. To možeš da promeniš u filterima.',
+    lowNormalToast: 'Nastavlja se normalno. To možeš da promeniš u filterima.',
   },
 });
 
@@ -458,6 +476,16 @@ export function DeckScreen() {
         : above > 0
           ? t.waitingSplit(above, waiting - above, fmtPct(order.minScore))
           : t.restOnly(waiting, fmtPct(order.minScore));
+  // Gut passende normale Einträge durch? Dann fragen, ob öfter Brücken, Horizont und Ausland kommen sollen
+  const askLow = useMemo(() => {
+    if (order.lowMode !== 'fragen' || order.lowBelow == null) return false;
+    const normal = deck.filter((v) => !isOuterLane(v.lane.lane) && !isAbroad(v.job)).map((v) => v.score.score);
+    return goodMatchesUsedUp(normal, order);
+  }, [deck, order]);
+  const answerLow = (lowMode: DeckOrder['lowMode']) => {
+    store.updateSettings('deck', { ...order, lowMode });
+    store.toast(lowMode === 'mehr' ? t.lowMoreToast : t.lowNormalToast, { label: t.undo, run: () => store.updateSettings('deck', order) });
+  };
   return (
     <section className="screen screen--deck paper" aria-labelledby="deck-title">
       <div className="page-head">
@@ -482,6 +510,20 @@ export function DeckScreen() {
           </button>
         </div>
       </div>
+
+      {askLow && order.lowBelow != null && (
+        <div className="notice notice--info deck-low" role="status" style={{ margin: '6px 2px 0', padding: '8px 10px', flex: 'none', fontSize: 14, lineHeight: 1.35 }}>
+          <b>{t.lowTitle}</b> {t.lowText(fmtPct(order.lowBelow))}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+            <button type="button" className="btn btn--small btn--primary" onClick={() => answerLow('mehr')}>
+              {t.lowMore}
+            </button>
+            <button type="button" className="btn btn--small" onClick={() => answerLow('normal')}>
+              {t.lowNormal}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="deck">
         {top ? (

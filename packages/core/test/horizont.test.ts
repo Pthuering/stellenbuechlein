@@ -138,6 +138,27 @@ describe('Einstreuen in den Stapel', () => {
     expect(interleave(['k0'], ['h0', 'h1'], 'x', 'normal')).toEqual(['k0', 'h0', 'h1']);
     expect(interleave(['k0', 'k1'], ['h0'], 'x', 'aus')).toEqual(['k0', 'k1', 'h0']);
   });
+
+  it('nach den gut passenden öfter: bis dahin wie sonst, danach jede 2. bis 3. Karte', () => {
+    const many = Array.from({ length: 20 }, (_, i) => `h${i}`);
+    const plain = interleave(core, many, 'horizont:2026-11-24', 'normal');
+    const more = interleave(core, many, 'horizont:2026-11-24', 'normal', 12);
+    // Bis zur Kern-Karte k11 ändert sich nichts (beim Wischen verschiebt sich also nichts)
+    const until = plain.indexOf('k11');
+    expect(more.slice(0, until + 1)).toEqual(plain.slice(0, until + 1));
+    // Direkt nach k11 kommt eine Horizont-Karte, danach liegen höchstens zwei Kern-Karten zwischen zwei Horizont-Karten
+    expect(more[more.indexOf('k11') + 1]).toMatch(/^h/);
+    const rest = more.slice(more.indexOf('k11') + 1, more.indexOf('k29') + 1);
+    let run = 0;
+    for (const x of rest) {
+      run = x.startsWith('k') ? run + 1 : 0;
+      expect(run).toBeLessThanOrEqual(2);
+    }
+    expect(more.filter((x) => x.startsWith('k'))).toEqual(core);
+    expect(more).toHaveLength(core.length + many.length);
+    // „aus“ bleibt aus
+    expect(interleave(['k0', 'k1'], ['h0'], 'x', 'aus', 0)).toEqual(['k0', 'k1', 'h0']);
+  });
 });
 
 describe('Steckbrief mit Horizont', () => {

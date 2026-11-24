@@ -279,6 +279,12 @@ export function parseAusland(raw: unknown, fallbackOn = false): AuslandSetting {
 export const ABROAD_GAPS: [number, number] = [2, 5];
 
 /**
+ * Abstand, wenn die gut passenden normalen Einträge durch sind und öfter eingestreut werden soll (DeckOrder.lowMode
+ * „mehr“): genau jede dritte Karte, also so oft, wie die Obergrenze von 33 % erlaubt.
+ */
+export const ABROAD_GAPS_MORE: [number, number] = [2, 2];
+
+/**
  * Unter dieser Passung wird eine Auslandsstelle gar nicht angezeigt, weder im Stapel noch in den Listen
  * (Gemerktes bleibt sichtbar); außerdem muss sie fachlich einschlägig sein (fach.ts). Dieselben Regeln gelten beim
  * Einsammeln, damit nichts aufbereitet wird, was nie erscheint.

@@ -188,6 +188,23 @@ export const DOSIS_GAPS: Record<HorizontDosis, [number, number] | null> = {
   oft: [1, 2], // jede 2. bis 3. Karte
 };
 
+/**
+ * Abstände, wenn die gut passenden normalen Einträge durch sind und öfter eingestreut werden soll (DeckOrder.lowMode
+ * „mehr“): eine Stufe häufiger als eingestellt. „aus“ bleibt aus.
+ */
+export const DOSIS_GAPS_MORE: Record<HorizontDosis, [number, number] | null> = {
+  aus: null,
+  selten: [2, 5], // wie „normal“
+  normal: [1, 2], // wie „oft“
+  oft: [1, 1], // jede 2. Karte
+};
+
+/** Ab Kern-Karte `from` mit dichterem Abstand einstreuen (siehe interleaveGaps). */
+export interface MoreGaps {
+  from: number;
+  gaps: readonly [number, number] | null;
+}
+
 function rng(seed: string): () => number {
   let a = parseInt(hash64(seed).slice(0, 8), 16) >>> 0;
   return () => {
@@ -203,22 +220,31 @@ function rng(seed: string): () => number {
  * Streut die Horizont-Karten zwischen die Kern-Karten: nach jeweils zufällig 2–5 Kern-Karten eine
  * Horizont-Karte (bei „normal“). Der Zufall hängt nur vom Startwert ab, damit sich die Reihenfolge beim
  * Wischen nicht verschiebt. Sind die Kern-Karten aufgebraucht, folgen die übrigen Horizont-Karten.
+ * Mit moreFrom kommen ab dieser Kern-Karte die Horizont-Karten eine Stufe häufiger (DOSIS_GAPS_MORE).
  */
-export function interleave<T>(core: readonly T[], extra: readonly T[], seed: string, dosis: HorizontDosis): T[] {
-  return interleaveGaps(core, extra, seed, DOSIS_GAPS[dosis]);
+export function interleave<T>(core: readonly T[], extra: readonly T[], seed: string, dosis: HorizontDosis, moreFrom?: number): T[] {
+  return interleaveGaps(core, extra, seed, DOSIS_GAPS[dosis], moreFrom == null ? undefined : { from: moreFrom, gaps: DOSIS_GAPS_MORE[dosis] });
 }
 
-/** Wie interleave, aber mit festem Abstand (so werden auch die Auslandskarten eingestreut). Ohne Abstand: anhängen. */
-export function interleaveGaps<T>(core: readonly T[], extra: readonly T[], seed: string, gaps: readonly [number, number] | null): T[] {
+/**
+ * Wie interleave, aber mit festem Abstand (so werden auch die Auslandskarten eingestreut). Ohne Abstand: anhängen.
+ * Mit more gilt ab der Kern-Karte more.from der Abstand more.gaps; ein angefangener Abstand endet an dieser Stelle.
+ */
+export function interleaveGaps<T>(core: readonly T[], extra: readonly T[], seed: string, gaps: readonly [number, number] | null, more?: MoreGaps): T[] {
   if (!gaps || extra.length === 0) return [...core, ...extra];
   const next = rng(seed);
-  const [lo, hi] = gaps;
   const out: T[] = [];
   let ci = 0;
   let ei = 0;
   while (ci < core.length || ei < extra.length) {
+    const dense = !!more?.gaps && ci >= more.from;
+    const [lo, hi] = dense ? more!.gaps! : gaps;
     const gap = lo + Math.floor(next() * (hi - lo + 1));
-    for (let k = 0; k < gap && ci < core.length; k++) out.push(core[ci++]);
+    for (let k = 0; k < gap && ci < core.length; k++) {
+      // Am Übergang zum dichteren Teil endet der angefangene Abstand
+      if (!dense && more?.gaps && k > 0 && ci === more.from) break;
+      out.push(core[ci++]);
+    }
     if (ei < extra.length) out.push(extra[ei++]);
     if (ci >= core.length) {
       while (ei < extra.length) out.push(extra[ei++]);

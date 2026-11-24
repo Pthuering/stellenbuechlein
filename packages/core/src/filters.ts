@@ -301,15 +301,28 @@ export function compareJobs(a: SortableJob, b: SortableJob, key: SortKey): numbe
 }
 
 /**
+ * Was passiert, wenn die gut passenden normalen Einträge durch sind (DeckOrder.lowBelow):
+ * fragen = Hinweis im Stapel mit der Frage, mehr = öfter Brücken, Horizont und Ausland einstreuen,
+ * normal = im gewohnten Rhythmus mit den weniger passenden weiter.
+ */
+export type LowMode = 'fragen' | 'mehr' | 'normal';
+export const LOW_MODES: readonly LowMode[] = ['fragen', 'mehr', 'normal'];
+
+/**
  * Reihenfolge im Stapel (vom Nutzer gesetzt): Sortiert wird immer nach Passung, die beste Karte zuerst. Mit minScore
  * kommen erst alle Karten ab dieser Passung, danach der Rest. Mit urgentFirst kommen in beiden Teilen die Karten mit
- * naher Frist (höchstens urgentDays Tage) vor den anderen.
+ * naher Frist (höchstens urgentDays Tage) vor den anderen. Mit lowBelow gelten normale Einträge darunter als weniger
+ * passend: Sind die darüber durch, fragt der Stapel (lowMode „fragen“) oder streut öfter Brücken, Horizont und
+ * Auslandsstellen ein („mehr“) oder macht im gewohnten Rhythmus weiter („normal“).
  */
 export interface DeckOrder {
   /** Passung in Prozent; null = keine Schwelle */
   minScore: number | null;
   urgentFirst: boolean;
   urgentDays: number;
+  /** Normale Einträge unter dieser Passung gelten als weniger passend; null = aus */
+  lowBelow: number | null;
+  lowMode: LowMode;
 }
 
 /** So viele Punkte darf eine Karte im Stapel nach oben oder unten rutschen. */
@@ -325,14 +338,39 @@ export function deckJitter(jobId: string, seed: string, spread = DECK_JITTER): n
   return (x * 2 - 1) * spread;
 }
 
-export const DEFAULT_DECK_ORDER: DeckOrder = { minScore: null, urgentFirst: false, urgentDays: 30 };
+/** Standard: Unter 51 % gelten normale Einträge als weniger passend; sind die darüber durch, fragt der Stapel. */
+export const DEFAULT_LOW_BELOW = 51;
+
+export const DEFAULT_DECK_ORDER: DeckOrder = { minScore: null, urgentFirst: false, urgentDays: 30, lowBelow: DEFAULT_LOW_BELOW, lowMode: 'fragen' };
 
 export function parseDeckOrder(raw: unknown): DeckOrder {
   if (!raw || typeof raw !== 'object') return DEFAULT_DECK_ORDER;
   const r = raw as Partial<DeckOrder>;
   const score = typeof r.minScore === 'number' && r.minScore > 0 && r.minScore <= 100 ? Math.round(r.minScore) : null;
   const days = typeof r.urgentDays === 'number' && r.urgentDays >= 1 && r.urgentDays <= 365 ? Math.round(r.urgentDays) : DEFAULT_DECK_ORDER.urgentDays;
-  return { minScore: score, urgentFirst: r.urgentFirst === true, urgentDays: days };
+  // Fehlt die Schwelle (ältere Einstellung), gilt der Standard; null heißt ausdrücklich aus
+  const low = r.lowBelow === null ? null : typeof r.lowBelow === 'number' && r.lowBelow > 0 && r.lowBelow <= 100 ? Math.round(r.lowBelow) : DEFAULT_LOW_BELOW;
+  const mode = LOW_MODES.includes(r.lowMode as LowMode) ? (r.lowMode as LowMode) : DEFAULT_DECK_ORDER.lowMode;
+  return { minScore: score, urgentFirst: r.urgentFirst === true, urgentDays: days, lowBelow: low, lowMode: mode };
+}
+
+/**
+ * Sind die gut passenden normalen Einträge im Stapel durch? Ja, wenn noch normale Einträge warten, aber keiner mehr
+ * die Schwelle lowBelow erreicht. scores: Passung der normalen Einträge im Stapel (ohne Brücken, Horizont und Ausland).
+ */
+export function goodMatchesUsedUp(scores: readonly number[], o: Pick<DeckOrder, 'lowBelow'>): boolean {
+  const below = o.lowBelow;
+  if (below == null || scores.length === 0) return false;
+  return scores.every((s) => s < below);
+}
+
+/**
+ * Ab welcher Stelle einer Liste öfter eingestreut wird: direkt nach dem letzten gut passenden normalen Eintrag
+ * (0, wenn es keinen gibt). Gemessen über den ganzen Tagesstapel, damit sich beim Wischen nichts verschiebt.
+ */
+export function moreFrom<T>(list: readonly T[], good: (x: T) => boolean): number {
+  for (let i = list.length - 1; i >= 0; i--) if (good(list[i])) return i + 1;
+  return 0;
 }
 
 /** Ist die Frist nah (heute bis in urgentDays Tagen)? Ohne Frist: nein. */

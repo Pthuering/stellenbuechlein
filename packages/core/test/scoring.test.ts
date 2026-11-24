@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   deckJitter,
   deckTier,
+  goodMatchesUsedUp,
+  moreFrom,
   parseDeckOrder,
   checkGate,
   classifyKind,
@@ -250,6 +252,31 @@ describe('Reihenfolge im Stapel', () => {
     expect(tier(80, '2026-11-20', { ...o, urgentDays: 14 })).toBe(1);
   });
   it('liest nur sinnvolle Werte', () => {
-    expect(parseDeckOrder({ minScore: 150, urgentDays: -3, urgentFirst: 'ja' })).toEqual({ minScore: null, urgentFirst: false, urgentDays: 30 });
+    expect(parseDeckOrder({ minScore: 150, urgentDays: -3, urgentFirst: 'ja' })).toEqual({ minScore: null, urgentFirst: false, urgentDays: 30, lowBelow: 51, lowMode: 'fragen' });
+    expect(parseDeckOrder({ lowBelow: 300, lowMode: 'immer' })).toMatchObject({ lowBelow: 51, lowMode: 'fragen' });
+  });
+  it('Schwelle für weniger passende: Standard 51 %, null heißt aus, die Antwort bleibt', () => {
+    expect(parseDeckOrder(null)).toMatchObject({ lowBelow: 51, lowMode: 'fragen' });
+    expect(parseDeckOrder({ minScore: 70 })).toMatchObject({ lowBelow: 51, lowMode: 'fragen' });
+    expect(parseDeckOrder({ lowBelow: null, lowMode: 'mehr' })).toMatchObject({ lowBelow: null, lowMode: 'mehr' });
+    expect(parseDeckOrder({ lowBelow: 60, lowMode: 'normal' })).toMatchObject({ lowBelow: 60, lowMode: 'normal' });
+  });
+});
+
+describe('Gut passende durch', () => {
+  it('erst wenn kein normaler Eintrag mehr die Schwelle erreicht', () => {
+    expect(goodMatchesUsedUp([80, 40, 30], { lowBelow: 51 })).toBe(false);
+    expect(goodMatchesUsedUp([51, 50], { lowBelow: 51 })).toBe(false);
+    expect(goodMatchesUsedUp([50, 12, 0], { lowBelow: 51 })).toBe(true);
+  });
+  it('leerer Stapel oder Schwelle aus: keine Frage', () => {
+    expect(goodMatchesUsedUp([], { lowBelow: 51 })).toBe(false);
+    expect(goodMatchesUsedUp([10], { lowBelow: null })).toBe(false);
+  });
+  it('öfter eingestreut wird nach dem letzten gut passenden', () => {
+    const good = (n: number) => n >= 51;
+    expect(moreFrom([90, 70, 48, 55, 40, 30], good)).toBe(4);
+    expect(moreFrom([40, 30], good)).toBe(0);
+    expect(moreFrom([90, 80], good)).toBe(2);
   });
 });

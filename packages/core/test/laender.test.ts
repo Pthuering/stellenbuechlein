@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ABROAD_GAPS, countryCode, countryOf, headPlace, interleaveGaps, isAbroad, isEurope, parseAusland } from '../src';
+import { ABROAD_GAPS, ABROAD_GAPS_MORE, countryCode, countryOf, headPlace, interleaveGaps, isAbroad, isEurope, parseAusland } from '../src';
 
 describe('Land einer Stelle', () => {
   it('liest die Länderangabe eines Portals', () => {
@@ -70,6 +70,20 @@ describe('Auslandskarten im Stapel', () => {
     expect(shown.filter((x) => x.startsWith('a')).length / shown.length).toBeLessThanOrEqual(1 / 3);
     // Reihenfolge innerhalb beider Sorten bleibt erhalten
     expect(deck.filter((x) => x.startsWith('a'))).toEqual(ausland);
+    expect(deck.filter((x) => x.startsWith('d'))).toEqual(inland);
+  });
+
+  it('nach den gut passenden öfter: jede dritte Karte, nie mehr', () => {
+    const inland = Array.from({ length: 60 }, (_, i) => `d${i}`);
+    const ausland = Array.from({ length: 40 }, (_, i) => `a${i}`);
+    const plain = interleaveGaps(inland, ausland, 'ausland:2026-11-24', ABROAD_GAPS);
+    const deck = interleaveGaps(inland, ausland, 'ausland:2026-11-24', ABROAD_GAPS, { from: 20, gaps: ABROAD_GAPS_MORE });
+    const until = plain.indexOf('d19');
+    expect(deck.slice(0, until + 1)).toEqual(plain.slice(0, until + 1));
+    // ab d20 genau jede dritte Karte, solange es deutsche Karten gibt
+    const rest = deck.slice(deck.indexOf('d19') + 1, deck.indexOf('d59') + 1);
+    for (let i = 0; i + 3 <= rest.length; i++) expect(rest.slice(i, i + 3).filter((x) => x.startsWith('a')).length).toBeLessThanOrEqual(1);
+    expect(rest.filter((x) => x.startsWith('a')).length).toBeGreaterThanOrEqual(Math.floor(rest.length / 3));
     expect(deck.filter((x) => x.startsWith('d'))).toEqual(inland);
   });
 });

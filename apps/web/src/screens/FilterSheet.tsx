@@ -8,6 +8,7 @@ import {
   DEFAULT_FILTER,
   INSTITUTION_KINDS,
   laneAllowed,
+  LOW_MODES,
   STATE_CODES,
   type DeckOrder,
   type InstitutionKind,
@@ -39,6 +40,8 @@ function toggleOuter(f: JobFilter, l: 'horizont' | 'weite'): Lane[] {
   return shown.length === OUTER.length ? [] : ['kern', ...shown];
 }
 const MIN_SCORES = [50, 60, 70, 80, 90];
+// Schwelle für „gut passende durch“: normale Einträge darunter gelten als weniger passend
+const LOW_SCORES = [40, 51, 60, 70];
 const URGENT_DAYS = [7, 14, 30, 60];
 const TERM_YEARS = [1, 2, 3, 5];
 
@@ -59,6 +62,15 @@ const t = texts({
     urgentFirstHint: 'Karten mit naher Frist kommen vor den anderen, bei den gut passenden und beim Rest.',
     urgentWithin: 'Nah heißt höchstens',
     period: (d: number) => (d === 7 ? '1 Woche' : d === 14 ? '2 Wochen' : d === 30 ? '1 Monat' : d === 60 ? '2 Monate' : `${d} Tage`),
+    low: 'Wenn die gut passenden durch sind',
+    lowBelow: (p: string) => `unter ${p}`,
+    lowModes: { fragen: 'nachfragen', mehr: 'öfter Brücken, Horizont & Ausland', normal: 'normal weiter' },
+    lowHints: {
+      off: 'Aus: Der Stapel mischt Brücken, Horizont und Ausland immer im gewohnten Rhythmus.',
+      fragen: 'Liegen die übrigen normalen Einträge alle unter dieser Passung, fragt der Stapel einmal, ob jetzt öfter Brücken, Horizont und Ausland kommen sollen.',
+      mehr: 'Nach dem letzten normalen Eintrag ab dieser Passung kommen Brücken- und Horizont-Karten eine Stufe häufiger und Auslandsstellen jede dritte Karte.',
+      normal: 'Auch unter dieser Passung geht es im gewohnten Rhythmus weiter.',
+    },
     ring: 'Brücken und Horizont',
     outerCards: { horizont: 'Brücken-Karten', weite: 'Horizont-Karten' },
     ringHint: 'Normale Einträge kommen immer. Brücken-Karten kommen über eine deiner Brücken aus anderen Feldern, Horizont-Karten schlägt die KI ohne Brücke vor. Beide haben keine Prozentzahl und kommen im Stapel unabhängig von den übrigen Filtern. Hier lassen sie sich ausblenden.',
@@ -121,6 +133,15 @@ const t = texts({
     urgentFirstHint: 'Cards with a close deadline come before the others, among the good matches and among the rest.',
     urgentWithin: 'Close means at most',
     period: (d) => (d === 7 ? '1 week' : d === 14 ? '2 weeks' : d === 30 ? '1 month' : d === 60 ? '2 months' : `${d} days`),
+    low: 'When the good matches are used up',
+    lowBelow: (p) => `below ${p}`,
+    lowModes: { fragen: 'ask me', mehr: 'more Bridges, Horizon & abroad', normal: 'carry on as usual' },
+    lowHints: {
+      off: 'Off: the stack always mixes in Bridges, Horizon and abroad at the usual pace.',
+      fragen: 'Once all remaining regular entries are below this match, the stack asks once whether Bridges, Horizon and abroad should come more often.',
+      mehr: 'After the last regular entry at or above this match, Bridge and Horizon cards come one step more often and postings abroad every third card.',
+      normal: 'Below this match, too, the stack carries on at the usual pace.',
+    },
     ring: 'Bridges and Horizon',
     outerCards: { horizont: 'Bridge cards', weite: 'Horizon cards' },
     ringHint: 'Regular entries always show. Bridge cards come from other fields through one of your bridges; Horizon cards are suggested by the AI without a bridge. Neither has a match percentage, and in the stack they appear regardless of the other filters. You can hide them here.',
@@ -183,6 +204,15 @@ const t = texts({
     urgentFirstHint: 'Kartice sa bliskim rokom dolaze pre ostalih, i među dobrim poklapanjima i među ostalima.',
     urgentWithin: 'Blizu znači najviše',
     period: (d) => (d === 7 ? '1 nedelja' : d === 14 ? '2 nedelje' : d === 30 ? '1 mesec' : d === 60 ? '2 meseca' : `${d} ${srForm(d, 'dan', 'dana', 'dana')}`),
+    low: 'Kad nestane dobrih poklapanja',
+    lowBelow: (p) => `ispod ${p}`,
+    lowModes: { fragen: 'pitaj me', mehr: 'češće Mostovi, Horizont i inostranstvo', normal: 'nastavi normalno' },
+    lowHints: {
+      off: 'Isključeno: špil uvek ubacuje Mostove, Horizont i inostranstvo uobičajenim ritmom.',
+      fragen: 'Kad su svi preostali obični oglasi ispod ovog poklapanja, špil jednom pita da li da češće dolaze Mostovi, Horizont i inostranstvo.',
+      mehr: 'Posle poslednjeg običnog oglasa sa ovim ili većim poklapanjem, kartice preko mosta i sa horizonta dolaze za stepen češće, a oglasi iz inostranstva kao svaka treća kartica.',
+      normal: 'I ispod ovog poklapanja špil nastavlja uobičajenim ritmom.',
+    },
     ring: 'Mostovi i Horizont',
     outerCards: { horizont: 'Kartice preko mosta', weite: 'Kartice sa horizonta' },
     ringHint: 'Obični oglasi se uvek prikazuju. Kartice preko mosta dolaze iz drugih oblasti preko nekog tvog mosta, a kartice sa horizonta predlaže AI bez mosta. Nijedne nemaju procenat poklapanja i u špilu se pojavljuju nezavisno od ostalih filtera. Ovde ih možeš sakriti.',
@@ -309,6 +339,26 @@ export function FilterSheet({ onClose, deck = false }: { onClose: () => void; de
               </div>
             </div>
           )}
+          <div className="field">
+            <span>{t.low}</span>
+            <div className="chips">
+              {[null, ...LOW_SCORES].map((p) => (
+                <button key={String(p)} type="button" className="chip" aria-pressed={o.lowBelow === p} onClick={() => setOrder({ lowBelow: p })}>
+                  {p == null ? t.off : t.lowBelow(fmtPct(p))}
+                </button>
+              ))}
+            </div>
+            {o.lowBelow != null && (
+              <div className="chips" style={{ marginTop: 6 }}>
+                {LOW_MODES.map((m) => (
+                  <button key={m} type="button" className="chip" aria-pressed={o.lowMode === m} onClick={() => setOrder({ lowMode: m })}>
+                    {t.lowModes[m]}
+                  </button>
+                ))}
+              </div>
+            )}
+            <small className="hint">{o.lowBelow == null ? t.lowHints.off : t.lowHints[o.lowMode]}</small>
+          </div>
         </>
       )}
       <p className="hint" style={deck || saved.length ? { marginTop: 18 } : undefined}>

@@ -30,7 +30,9 @@ import {
   type Suchprofil,
   deckJitter,
   ABROAD_GAPS,
+  ABROAD_GAPS_MORE,
   ABROAD_MIN_SCORE,
+  moreFrom,
   EUROPE_BONUS,
   interleaveGaps,
   isAbroad,
@@ -199,6 +201,9 @@ export function openViews(views: Map<string, JobView>, today = todayBerlin()): J
  * das Urteil der KI und kommen bis dahin gar nicht in den Stapel.
  * Stellen außerhalb Deutschlands kommen wie die Horizont-Karten dazwischen: nach jeweils 2 bis 5 anderen Karten
  * eine, also höchstens jede dritte Karte, nach Passung geordnet und Europa zuerst.
+ * Sind die gut passenden normalen Einträge durch (Schwelle lowBelow in der Reihenfolge) und ist „öfter einstreuen“
+ * gewählt, kommen ab dem letzten gut passenden normalen Eintrag Brücken und Horizont eine Stufe häufiger und
+ * Auslandskarten jede dritte Karte.
  * Gemischt wird über alle offenen Anzeigen (auch schon entschiedene) und erst danach gefiltert, damit sich
  * die Reihenfolge beim Wischen nicht verschiebt.
  */
@@ -229,12 +234,17 @@ export function useDeck(): JobView[] {
     }
     const core = [...tiers.keys()].sort((a, b) => a - b).flatMap((k) => sortCore(tiers.get(k)!, `stapel:${today}`));
     extra.sort((a, b) => compareHorizon({ lane: a.lane, score: a.score.score }, { lane: b.lane, score: b.score.score }));
-    const inland = interleave(core, extra, `horizont:${today}`, h.dosis);
+    // Nach dem letzten gut passenden normalen Eintrag öfter einstreuen, wenn so gewählt (Filter → Reihenfolge)
+    const o = s.settings.deck;
+    const more = o.lowBelow != null && o.lowMode === 'mehr';
+    const good = (v: JobView) => !isOuterLane(v.lane.lane) && v.score.score >= o.lowBelow!;
+    const inland = interleave(core, extra, `horizont:${today}`, h.dosis, more ? moreFrom(core, good) : undefined);
     // Auslandsstellen (nur ab ABROAD_MIN_SCORE, siehe filterViews): nach Passung, Europa mit Vorsprung,
     // höchstens jede dritte Karte (siehe ABROAD_GAPS)
     const rank = new Map(abroad.map((v) => [v.job.id, v.score.score + deckJitter(v.job.id, `stapel:${today}`) + (isEurope(v.job.country) ? EUROPE_BONUS : 0)]));
     abroad.sort((a, b) => rank.get(b.job.id)! - rank.get(a.job.id)!);
-    return interleaveGaps(inland, abroad, `ausland:${today}`, ABROAD_GAPS).filter((v) => !v.mark?.decision);
+    const abroadMore = more ? { from: moreFrom(inland, good), gaps: ABROAD_GAPS_MORE } : undefined;
+    return interleaveGaps(inland, abroad, `ausland:${today}`, ABROAD_GAPS, abroadMore).filter((v) => !v.mark?.decision);
   }, [views, s.settings.filter, s.settings.profile, s.settings.deck, geo]);
 }
 

@@ -103,6 +103,20 @@ try {
   await page.waitForTimeout(300);
   assert.equal(await waiting(page), deckBefore);
 
+  // Wenn die gut passenden durch sind: öfter einstreuen ändert nur die Reihenfolge, nicht die Zahl der Karten
+  await page.click('[aria-label^="Filter"]');
+  await page.click('.sheet >> text=unter 70 %');
+  await page.click('.sheet >> text=öfter Brücken, Horizont & Ausland');
+  assert.ok(((await page.locator('.sheet').textContent()) ?? '').includes('Auslandsstellen jede dritte Karte'), 'Erklärung zu „öfter“ fehlt');
+  await page.click('text=Fertig');
+  await page.waitForTimeout(300);
+  assert.equal(await waiting(page), deckBefore, '„öfter einstreuen“ verändert die Zahl der Karten');
+  await page.click('[aria-label^="Filter"]');
+  await page.click('.sheet >> text=unter 51 %');
+  await page.click('.sheet >> text=nachfragen');
+  await page.click('text=Fertig');
+  await page.waitForTimeout(300);
+
   // Gemerkt: Herzensjob ist da
   await page.click('.tab:nth-child(3)');
   await page.waitForSelector('#saved-title, .screen [id$="title"]');
