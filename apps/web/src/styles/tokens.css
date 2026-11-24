@@ -38,6 +38,14 @@
   --pal-gelb-100: #fff5d6;
   --pal-gelb-300: #fbe6a2;
   --pal-gold-700: #b98a1c;
+  /* Diagramme (Statistik): aus der geprüften Referenzpalette, die Töne nächst an Rosa, Lavendel und Gold;
+     mit dem Farbprüfer der Diagramm-Anleitung für Tag und Nacht getestet (Sehschwächen, Abstand, Kontrast) */
+  --pal-chart-magenta: #e87ba4;
+  --pal-chart-violett: #6250d6;
+  --pal-chart-violett-hell: #a59bf0;
+  --pal-chart-tuerkis: #1baf7a;
+  --pal-chart-gelb: #eda100;
+  --pal-chart-grau: #c9bdc1;
 
   /* Nachtpalette (dunkles Notizbuch) */
   --pal-nacht-papier: #2a2025;
@@ -62,6 +70,12 @@
   --pal-nacht-gelb-100: #4b3e2e;
   --pal-nacht-gelb-300: #e7cf82;
   --pal-nacht-gold: #e9c55e;
+  --pal-nacht-chart-magenta: #d55181;
+  --pal-nacht-chart-violett: #9085e9;
+  --pal-nacht-chart-violett-tief: #6a5cc8;
+  --pal-nacht-chart-tuerkis: #199e70;
+  --pal-nacht-chart-gelb: #c98500;
+  --pal-nacht-chart-grau: #6b5c63;
 
   /* ---------------------------------------------------------------- Stufe 2: Rollen (Tag) */
   /* Flächen und Schrift */
@@ -96,6 +110,15 @@
   /* Neutral: Beige */
   --neutral: var(--pal-beige-300);
   --neutral-soft: var(--pal-beige-100);
+  /* Diagramme: Ringe, KI-Urteile, Entscheidungen; einzelne Größen in Violett */
+  --chart-normal: var(--pal-chart-magenta);
+  --chart-bruecke: var(--pal-chart-violett);
+  --chart-horizont: var(--pal-chart-tuerkis);
+  --chart-ausland: var(--pal-chart-gelb);
+  --chart-passt: var(--pal-chart-violett);
+  --chart-eher: var(--pal-chart-violett-hell);
+  --chart-nein: var(--pal-chart-grau);
+  --chart-wert: var(--pal-chart-violett);
 
   --shadow-paper: 0 1px 0 rgba(74, 44, 57, 0.06), 0 10px 24px -12px rgba(74, 44, 57, 0.26);
   --shadow-lift: 0 2px 0 rgba(74, 44, 57, 0.06), 0 22px 40px -18px rgba(74, 44, 57, 0.4);
@@ -146,6 +169,14 @@
     --accent-strong: var(--pal-nacht-gold);
     --neutral: var(--pal-nacht-beige-300);
     --neutral-soft: var(--pal-nacht-beige-100);
+    --chart-normal: var(--pal-nacht-chart-magenta);
+    --chart-bruecke: var(--pal-nacht-chart-violett);
+    --chart-horizont: var(--pal-nacht-chart-tuerkis);
+    --chart-ausland: var(--pal-nacht-chart-gelb);
+    --chart-passt: var(--pal-nacht-chart-violett);
+    --chart-eher: var(--pal-nacht-chart-violett-tief);
+    --chart-nein: var(--pal-nacht-chart-grau);
+    --chart-wert: var(--pal-nacht-chart-violett);
     --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.3), 0 12px 26px -12px rgba(0, 0, 0, 0.7);
     --shadow-lift: 0 2px 0 rgba(0, 0, 0, 0.3), 0 24px 44px -18px rgba(0, 0, 0, 0.8);
     --tape: rgba(239, 162, 185, 0.42);
@@ -178,6 +209,14 @@
   --accent-strong: var(--pal-nacht-gold);
   --neutral: var(--pal-nacht-beige-300);
   --neutral-soft: var(--pal-nacht-beige-100);
+  --chart-normal: var(--pal-nacht-chart-magenta);
+  --chart-bruecke: var(--pal-nacht-chart-violett);
+  --chart-horizont: var(--pal-nacht-chart-tuerkis);
+  --chart-ausland: var(--pal-nacht-chart-gelb);
+  --chart-passt: var(--pal-nacht-chart-violett);
+  --chart-eher: var(--pal-nacht-chart-violett-tief);
+  --chart-nein: var(--pal-nacht-chart-grau);
+  --chart-wert: var(--pal-nacht-chart-violett);
   --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.3), 0 12px 26px -12px rgba(0, 0, 0, 0.7);
   --shadow-lift: 0 2px 0 rgba(0, 0, 0, 0.3), 0 24px 44px -18px rgba(0, 0, 0, 0.8);
   --tape: rgba(239, 162, 185, 0.42);

@@ -26,6 +26,7 @@ import { HorizontPage } from './HorizontPage';
 import { ChecklistPage, useChecklist } from './ChecklistPage';
 import { AssistantPage } from './AssistantPage';
 import { UmfragePage } from './UmfragePage';
+import { StatistikPage } from './StatistikPage';
 import { ProfilHinweis } from './ProfilHinweis';
 
 const t = texts({
@@ -104,6 +105,8 @@ const t = texts({
     sources: 'Quellen & Läufe',
     sourcesSub: (total: number, problems: number, missingUrl: number) =>
       `${total} ${total === 1 ? 'Quelle' : 'Quellen'}, ${problems ? `${problems} mit Problemen` : 'keine Probleme'}${missingUrl ? `, ${missingUrl} ohne Adresse` : ''}`,
+    statistics: 'Statistik',
+    statisticsSub: 'Was jeder Lauf findet und aussortiert, Urteile der KI, Bestand, Passung und was du daraus machst',
     notLoaded: 'noch nicht geladen',
     noRun: 'noch kein Lauf',
     dailyDemo: 'Täglich gegen 12 Uhr, in der Demo nicht',
@@ -204,6 +207,8 @@ const t = texts({
     sources: 'Sources & runs',
     sourcesSub: (total, problems, missingUrl) =>
       `${total} ${total === 1 ? 'source' : 'sources'}, ${problems ? `${problems} with problems` : 'no problems'}${missingUrl ? `, ${missingUrl} without a URL` : ''}`,
+    statistics: 'Statistics',
+    statisticsSub: 'What each run finds and filters out, AI verdicts, postings on hand, match and what you do with them',
     notLoaded: 'not loaded yet',
     noRun: 'no run yet',
     dailyDemo: 'Daily around noon; not in the demo',
@@ -304,6 +309,8 @@ const t = texts({
     sources: 'Izvori i prolazi',
     sourcesSub: (total, problems, missingUrl) =>
       `${total} ${srForm(total, 'izvor', 'izvora', 'izvora')}, ${problems ? `${problems} sa problemima` : 'bez problema'}${missingUrl ? `, ${missingUrl} bez adrese` : ''}`,
+    statistics: 'Statistika',
+    statisticsSub: 'Šta svaki prolaz pronađe i odbaci, ocene AI, oglasi na raspolaganju, poklapanje i šta ti radiš s njima',
     notLoaded: 'još nije učitano',
     noRun: 'još nema prolaza',
     dailyDemo: 'Svaki dan oko podneva, u demu ne',
@@ -640,6 +647,7 @@ function SettingsHome() {
             value={lastRun ? relativeTime(lastRun.finishedAt ?? lastRun.startedAt) : s.demo ? t.demo : t.noRun}
             onClick={() => navigate('/ich/quellen')}
           />
+          <Row label={t.statistics} sub={t.statisticsSub} onClick={() => navigate('/ich/statistik')} />
           <div className="setting setting--static">
             <span className="setting__label">
               {t.collecting}
@@ -770,6 +778,8 @@ export function SettingsScreen({ sub }: { sub: string | null }) {
       return <ChecklistPage />;
     case 'ki':
       return <AssistantPage />;
+    case 'statistik':
+      return <StatistikPage />;
     default:
       return <SettingsHome />;
   }

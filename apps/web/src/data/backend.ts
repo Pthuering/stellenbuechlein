@@ -1,7 +1,16 @@
 // Schnittstelle zwischen App und Server – echte API (api.ts) oder Demo (demo.ts).
 
-import type { AssistantMessage, AssistantStepResult, Bruecke, City, DeadlineCheck, Favorite, FavoriteKind, Institution, InstitutionKind, Job, JobKind, KiUsageReport, Mark, RunInfo, Source, SourceConfig, SourceStatus, Suchprofil } from '@stellen/core';
+import type { AssistantMessage, AssistantStepResult, Bruecke, City, DeadlineCheck, EntscheidungTag, Favorite, FavoriteKind, Institution, InstitutionKind, Job, JobKind, KiTag, KiUsageReport, Mark, RunInfo, Source, SourceConfig, SourceStatus, StatSchnappschuss, Suchprofil } from '@stellen/core';
 import { texts } from '../i18n';
+
+/** Antwort von /api/statistik */
+export interface StatistikDaten {
+  laeufe: RunInfo[];
+  schnappschuesse: { runId: number; erstelltAt: string; daten: StatSchnappschuss | null }[];
+  ki: KiTag[];
+  entscheidungen: EntscheidungTag[];
+  kiOffen: Record<string, number>;
+}
 
 export interface SourceSummary {
   total: number;
@@ -173,6 +182,8 @@ export interface Backend {
   suggestBridges(profile: Suchprofil): Promise<Bruecke[]>;
   runs(): Promise<RunInfo[]>;
   runLog(id: number): Promise<string>;
+  /** Statistik: Läufe, Schnappschüsse je Lauf, KI-Ergebnisse und Entscheidungen je Tag */
+  statistik(): Promise<StatistikDaten>;
   skips(): Promise<GateSkip[]>;
   pushSubscribe(sub: PushSubscriptionJSON): Promise<void>;
   pushUnsubscribe(endpoint: string): Promise<void>;

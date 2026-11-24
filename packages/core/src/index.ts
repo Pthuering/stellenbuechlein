@@ -24,3 +24,4 @@ export * from './aiCost';
 export * from './assistant';
 export * from './freigabe';
 export * from './posting';
+export * from './statistik';

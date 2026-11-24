@@ -4,7 +4,7 @@
 
 import { addDays, formatDateDe, normalizeText, siteKeyOf, siteLabel, todayBerlin, type Bruecke, type City, type Decision, type Favorite, type FavoriteKind, type Institution, type Job, type Mark, type RunInfo, type Source, type Suchprofil } from '@stellen/core';
 import { horizontOf, truncate } from '@stellen/core';
-import type { AcceptCheckBody, Backend, BootstrapData, CheckResult, Discovery, GateSkip, NewSourceBody, SourceCheck, SourcePatchBody, SourcesData, SyncPage } from './backend';
+import type { AcceptCheckBody, Backend, BootstrapData, CheckResult, Discovery, GateSkip, NewSourceBody, SourceCheck, SourcePatchBody, SourcesData, StatistikDaten, SyncPage } from './backend';
 import { lsGet, lsSet } from './local';
 import data from './demo-data.json';
 import { texts } from '../i18n';
@@ -340,6 +340,11 @@ export class DemoBackend implements Backend {
 
   async runs(): Promise<RunInfo[]> {
     return [DEMO_RUN];
+  }
+
+  /** In der Demo nur der Beispiel-Lauf; Schnappschüsse, KI-Ergebnisse und Entscheidungen gibt es erst im echten Betrieb. */
+  async statistik(): Promise<StatistikDaten> {
+    return { laeufe: [DEMO_RUN], schnappschuesse: [], ki: [], entscheidungen: [], kiOffen: {} };
   }
 
   async runLog(): Promise<string> {

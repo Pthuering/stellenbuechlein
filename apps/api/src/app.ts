@@ -22,6 +22,9 @@ import {
   listInstitutions,
   listMarks,
   listRuns,
+  listStatistik,
+  kiTage,
+  entscheidungenTage,
   listSources,
   listSuggestions,
   patchSource,
@@ -690,6 +693,21 @@ export function createApp(deps: AppDeps): Hono {
   });
 
   app.get('/api/runs', async (c) => c.json({ runs: await listRuns(deps.db(c), 20) }));
+
+  // Statistik: Läufe (die letzten 60), Schnappschüsse je Lauf und, direkt gerechnet, KI-Ergebnisse und Taras
+  // Entscheidungen je Tag der letzten 90 Tage
+  app.get('/api/statistik', async (c) => {
+    const db = deps.db(c);
+    const seit = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    const [laeufe, schnappschuesse, ki, entscheidungen, kiOffen] = await Promise.all([
+      listRuns(db, 60),
+      listStatistik(db, 120),
+      kiTage(db, seit),
+      entscheidungenTage(db, seit),
+      countOpenAiTasks(db),
+    ]);
+    return c.json({ laeufe, schnappschuesse, ki, entscheidungen, kiOffen });
+  });
 
   app.get('/api/runs/:id/log', async (c) => {
     const log = await getRunLog(deps.db(c), Number(c.req.param('id')));

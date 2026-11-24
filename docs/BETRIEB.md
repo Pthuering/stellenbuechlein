@@ -158,6 +158,18 @@ Stand Oktober 2026, bei den Anbietern nachprüfen, falls sich etwas ändert:
 - **DeepSeek:** nach Verbrauch, nur für den KI-Assistenten, Brücken-Vorschläge und Probeläufe; die Übersicht steht unter *Ich → KI-Assistent*.
 - **Brave Search API (optional):** Kontingent und Preis beim Anbieter prüfen. Die Erkundung stellt seit 24.11.2026 jeden Tag alle Suchwörter (Kern und Brücken, etwa 40 bis 60 Anfragen); ist das Kontingent erschöpft, meldet der Lauf eine Warnung und sucht nur noch bei der Arbeitsagentur. Begrenzen lässt es sich mit `EXPLORE_MAX_QUERIES`.
 
+## Statistik
+
+Jeder volle Einsammel-Lauf legt am Ende im Hintergrund einen Schnappschuss in der Tabelle `statistik` ab (seit 24.11.2026, Migration 0008). Er enthält drei Teile:
+
+- **Lauf:** Seiten in den Listen, davon bekannt, früher aussortiert, am Titel oder Grobfilter aussortiert, keine Anzeige, Dubletten, verschoben, neu (mit Brücken und Ausland), Horizont-Kandidaten, Dauer und Quellen mit Fehler.
+- **Bestand danach:** offene Anzeigen nach Art, Brücken und Horizont ohne KI-Urteil, Fristen und die Verteilung der Passung.
+- **Wirkung:** Taras gemerkte und weggelegte Anzeigen nach Art und Passungsstufe.
+
+Gerechnet wird wie in der App. Scheitert das Ablegen, läuft der Lauf trotzdem weiter.
+
+Die Seite *Ich → Statistik* zeigt das zusammen mit den Urteilen der KI und den Entscheidungen je Tag. Beide werden direkt aus `ki_aufgaben` und `marks` gezählt (Route `/api/statistik`). Läufe vor dem 24.11. haben keinen Schnappschuss; ihre Laufzahlen kommen aus der Tabelle `runs`.
+
 ## Stellschrauben der Pipeline
 
 Als Umgebungsvariablen im Workflow `einsammeln.yml` oder lokal:

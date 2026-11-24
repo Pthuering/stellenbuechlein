@@ -101,6 +101,7 @@ import {
   type JobWrite,
   type Stmt,
   enqueueAiTaskStmt,
+  statistikStmt,
   NOT_A_POSTING,
   type AiTaskKind,
 } from '@stellen/db';
@@ -123,6 +124,7 @@ import { Registry } from './registry';
 import { exploreBa, exploreQueries, exploreWeb } from './explore';
 import { processPendingChecks } from './sourceCheck';
 import { lockForIngest, unlockAfterIngest } from './sperre';
+import { buildSnapshot } from './statistik';
 
 export interface PipelineOptions {
   only?: string[];
@@ -427,9 +429,17 @@ export class Pipeline {
       if (this.pool) this.stats.browserSekunden = Math.round(this.pool.usedMs / 1000);
       this.log.info(`Fertig: ${JSON.stringify(this.stats)}`);
       await finishRun(this.db, runId, ok, this.stats, this.log.text()).catch((e) => console.error(e));
+      // Statistik: Schnappschuss von Lauf, Bestand und Wirkung (nur bei vollen Läufen, nie auf Kosten des Laufs)
+      if (this.opts.sources !== false) await this.saveSnapshot(runId, ok).catch((e) => console.error(`Statistik nicht gespeichert: ${errText(e)}`));
       if (locked) await unlockAfterIngest(this.db).catch((e) => console.error(e));
     }
     return this.stats;
+  }
+
+  private async saveSnapshot(runId: number, ok: boolean): Promise<void> {
+    const ende = new Date().toISOString();
+    const daten = await buildSnapshot(this.db, this.profile, { start: new Date(this.startedMs).toISOString(), ende, ok, stats: this.stats }, this.today);
+    await this.db.batch([statistikStmt(runId, ende, daten)]);
   }
 
   // ---------------------------------------------------------------- Bilder und fehlende Stellenseiten

@@ -13,6 +13,7 @@ import {
   type SourceCheck,
   type SourcePatchBody,
   type SourcesData,
+  type StatistikDaten,
   type SyncPage,
 } from './backend';
 import { texts } from '../i18n';
@@ -117,6 +118,10 @@ export class HttpBackend implements Backend {
 
   async runs(): Promise<RunInfo[]> {
     return (await this.call<{ runs: RunInfo[] }>('/api/runs')).runs;
+  }
+
+  async statistik(): Promise<StatistikDaten> {
+    return this.call<StatistikDaten>('/api/statistik');
   }
 
   runLog(id: number): Promise<string> {
