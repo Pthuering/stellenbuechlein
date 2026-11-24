@@ -67,7 +67,7 @@ export function parseFilter(raw: unknown): JobFilter {
     workloadMin: numOrNull(r.workloadMin, 1, 100),
     permanentOnly: r.permanentOnly === true,
     minDaysLeft: numOrNull(r.minDaysLeft, 0, 365),
-    lanes: strings(r.lanes) as Lane[],
+    lanes: normalizeLanes(strings(r.lanes) as Lane[]),
     newSitesOnly: r.newSitesOnly === true,
     text: typeof r.text === 'string' ? r.text : '',
     cities: strings(r.cities),
@@ -144,6 +144,30 @@ export function placeOf(job: Pick<Job, 'lat' | 'lon' | 'cityId' | 'institutionId
   return { lat, lon, cityId, state: city?.state ?? null, distanceKm: distance };
 }
 
+/**
+ * Karte außerhalb des Kerns? In der App heißen die Ringe Kern, Brücke (intern „horizont“: über eine Brücke) und
+ * Horizont (intern „weite“: ohne Brücke, die KI hält das Können für übertragbar). Brücken- und Horizont-Karten
+ * haben keine Passung in Prozent, sondern eine eigene Kennung, und kommen im Stapel an den Filtern vorbei.
+ */
+export function isOuterLane(lane: Lane | null | undefined): boolean {
+  return lane === 'horizont' || lane === 'weite';
+}
+
+/**
+ * Ring-Filter der App: Die normalen Einträge (intern „kern“) sind immer dabei, ausblenden lassen sich nur Brücken-
+ * und Horizont-Karten. Leer = alles; ältere Filter wie „nur Horizont“ bekommen die normalen Einträge dazu.
+ */
+export function normalizeLanes(lanes: readonly Lane[]): Lane[] {
+  if (lanes.length === 0) return [];
+  const set = new Set<Lane>(['kern', ...lanes]);
+  return set.size === 3 ? [] : (['kern', 'horizont', 'weite'] as Lane[]).filter((l) => set.has(l));
+}
+
+/** Lässt der Ring-Filter diesen Ring zu? (Leer = alle.) */
+export function laneAllowed(f: Pick<JobFilter, 'lanes'>, lane: Lane | null | undefined): boolean {
+  return !f.lanes?.length || f.lanes.includes(lane ?? 'kern');
+}
+
 export function passesFilter(
   job: Job,
   f: JobFilter,
@@ -156,9 +180,11 @@ export function passesFilter(
   /** Passung mit dem aktuellen Profil; ohne Angabe greift „Passung mindestens“ nicht. */
   score?: number,
 ): boolean {
-  if (f.lanes?.length && !f.lanes.includes(lane ?? job.lane ?? 'kern')) return false;
+  const ring = lane ?? job.lane ?? 'kern';
+  if (!laneAllowed(f, ring)) return false;
   if (f.newSitesOnly && !job.newSite) return false;
-  if (f.minScore != null && score != null && score < f.minScore) return false;
+  // Brücken- und Horizont-Karten haben keine Passung in Prozent: Die Mindest-Passung greift bei ihnen nicht.
+  if (f.minScore != null && score != null && !isOuterLane(ring) && score < f.minScore) return false;
   if (f.radiusKm != null && (place.distanceKm == null || place.distanceKm > f.radiusKm)) return false;
   if (f.cities?.length && !inCities(job, place, f.cities, ctx)) return false;
   if (f.states.length && (!place.state || !f.states.includes(place.state))) return false;

@@ -863,6 +863,11 @@ button.hearts {
   border: 2.5px solid var(--primary-strong);
 }
 
+/* Brücken- und Horizont-Karten: lavendelfarbener Rand, statt Prozentzahl ihr Symbol */
+.card--outer {
+  border: 2.5px solid var(--secondary);
+}
+
 .list-more {
   display: flex;
   justify-content: center;

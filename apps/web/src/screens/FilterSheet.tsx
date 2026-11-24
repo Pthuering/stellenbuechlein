@@ -7,6 +7,7 @@ import {
   countActiveFilters,
   DEFAULT_FILTER,
   INSTITUTION_KINDS,
+  laneAllowed,
   STATE_CODES,
   type DeckOrder,
   type InstitutionKind,
@@ -24,12 +25,19 @@ import { Sheet } from '../ui/Sheet';
 import { CityPicker } from '../ui/CityPicker';
 import { IconBell } from '../ui/icons';
 import { fmtPct, srForm, texts } from '../i18n';
-import { institutionKindLabel, jobKindLabel, laneName, stateName } from '../i18n/labels';
+import { institutionKindLabel, jobKindLabel, stateName } from '../i18n/labels';
 
 const RADII: (number | null)[] = [null, 25, 50, 100, 200, 300];
 const KINDS: JobKind[] = ['promotion', 'postdoc', 'wiss_ma', 'professur', 'projekt', 'lehre', 'klinik', 'shk', 'verwaltung'];
 const INST_KINDS: readonly InstitutionKind[] = INSTITUTION_KINDS;
-const LANES: Lane[] = ['kern', 'horizont', 'weite'];
+// Brücken- und Horizont-Karten lassen sich ausblenden; die normalen Einträge (intern „kern“) kommen immer.
+const OUTER: ('horizont' | 'weite')[] = ['horizont', 'weite'];
+
+/** Schaltet Brücken- oder Horizont-Karten um; leer heißt „alles zeigen“. */
+function toggleOuter(f: JobFilter, l: 'horizont' | 'weite'): Lane[] {
+  const shown = OUTER.filter((x) => (x === l ? !laneAllowed(f, x) : laneAllowed(f, x)));
+  return shown.length === OUTER.length ? [] : ['kern', ...shown];
+}
 const MIN_SCORES = [50, 60, 70, 80, 90];
 const URGENT_DAYS = [7, 14, 30, 60];
 const TERM_YEARS = [1, 2, 3, 5];
@@ -51,8 +59,9 @@ const t = texts({
     urgentFirstHint: 'Karten mit naher Frist kommen vor den anderen, bei den gut passenden und beim Rest.',
     urgentWithin: 'Nah heißt höchstens',
     period: (d: number) => (d === 7 ? '1 Woche' : d === 14 ? '2 Wochen' : d === 30 ? '1 Monat' : d === 60 ? '2 Monate' : `${d} Tage`),
-    ring: 'Ring',
-    ringHint: 'Kern trifft deine Kernthemen, Horizont kommt über eine Brücke dazu, die Weite schlägt die KI vor.',
+    ring: 'Brücken und Horizont',
+    outerCards: { horizont: 'Brücken-Karten', weite: 'Horizont-Karten' },
+    ringHint: 'Normale Einträge kommen immer. Brücken-Karten kommen über eine deiner Brücken aus anderen Feldern, Horizont-Karten schlägt die KI ohne Brücke vor. Beide haben keine Prozentzahl und kommen im Stapel unabhängig von den übrigen Filtern. Hier lassen sie sich ausblenden.',
     newSitesOnly: 'Nur von neuen Websites',
     newSitesHint: 'Anzeigen von Websites, die beim Fund noch nicht im Quellen-Register standen',
     minScore: 'Passung mindestens',
@@ -112,8 +121,9 @@ const t = texts({
     urgentFirstHint: 'Cards with a close deadline come before the others, among the good matches and among the rest.',
     urgentWithin: 'Close means at most',
     period: (d) => (d === 7 ? '1 week' : d === 14 ? '2 weeks' : d === 30 ? '1 month' : d === 60 ? '2 months' : `${d} days`),
-    ring: 'Ring',
-    ringHint: 'Core matches your core topics, Horizon comes in through a bridge, and Beyond is suggested by the AI.',
+    ring: 'Bridges and Horizon',
+    outerCards: { horizont: 'Bridge cards', weite: 'Horizon cards' },
+    ringHint: 'Regular entries always show. Bridge cards come from other fields through one of your bridges; Horizon cards are suggested by the AI without a bridge. Neither has a match percentage, and in the stack they appear regardless of the other filters. You can hide them here.',
     newSitesOnly: 'Only from new websites',
     newSitesHint: 'Postings from websites that weren’t in the registry yet when they were found',
     minScore: 'Match at least',
@@ -173,8 +183,9 @@ const t = texts({
     urgentFirstHint: 'Kartice sa bliskim rokom dolaze pre ostalih, i među dobrim poklapanjima i među ostalima.',
     urgentWithin: 'Blizu znači najviše',
     period: (d) => (d === 7 ? '1 nedelja' : d === 14 ? '2 nedelje' : d === 30 ? '1 mesec' : d === 60 ? '2 meseca' : `${d} ${srForm(d, 'dan', 'dana', 'dana')}`),
-    ring: 'Krug',
-    ringHint: 'Jezgro pogađa tvoje ključne teme, Horizont dolazi preko mosta, a Daljinu predlaže AI.',
+    ring: 'Mostovi i Horizont',
+    outerCards: { horizont: 'Kartice preko mosta', weite: 'Kartice sa horizonta' },
+    ringHint: 'Obični oglasi se uvek prikazuju. Kartice preko mosta dolaze iz drugih oblasti preko nekog tvog mosta, a kartice sa horizonta predlaže AI bez mosta. Nijedne nemaju procenat poklapanja i u špilu se pojavljuju nezavisno od ostalih filtera. Ovde ih možeš sakriti.',
     newSitesOnly: 'Samo sa novih sajtova',
     newSitesHint: 'Oglasi sa sajtova koji u trenutku pronalaska još nisu bili u registru',
     minScore: 'Poklapanje najmanje',
@@ -306,9 +317,9 @@ export function FilterSheet({ onClose, deck = false }: { onClose: () => void; de
 
       <h3 className="section-title">{t.ring}</h3>
       <div className="chips">
-        {LANES.map((l) => (
-          <button key={l} type="button" className="chip" aria-pressed={(f.lanes ?? []).includes(l)} onClick={() => set({ lanes: toggle(f.lanes ?? [], l) })}>
-            {laneName(l)}
+        {OUTER.map((l) => (
+          <button key={l} type="button" className="chip" aria-pressed={laneAllowed(f, l)} onClick={() => set({ lanes: toggleOuter(f, l) })}>
+            {t.outerCards[l]}
           </button>
         ))}
       </div>

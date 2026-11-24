@@ -171,3 +171,26 @@ describe('Gespeicherte Filter', () => {
     expect(filterAlertMessages(f, [])).toEqual([]);
   });
 });
+
+describe('Brücken- und Horizont-Karten im Filter', () => {
+  const lanePass = (lane: Job['lane'], f: Partial<JobFilter>, score = 10) =>
+    passesFilter(job({ lane }), { ...DEFAULT_FILTER, ...f }, place(), ctx, '', TODAY, lane ?? 'kern', score);
+
+  it('die Mindest-Passung greift nur bei normalen Einträgen', () => {
+    expect(lanePass('kern', { minScore: 50 })).toBe(false);
+    expect(lanePass('horizont', { minScore: 50 })).toBe(true);
+    expect(lanePass('weite', { minScore: 50 })).toBe(true);
+  });
+
+  it('Brücken- und Horizont-Karten lassen sich einzeln ausblenden, normale Einträge bleiben', () => {
+    expect(lanePass('horizont', { lanes: ['kern', 'weite'] })).toBe(false);
+    expect(lanePass('weite', { lanes: ['kern', 'weite'] })).toBe(true);
+    expect(lanePass('kern', { lanes: ['kern'] })).toBe(true);
+  });
+
+  it('ältere Filter wie „nur Horizont“ behalten die normalen Einträge', () => {
+    expect(parseFilter({ lanes: ['weite'] }).lanes).toEqual(['kern', 'weite']);
+    expect(parseFilter({ lanes: ['kern', 'horizont', 'weite'] }).lanes).toEqual([]);
+    expect(parseFilter({ lanes: [] }).lanes).toEqual([]);
+  });
+});

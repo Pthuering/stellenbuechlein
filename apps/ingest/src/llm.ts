@@ -71,15 +71,26 @@ export const HORIZON_SCHEMA = z.object({
   label: optText,
 });
 
+/**
+ * Urteil über Horizont-Karten (über eine Brücke oder ohne). Bewusst als Ziel mit Spanne und wenigen Beispielen
+ * formuliert, nicht als Verbotsliste: Die KI befolgt Listen sehr wörtlich (die alte Fassung mit „andere Ausbildung
+ * nötig = nein“ sagte zu 84 % nein, auch bei einer Airbus-Stelle für Human-Factors-Versuche). Am 24.11.2026 an 60
+ * echten Fällen mit Haiku kalibriert: alt 8 passt / 20 eher / 30 nein, diese Fassung 16 / 19 / 25.
+ */
 export const HORIZON_PROMPT =
-  'Du hilfst einer Person mit Psychologie-Hintergrund, Stellen außerhalb ihres engeren Suchbereichs zu entdecken, auf die sie sich trotzdem realistisch bewerben könnte. ' +
-  'Sei offen: Auch Stellen außerhalb der Forschung und außerhalb der Psychologie zählen, wenn ihr Wissen über Menschen, Verhalten, Lernen oder Gesundheit oder ihre Methoden dort gebraucht werden. ' +
-  'Nicht passend sind Stellen, für die eine ganz andere Ausbildung nötig ist (zum Beispiel Hotelfach, Handwerk, Pflegefachkraft, Steuerrecht, Elektrotechnik) oder in denen nichts von ihrem Wissen gebraucht wird. ' +
-  'Maßstab ist die Verbindung zur Psychologie: Gesucht sind Stellen, die in einem anderen Feld liegen (etwa Informatik, Gesundheit, Bildung, Arbeit), es aber mit Psychologie verbinden, also Wissen über Menschen und Verhalten oder die Methoden dafür wirklich brauchen. ' +
-  'Reine Fachstellen des anderen Felds ohne diese Verbindung sind "nein", auch wenn im Text einzelne passende Wörter stehen. ' +
-  'verdict: "passt" (die Anzeige nennt oder braucht dieses Wissen ausdrücklich; gute Chancen), "eher" (die Verbindung liegt nahe, ist aber nicht genannt, oder es bleiben Lücken), "nein" (fremd). ' +
-  'reason_de: ein konkreter Satz auf Deutsch, warum die Stelle passen könnte (bei "nein": warum nicht), mit Bezug auf die Anzeige und das Profil, ohne Floskeln. ' +
-  'label: 2 bis 4 Wörter für die Verbindung, z. B. "IT-Sicherheit × Verhalten". Antworte nur mit JSON.';
+  'Du hilfst einer Person mit Psychologie-Hintergrund (Profil unten), Stellen außerhalb ihres engeren Suchbereichs zu entdecken. ' +
+  'Diese Stellen erscheinen in ihrer App als „Horizont“: Sie zeigen ihr, wo ihr Können auch gebraucht wird, und dürfen ausdrücklich überraschen. ' +
+  'Die Spanne reicht von „ihr Können passt, nur das Umfeld ist neu“ bis „passt eigentlich kaum, ist aber spannend, eine Bewerbung könnte sich lohnen“. ' +
+  'Urteile nach den Aufgaben der Stelle, nicht nach den formalen Anforderungen: Verlangt die Anzeige einen anderen Abschluss oder Jahre an Erfahrung in einem anderen Feld, ist das eine Lücke, die du in der Begründung nennst, aber allein kein Grund für "nein". ' +
+  'Die Verbindung muss allerdings einen spürbaren Teil der eigentlichen Arbeit ausmachen; ein einzelner Nebenpunkt wie eine Schulung, ein Bericht oder ein Stichwort reicht nicht. ' +
+  'Verlangt die Stelle eine Berufszulassung, die ein eigenes Studium voraussetzt (etwa Ärztin oder Fachärztin), oder dürfte sie dort gar nicht arbeiten (Arbeitserlaubnis), ist das "nein". ' +
+  'verdict: "passt" (ein guter Teil der Aufgaben ist das, was sie kann, etwa Studien oder Versuche planen und durchführen, mit Menschen testen oder befragen, Daten über Menschen auswerten, Verhalten, Lernen, Wahrnehmung oder Gesundheit verstehen, Wissen vermitteln; nur das Umfeld ist neu), ' +
+  '"eher" (es fehlt viel oder die Verbindung ist schmal, aber in den Aufgaben steckt etwas davon, und die Stelle ist interessant genug für einen Versuch), ' +
+  '"nein" (in den Aufgaben kommt nichts davon vor, oder die Seite ist keine einzelne Stellenanzeige, etwa eine Übersicht, Nachricht oder ein Interview). ' +
+  'Zur Orientierung: Ein Test Engineer bei einem Flugzeugbauer, der Human-Factors-Versuche im Simulator plant und auswertet und dafür fünf Jahre Luftfahrt-Erfahrung verlangt, ist "passt" oder "eher" (Versuche mit Menschen sind ihr Kern, die Luftfahrt-Erfahrung fehlt). ' +
+  'Eine Referentin für Versichertenbefragungen bei einer Krankenkasse ist "passt". Ein Prüfingenieur für Vibrationstests an Bauteilen ist "nein" (keine Menschen, keine Studien). ' +
+  'reason_de: ein konkreter Satz auf Deutsch, was sie dort einbringen würde und, falls vorhanden, die größte Lücke; bei "nein": warum nicht. ' +
+  'label: 2 bis 4 Wörter für die Verbindung, z. B. "Luftfahrt × Versuche". Antworte nur mit JSON.';
 
 /** So viele unbrauchbare Antworten stehen einzeln im Protokoll, danach wird nur gezählt. */
 const MAX_LOGGED_FAILURES = 10;

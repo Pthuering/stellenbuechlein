@@ -1,5 +1,5 @@
 // Horizont: Stellen außerhalb des Kernbereichs, die über eine Brücke zu dir passen könnten.
-// Brücken bearbeiten, KI-Vorschläge annehmen, Weite und Dosis im Stapel einstellen.
+// Brücken bearbeiten, KI-Vorschläge annehmen, Horizont (ohne Brücke, intern „weite“) und Dosis im Stapel einstellen.
 
 import { useMemo, useState } from 'react';
 import {
@@ -35,7 +35,9 @@ const t = texts({
   de: {
     origin: { start: 'Start-Brücke', steckbrief: 'aus dem Steckbrief', ki: 'KI-Vorschlag', manuell: 'selbst angelegt' } as Record<Bruecke['herkunft'], string>,
     dose: { aus: 'aus', selten: 'selten', normal: 'normal', oft: 'oft' } as Record<HorizontDosis, string>,
-    ringsLabel: 'Drei Ringe: Kern in der Mitte, darum Horizont, außen Weite',
+    ringsLabel: 'Deine Themen in der Mitte, darum die Brücken, außen der Horizont',
+    center: 'deine Themen',
+    title: 'Brücken & Horizont',
     // Brücke bearbeiten
     newBridge: 'Neue Brücke',
     editBridge: 'Brücke bearbeiten',
@@ -65,16 +67,16 @@ const t = texts({
     sub: 'Stellen außerhalb deines Kernbereichs',
     intro: (
       <>
-        Der <b>Kern</b> sind Stellen, die deine Kernthemen aus dem Suchprofil treffen. Der <b>Horizont</b> holt Stellen aus anderen Feldern dazu, wenn eine Brücke passt: ein Feld-Begriff und eine Anknüpfung an dich. In der <b>Weite</b> prüft die KI auch Stellen ohne Brücke, ob deine Fähigkeiten dort tragen. Völlig Fremdes sortiert sie aus. Ausgeblendet wird nichts: Was hier landet, steht immer auch unter „Alle“.
+        Normale Einträge treffen deine Themen aus dem Suchprofil und zeigen die Passung in Prozent. Über eine <b>Brücke</b> kommen Stellen aus anderen Feldern dazu: ein Feld-Begriff und eine Anknüpfung an dich. Im <b>Horizont</b> prüft die KI auch Stellen ohne Brücke, ob dein Können dort trägt. Die Spanne reicht von „dein Können passt, nur das Umfeld ist neu“ bis „passt kaum, ist aber spannend“. Brücken- und Horizont-Karten haben keine Prozentzahl, sondern ein lavendelfarbenes Symbol, und kommen im Stapel unabhängig von den Filtern. Völlig Fremdes sortiert die KI aus. Ausgeblendet wird nichts: Was hier landet, steht immer auch unter „Alle“.
       </>
     ),
     undo: 'Rückgängig',
     noneFound: 'Die KI hat gerade keine neuen Brücken gefunden.',
     inStack: 'Im Stapel',
-    doseLabel: 'Wie oft eine Horizont-Karte kommt',
-    doseOff: 'Horizont-Anzeigen werden nicht eingestreut, sie stehen nach Score sortiert im Stapel und unter „Alle“.',
-    doseOn: (d: HorizontDosis) => `Zwischen den Kern-Karten kommt ${dosisLabel(d)} Karte aus dem Horizont, zufällig verteilt.`,
-    openNow: (horizont: number, weite: number) => `Gerade offen: ${horizont} aus dem Horizont, ${weite} aus der Weite.`,
+    doseLabel: 'Wie oft eine Brücken- oder Horizont-Karte kommt',
+    doseOff: 'Brücken- und Horizont-Karten kommen nicht in den Stapel; sie stehen weiter unter „Alle“.',
+    doseOn: (d: HorizontDosis) => `Im Stapel ist ${dosisLabel(d)} Karte eine Brücken- oder Horizont-Karte, zufällig verteilt.`,
+    openNow: (horizont: number, weite: number) => `Gerade offen: ${horizont} über Brücken, ${weite} im Horizont.`,
     bridges: 'Brücken',
     noBridges: 'Noch keine Brücken. Der Steckbrief aus dem Interview legt sie an, oder du fügst selbst welche hinzu.',
     activeTitle: 'aktiv',
@@ -84,7 +86,7 @@ const t = texts({
     fieldList: (terms: string) => `Feld: ${terms}`,
     andMore: (n: number) => ` und ${n} weitere`,
     linkList: (terms: string) => `; Anknüpfung: ${terms}`,
-    openInHorizon: (n: number) => `, ${n} offene Anzeige${n === 1 ? '' : 'n'} im Horizont`,
+    openInHorizon: (n: number) => `, ${n} offene Brücken-Karte${n === 1 ? '' : 'n'}`,
     pausedSuffix: ', pausiert',
     addBridge: 'Brücke hinzufügen',
     thinking: 'KI denkt nach …',
@@ -104,13 +106,15 @@ const t = texts({
     interests: 'Interessen außerhalb der Psychologie',
     interestsPlaceholder: 'z. B. KI, Nachhaltigkeit, Stadtentwicklung',
     interestsHint: 'Die KI nutzt die Interessen für Brücken-Vorschläge und ihr Urteil.',
-    reset: 'Auf Start-Horizont zurücksetzen',
-    resetDone: 'Start-Horizont wiederhergestellt.',
+    reset: 'Brücken und Horizont auf den Start zurücksetzen',
+    resetDone: 'Startzustand von Brücken und Horizont wiederhergestellt.',
   },
   en: {
     origin: { start: 'Starter bridge', steckbrief: 'from the profile sheet', ki: 'AI suggestion', manuell: 'added by you' },
     dose: { aus: 'off', selten: 'rarely', normal: 'normal', oft: 'often' },
-    ringsLabel: 'Three rings: Core in the middle, Horizon around it, Beyond on the outside',
+    ringsLabel: 'Your topics in the middle, bridges around them, Horizon on the outside',
+    center: 'your topics',
+    title: 'Bridges & Horizon',
     newBridge: 'New bridge',
     editBridge: 'Edit bridge',
     needName: 'Please enter a name.',
@@ -138,16 +142,16 @@ const t = texts({
     sub: 'Jobs outside your core field',
     intro: (
       <>
-        The <b>Core</b> covers jobs that match the core topics in your search profile. <b>Horizon</b> brings in jobs from other fields when a bridge fits: a field term plus a link to you. In <b>Beyond</b>, the AI also checks jobs without a bridge to see whether your skills carry over there. It filters out anything completely unrelated. Nothing gets hidden: whatever lands here always shows up under “All” too.
+        Regular entries match the topics in your search profile and show a match percentage. A <b>bridge</b> brings in jobs from other fields: a field term plus a link to you. On the <b>Horizon</b>, the AI also checks jobs without a bridge to see whether your skills carry over there. The range goes from “your skills fit, only the setting is new” to “barely fits, but it’s exciting.” Bridge and Horizon cards have no match percentage, just a lavender symbol, and they appear in the stack regardless of your filters. The AI filters out anything completely unrelated. Nothing gets hidden: whatever lands here always shows up under “All” too.
       </>
     ),
     undo: 'Undo',
     noneFound: 'The AI didn’t find any new bridges this time.',
     inStack: 'In the stack',
-    doseLabel: 'How often a Horizon card comes up',
-    doseOff: 'Horizon postings aren’t mixed in; they’re sorted by match in the stack and under “All”.',
-    doseOn: (d) => `In the stack, ${dosisCards(d)} comes from Horizon, mixed in at random between core cards.`,
-    openNow: (horizont, weite) => `Open right now: ${horizont} from Horizon, ${weite} from Beyond.`,
+    doseLabel: 'How often a Bridge or Horizon card comes up',
+    doseOff: 'Bridge and Horizon cards stay out of the stack; you’ll still find them under “All”.',
+    doseOn: (d) => `In the stack, ${dosisCards(d)} is a Bridge or Horizon card, mixed in at random.`,
+    openNow: (horizont, weite) => `Open right now: ${horizont} through bridges, ${weite} on the Horizon.`,
     bridges: 'Bridges',
     noBridges: 'No bridges yet. The profile sheet from the interview creates them, or you can add your own.',
     activeTitle: 'active',
@@ -157,7 +161,7 @@ const t = texts({
     fieldList: (terms) => `Field: ${terms}`,
     andMore: (n) => ` and ${n} more`,
     linkList: (terms) => `; link: ${terms}`,
-    openInHorizon: (n) => `, ${n} open ${n === 1 ? 'posting' : 'postings'} in Horizon`,
+    openInHorizon: (n) => `, ${n} open bridge ${n === 1 ? 'card' : 'cards'}`,
     pausedSuffix: ', paused',
     addBridge: 'Add bridge',
     thinking: 'AI is thinking…',
@@ -177,13 +181,15 @@ const t = texts({
     interests: 'Interests outside psychology',
     interestsPlaceholder: 'e.g. AI, sustainability, urban development',
     interestsHint: 'The AI uses your interests for bridge suggestions and its assessments.',
-    reset: 'Reset to starter Horizon',
-    resetDone: 'Starter Horizon restored.',
+    reset: 'Reset bridges and Horizon to the start',
+    resetDone: 'Bridges and Horizon reset to the start.',
   },
   sr: {
     origin: { start: 'Početni most', steckbrief: 'iz ličnog kartona', ki: 'AI predlog', manuell: 'ručno dodat' },
     dose: { aus: 'isključeno', selten: 'retko', normal: 'normalno', oft: 'često' },
-    ringsLabel: 'Tri prstena: Jezgro u sredini, oko njega Horizont, spolja Daljina',
+    ringsLabel: 'Tvoje teme u sredini, oko njih mostovi, spolja Horizont',
+    center: 'tvoje teme',
+    title: 'Mostovi i Horizont',
     newBridge: 'Novi most',
     editBridge: 'Izmeni most',
     needName: 'Unesi naziv.',
@@ -211,16 +217,16 @@ const t = texts({
     sub: 'Poslovi van tvoje osnovne oblasti',
     intro: (
       <>
-        <b>Jezgro</b> čine pozicije koje pogađaju tvoje osnovne teme iz profila pretrage. <b>Horizont</b> dodaje pozicije iz drugih oblasti kada neki most odgovara: pojam iz oblasti i veza sa tobom. U <b>Daljini</b> AI proverava i pozicije bez mosta, da li su tvoje veštine i tamo primenljive. Ono što je potpuno nepovezano izbacuje. Ništa se ne sakriva: sve što se ovde nađe uvek stoji i pod „Sve“.
+        Obični oglasi pogađaju teme iz tvog profila pretrage i pokazuju procenat poklapanja. Preko <b>mosta</b> dolaze pozicije iz drugih oblasti: pojam iz oblasti i veza sa tobom. Na <b>Horizontu</b> AI proverava i pozicije bez mosta, da li su tvoje veštine i tamo primenljive. Raspon ide od „tvoje veštine odgovaraju, samo je okruženje novo“ do „jedva odgovara, ali je zanimljivo“. Kartice preko mosta i sa horizonta nemaju procenat poklapanja, već lila simbol, i u špilu se pojavljuju nezavisno od filtera. Ono što je potpuno nepovezano AI izbacuje. Ništa se ne sakriva: sve što se ovde nađe uvek stoji i pod „Sve“.
       </>
     ),
     undo: 'Opozovi',
     noneFound: 'AI ovog puta nije pronašao nove mostove.',
     inStack: 'U špilu',
-    doseLabel: 'Koliko često dolazi kartica iz Horizonta',
-    doseOff: 'Oglasi iz Horizonta se ne ubacuju, nego stoje u špilu i pod „Sve“, sortirani po poklapanju.',
-    doseOn: (d) => `U špilu je ${dosisCards(d)} iz Horizonta, nasumično između kartica iz jezgra.`,
-    openNow: (horizont, weite) => `Trenutno otvoreno: ${horizont} iz Horizonta, ${weite} iz Daljine.`,
+    doseLabel: 'Koliko često dolazi kartica preko mosta ili sa horizonta',
+    doseOff: 'Kartice preko mosta i sa horizonta ne ulaze u špil; i dalje su pod „Sve“.',
+    doseOn: (d) => `U špilu je ${dosisCards(d)} preko mosta ili sa horizonta, nasumično raspoređena.`,
+    openNow: (horizont, weite) => `Trenutno otvoreno: ${horizont} preko mostova, ${weite} sa horizonta.`,
     bridges: 'Mostovi',
     noBridges: 'Još nema mostova. Pravi ih lični karton iz intervjua, a možeš ih dodati i ručno.',
     activeTitle: 'aktivan',
@@ -230,7 +236,7 @@ const t = texts({
     fieldList: (terms) => `Oblast: ${terms}`,
     andMore: (n) => ` i još ${n}`,
     linkList: (terms) => `; veza: ${terms}`,
-    openInHorizon: (n) => `, ${n} ${srForm(n, 'otvoren oglas', 'otvorena oglasa', 'otvorenih oglasa')} u Horizontu`,
+    openInHorizon: (n) => `, ${n} ${srForm(n, 'otvorena kartica', 'otvorene kartice', 'otvorenih kartica')} preko mosta`,
     pausedSuffix: ', pauziran',
     addBridge: 'Dodaj most',
     thinking: 'AI razmišlja…',
@@ -250,20 +256,20 @@ const t = texts({
     interests: 'Interesovanja van psihologije',
     interestsPlaceholder: 'npr. AI, održivost, urbanizam',
     interestsHint: 'AI koristi interesovanja za predloge mostova i za svoje procene.',
-    reset: 'Vrati početni Horizont',
-    resetDone: 'Početni Horizont je vraćen.',
+    reset: 'Vrati mostove i Horizont na početak',
+    resetDone: 'Mostovi i Horizont su vraćeni na početak.',
   },
 });
 
-/** Drei Ringe als kleine Skizze: Kern, Horizont, Weite. */
+/** Skizze: deine Themen in der Mitte, darum die Brücken, außen der Horizont. */
 function Rings() {
   return (
     <svg className="rings" viewBox="0 0 320 140" role="img" aria-label={t.ringsLabel}>
       <ellipse cx="160" cy="70" rx="152" ry="64" fill="none" stroke="var(--secondary)" strokeWidth="1.6" strokeDasharray="5 6" />
       <ellipse cx="160" cy="72" rx="110" ry="44" fill="var(--secondary-soft)" stroke="var(--secondary-strong)" strokeWidth="1.6" />
       <ellipse cx="160" cy="76" rx="56" ry="20" fill="var(--primary-soft)" stroke="var(--primary-strong)" strokeWidth="1.8" />
-      <text x="160" y="81" textAnchor="middle" className="rings__label">{laneName('kern')}</text>
-      <text x="160" y="47" textAnchor="middle" className="rings__label rings__label--h">{laneName('horizont')}</text>
+      <text x="160" y="81" textAnchor="middle" className="rings__label">{t.center}</text>
+      <text x="160" y="47" textAnchor="middle" className="rings__label rings__label--h">{t.bridges}</text>
       <text x="160" y="20" textAnchor="middle" className="rings__label rings__label--w">{laneName('weite')}</text>
     </svg>
   );
@@ -458,7 +464,7 @@ export function HorizontPage() {
   };
 
   return (
-    <SubPage title={laneName('horizont')} sub={t.sub}>
+    <SubPage title={t.title} sub={t.sub}>
       <Rings />
       <p className="notice">{t.intro}</p>
 

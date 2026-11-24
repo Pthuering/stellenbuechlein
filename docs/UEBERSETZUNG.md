@@ -74,7 +74,9 @@ Neuer Text: in allen drei Sprachen eintragen. Wer kein Serbisch kann, schreibt d
 | Startprofil | starter profile | početni profil |
 | Lieber nicht | Rather not | Radije ne |
 | Thema, Stellenart, Methoden & Können, Rahmen | Topic, Position type, Methods & skills, Conditions | Tema, Vrsta pozicije, Metode i veštine, Uslovi |
-| Kern, Horizont, Weite | Core, Horizon, Beyond | Jezgro, Horizont, Daljina |
+| (normale Einträge, ohne Namen), Brücke, Horizont | regular entries, Bridge, Horizon | obični oglasi, Most, Horizont |
+| Brücken-Karte, Horizont-Karte | Bridge card, Horizon card | kartica preko mosta, kartica sa horizonta |
+| Brücken & Horizont (Einstellungsseite) | Bridges & Horizon | Mostovi i Horizont |
 | Brücke | bridge | most |
 | Feld (einer Brücke) | field | oblast |
 | Anknüpfung (an dich) | link (to you) | veza (sa tobom) |

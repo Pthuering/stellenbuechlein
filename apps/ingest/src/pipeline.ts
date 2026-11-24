@@ -668,7 +668,8 @@ export class Pipeline {
     this.sourcesByJob.set(job.id, new Set([source.id]));
     this.bump('neu');
     if (job.country) this.bump('neuAusland');
-    if (job.status === 'aktiv') this.newScored.push({ id: job.id, title: job.title, score: scoreJob(job, searchTextOf(job), this.profile).score });
+    // Meldung „sehr gut passend“ nur für Kern-Karten: Horizont-Karten haben keine Passung in Prozent
+    if (job.status === 'aktiv' && job.lane === 'kern') this.newScored.push({ id: job.id, title: job.title, score: scoreJob(job, searchTextOf(job), this.profile).score });
     if (job.lane === 'horizont') this.bump('neuHorizont');
     if (job.lane === 'weite') this.bump('neuWeite');
     if (job.newSite) {

@@ -1,7 +1,7 @@
 // Die ganze Anzeige: Foto, Eckdaten, warum sie passt, Merken/Herzensjob/beworben, Notiz, vollständiger Text.
 
 import { useEffect, useMemo, useState } from 'react';
-import { horizontOf, isAggregatorUrl, type BridgeHit, type FoundVia, type ScoreResult, type TopicLimit } from '@stellen/core';
+import { horizontOf, isAggregatorUrl, isOuterLane, type BridgeHit, type FoundVia, type ScoreResult, type TopicLimit } from '@stellen/core';
 import { useAppState, useStore, useViews, type JobView } from '../data/hooks';
 import { closeOverlay, leaveOverlayTo } from '../lib/router';
 import { deadlineCheckText, deadlineOf, employerName, jobImage, laneLabel, placeName, shortDate, unknownPlace } from '../lib/format';
@@ -11,7 +11,7 @@ import { useTestPhotos } from '../data/testPhotos';
 import { renderMarkdown } from '../lib/markdown';
 import { Sheet } from '../ui/Sheet';
 import { Polaroid } from '../ui/Polaroid';
-import { Hearts, ScoreRing } from '../ui/bits';
+import { Hearts, MatchMark } from '../ui/bits';
 import { IconCheck, IconDoc, IconExternal, IconHeart, IconMail, IconPin, IconSpark, IconStar, IconX } from '../ui/icons';
 import { fmtDate, fmtKm, fmtPct, srForm, texts } from '../i18n';
 import { categoryLabel, institutionKindLabel, jobKindLabel } from '../i18n/labels';
@@ -33,8 +33,9 @@ const t = texts({
     quote: (term: string) => `„${term}“`,
     field: 'Feld',
     link: 'Anknüpfung',
-    verdictFits: 'Die KI hält die Stelle für gut machbar.',
-    verdictMaybe: 'Die KI hält die Stelle für möglich, mit Lücken.',
+    verdictFits: 'Die KI meint: Dein Können passt, nur das Umfeld ist neu.',
+    verdictMaybe: 'Die KI meint: Das passt eher knapp, ist aber spannend genug für einen Versuch.',
+    waitingHint: 'Die KI hat diese Anzeige noch nicht beurteilt; bis dahin kommt sie nicht in den Stapel.',
     bridgePaused: (name: string) => `Brücke „${name}“ pausiert. Solche Anzeigen kommen nicht mehr in den Stapel.`,
     undo: 'Rückgängig',
     weiteIntro: 'Außerhalb deiner Kernthemen und ohne Brücke, aber deine Fähigkeiten könnten hier tragen.',
@@ -77,6 +78,7 @@ const t = texts({
     demoSiteHint: 'In der eingerichteten App lässt sich die Website hier direkt per KI-Probelauf ins Register aufnehmen.',
     aggregatorHint: 'Die Anzeige liegt bei einer Jobbörse; die Website des Arbeitgebers ist noch nicht bekannt.',
     match: (n: number) => `Passt zu ${fmtPct(n)}`,
+    outerHead: { horizont: 'Brücken-Karte, ohne Prozentzahl', weite: 'Horizont-Karte, ohne Prozentzahl' },
     less: 'weniger',
     why: 'warum?',
     askAi: 'KI fragen',
@@ -119,8 +121,9 @@ const t = texts({
     quote: (term) => `“${term}”`,
     field: 'Field',
     link: 'link',
-    verdictFits: 'The AI thinks this job is very doable.',
-    verdictMaybe: 'The AI thinks this job is possible, with some gaps.',
+    verdictFits: 'The AI thinks your skills fit; only the setting is new.',
+    verdictMaybe: 'The AI thinks it’s a stretch, but interesting enough to give it a try.',
+    waitingHint: 'The AI hasn’t judged this posting yet; until then it stays out of the stack.',
     bridgePaused: (name) => `Bridge “${name}” paused. Postings like this won’t go into the stack anymore.`,
     undo: 'Undo',
     weiteIntro: 'Outside your core topics and without a bridge, but your skills could carry over here.',
@@ -163,6 +166,7 @@ const t = texts({
     demoSiteHint: 'In the fully set-up app, you can add the website to the registry right here with an AI test run.',
     aggregatorHint: 'The posting is on a job board; the employer’s website isn’t known yet.',
     match: (n) => `${fmtPct(n)} match`,
+    outerHead: { horizont: 'Bridge card, no match percentage', weite: 'Horizon card, no match percentage' },
     less: 'less',
     why: 'why?',
     askAi: 'Ask AI',
@@ -205,8 +209,9 @@ const t = texts({
     quote: (term) => `„${term}“`,
     field: 'Oblast',
     link: 'veza',
-    verdictFits: 'AI procenjuje da je ovaj posao sasvim izvodljiv.',
-    verdictMaybe: 'AI procenjuje da je ovaj posao moguć, ali uz neke praznine.',
+    verdictFits: 'AI procenjuje da tvoje veštine odgovaraju, samo je okruženje novo.',
+    verdictMaybe: 'AI procenjuje da je poklapanje tanko, ali je posao dovoljno zanimljiv za pokušaj.',
+    waitingHint: 'Ovaj oglas još čeka procenu AI; do tada ne ulazi u špil.',
     bridgePaused: (name) => `Most „${name}“ je pauziran. Takvi oglasi više neće ulaziti u špil.`,
     undo: 'Opozovi',
     weiteIntro: 'Van tvojih ključnih tema i bez mosta, ali bi tvoje veštine ovde mogle da dođu do izražaja.',
@@ -249,6 +254,7 @@ const t = texts({
     demoSiteHint: 'U potpuno podešenoj aplikaciji sajt se ovde odmah može dodati u registar, uz probni prolaz sa AI.',
     aggregatorHint: 'Oglas je objavljen na berzi poslova; sajt poslodavca još nije poznat.',
     match: (n) => `Poklapanje ${fmtPct(n)}`,
+    outerHead: { horizont: 'Kartica preko mosta, bez procenta poklapanja', weite: 'Kartica sa horizonta, bez procenta poklapanja' },
     less: 'manje',
     why: 'zašto?',
     askAi: 'Pitaj AI',
@@ -381,7 +387,8 @@ function HorizonNote({ v }: { v: JobView }) {
         </p>
       )}
       {l.bridge && <p className="hint">{bridgeText(l.bridge)}</p>}
-      {!l.promoted && l.lane === 'horizont' && <p className="hint">{t.pausedHint}</p>}
+      {!l.promoted && l.verdict == null && <p className="hint">{t.waitingHint}</p>}
+      {!l.promoted && l.verdict != null && l.lane === 'horizont' && !l.bridge && <p className="hint">{t.pausedHint}</p>}
       <div className="horizon-note__actions">
         {bridge && (
           <button
@@ -472,7 +479,7 @@ export function JobDetail({ id }: { id: string }) {
       <div className="detail-photo">
         <Polaroid src={img.src} credit={img.credit} seed={v.place.cityId ?? job.institutionId ?? job.id} caption={job.country ? placeName(job, city) : (city?.name ?? unknownPlace())} sub={v.place.distanceKm != null ? t.fromHome(fmtKm(v.place.distanceKm)) : undefined} tilt={-0.8} />
         <div style={{ position: 'absolute', right: 0, bottom: 22 }}>
-          <ScoreRing value={v.score.score} size={76} />
+          <MatchMark value={v.score.score} lane={v.lane.lane} size={76} />
         </div>
       </div>
       {img.credit && <p className="hint" style={{ margin: '-6px 0 8px' }}>{img.credit}</p>}
@@ -531,11 +538,14 @@ export function JobDetail({ id }: { id: string }) {
       )}
 
       <h2 className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <span>{t.match(v.score.score)}</span>
+        <span>{v.lane.lane !== 'kern' ? t.outerHead[v.lane.lane] : t.match(v.score.score)}</span>
         <span style={{ display: 'flex', gap: 6 }}>
-          <button type="button" className="btn btn--quiet btn--small" onClick={() => setShowWhy((x) => !x)} aria-expanded={showWhy}>
-            {showWhy ? t.less : t.why}
-          </button>
+          {/* Horizont-Karten haben keine Passung in Prozent, also auch keine Aufschlüsselung */}
+          {!isOuterLane(v.lane.lane) && (
+            <button type="button" className="btn btn--quiet btn--small" onClick={() => setShowWhy((x) => !x)} aria-expanded={showWhy}>
+              {showWhy ? t.less : t.why}
+            </button>
+          )}
           {s.aiSuggest && !s.demo && (
             <button
               type="button"
@@ -550,7 +560,7 @@ export function JobDetail({ id }: { id: string }) {
           )}
         </span>
       </h2>
-      {showWhy && <Why score={v.score} />}
+      {showWhy && !isOuterLane(v.lane.lane) && <Why score={v.score} />}
 
       <h2 className="section-title">{t.keyFacts}</h2>
       <ul className="facts">

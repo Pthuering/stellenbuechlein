@@ -28,11 +28,11 @@ const t = texts({
     allSaved: 'Alle gemerkten',
     allOpen: 'Alle offenen',
     mapLabel: (what: string) => `Karte, Ausschnitt ${what}`,
-    pinLabel: (label: string, n: number, horizon: number) => `${label}: ${n} ${n === 1 ? 'Anzeige' : 'Anzeigen'}${horizon ? `, davon ${horizon} im Horizont` : ''}`,
+    pinLabel: (label: string, n: number, horizon: number) => `${label}: ${n} ${n === 1 ? 'Anzeige' : 'Anzeigen'}${horizon ? `, davon ${horizon} über Brücken oder im Horizont` : ''}`,
     legendHas: 'mit Anzeigen',
     legendFav: 'Lieblingsort',
     legendHome: 'Zuhause',
-    legendHorizon: 'mit Horizont',
+    legendHorizon: 'mit Brücke oder Horizont',
     legendRadius: (km: number) => `Umkreis ${km} km`,
     favOn: 'Lieblingsort',
     favOff: 'Als Lieblingsort',
@@ -59,11 +59,11 @@ const t = texts({
     allSaved: 'All saved',
     allOpen: 'All open',
     mapLabel: (what) => `Map, showing: ${what}`,
-    pinLabel: (label, n, horizon) => `${label}: ${n} ${n === 1 ? 'posting' : 'postings'}${horizon ? `, ${horizon} of them in Horizon` : ''}`,
+    pinLabel: (label, n, horizon) => `${label}: ${n} ${n === 1 ? 'posting' : 'postings'}${horizon ? `, ${horizon} of them through bridges or on the Horizon` : ''}`,
     legendHas: 'with postings',
     legendFav: 'favorite place',
     legendHome: 'home',
-    legendHorizon: 'with Horizon',
+    legendHorizon: 'with Bridge or Horizon',
     legendRadius: (km) => `${km} km radius`,
     favOn: 'Favorite place',
     favOff: 'Set as favorite place',
@@ -90,11 +90,11 @@ const t = texts({
     allSaved: 'Svi sačuvani',
     allOpen: 'Svi otvoreni',
     mapLabel: (what) => `Mapa, prikaz: ${what}`,
-    pinLabel: (label, n, horizon) => `${label}: ${n} ${srForm(n, 'oglas', 'oglasa', 'oglasa')}${horizon ? `, od toga ${horizon} u Horizontu` : ''}`,
+    pinLabel: (label, n, horizon) => `${label}: ${n} ${srForm(n, 'oglas', 'oglasa', 'oglasa')}${horizon ? `, od toga ${horizon} preko mosta ili sa horizonta` : ''}`,
     legendHas: 'sa oglasima',
     legendFav: 'omiljeno mesto',
     legendHome: 'dom',
-    legendHorizon: 'sa Horizontom',
+    legendHorizon: 'sa mostom ili horizontom',
     legendRadius: (km) => `radijus ${km} km`,
     favOn: 'Omiljeno mesto',
     favOff: 'Dodaj u omiljena mesta',
@@ -136,13 +136,13 @@ interface Pin {
   x: number;
   y: number;
   count: number;
-  /** davon Horizont oder Weite (lavendelfarbener Ring) */
+  /** davon Brücke oder Horizont (lavendelfarbener Ring) */
   horizon: number;
   label: string;
   fav: boolean;
 }
 
-/** Kam über eine Brücke oder die Weite herein (nicht Kern). */
+/** Brücken- oder Horizont-Karte (nicht Kern). */
 const isHorizon = (v: { lane: { lane: string } }) => v.lane.lane !== 'kern';
 
 const UNITS_PER_KM = MAP_HEIGHT / ((DE_BOUNDS.maxLat - DE_BOUNDS.minLat) * 111.2);

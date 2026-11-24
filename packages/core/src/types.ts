@@ -182,7 +182,8 @@ export type DeadlineCheck = 'ok' | 'jahr' | 'ki' | 'unsicher';
  */
 export type Lane = 'kern' | 'horizont' | 'weite';
 
-export const LANE_LABELS: Record<Lane, string> = { kern: 'Kern', horizont: 'Horizont', weite: 'Weite' };
+/** Namen in der App: intern „horizont“ = Brücke (über eine Brücke), „weite“ = Horizont (ohne Brücke). */
+export const LANE_LABELS: Record<Lane, string> = { kern: 'normale Anzeige', horizont: 'Brücke', weite: 'Horizont' };
 
 /** KI-Einschätzung für Horizont- und Weite-Anzeigen. */
 export interface JobHorizon {

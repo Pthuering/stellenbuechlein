@@ -5,7 +5,7 @@
 import { z } from 'zod';
 import { CATEGORY_LABELS, CATEGORY_ORDER, horizontOf, type Condition, type ProfileItem, type Suchprofil } from './profile';
 import { INSTITUTION_KINDS, JOB_KIND_LABELS, JOB_KINDS, STATE_CODES, type HomeLocation, type JobKind } from './types';
-import type { JobFilter } from './filters';
+import { normalizeLanes, type JobFilter } from './filters';
 
 // ---------------------------------------------------------------- Nachrichten (OpenAI-kompatibel)
 
@@ -252,7 +252,8 @@ export function applyFilterProposal(current: JobFilter, base: JobFilter, v: Extr
   if (v.bundeslaender) f.states = v.bundeslaender as JobFilter['states'];
   if (v.stellenarten) f.kinds = v.stellenarten;
   if (v.einrichtungsarten) f.institutionKinds = v.einrichtungsarten;
-  if (v.ringe) f.lanes = v.ringe;
+  // Normale Einträge bleiben immer im Filter; ausblenden lassen sich nur Brücken- und Horizont-Karten
+  if (v.ringe) f.lanes = normalizeLanes(v.ringe);
   if (v.mindest_entgelt !== undefined) f.payMin = v.mindest_entgelt;
   if (v.mindest_umfang !== undefined) f.workloadMin = v.mindest_umfang;
   if (v.nur_unbefristet !== undefined) f.permanentOnly = v.nur_unbefristet;
@@ -300,7 +301,7 @@ export function profileForAssistant(p: Suchprofil, home: HomeLocation): string {
     out.push(...(c.items.length ? c.items.map(itemLine) : ['- (leer, zählt nicht)']));
   }
   out.push('', '### Lieber nicht (kategorie lieber_nicht, je Herz 5 Punkte Abzug)', ...(p.avoid.length ? p.avoid.map(itemLine) : ['- (leer)']));
-  out.push('', `### Horizont (im Stapel: ${h.dosis === 'aus' ? 'nicht eingestreut' : `Dosis ${h.dosis}`}; Weite ${h.weite ? 'an' : 'aus'})`);
+  out.push('', `### Brücken und Horizont (im Stapel: ${h.dosis === 'aus' ? 'nicht eingestreut' : `Dosis ${h.dosis}`}; Horizont ohne Brücke ${h.weite ? 'an' : 'aus'})`);
   for (const b of h.bruecken) {
     out.push(
       `- ${b.name} (id ${b.id}${b.aktiv ? '' : ', pausiert'}; Herkunft ${b.herkunft}): Feld: ${b.feld.join(', ')}; Anknüpfung: ${b.anker.length ? b.anker.join(', ') : 'Standard'}${b.suche?.length ? `; Suche: ${b.suche.join(', ')}` : ''}${b.warum ? `; Warum: ${b.warum}` : ''}`,
@@ -325,7 +326,7 @@ Dein Ziel sind Antworten, auf die sie sich verlassen kann und die ihr bei Entsch
 - Anzeigen werden täglich eingesammelt: Stellenseiten von Hochschulen, Kliniken, Instituten und Unternehmen, Portale und eine Suche nach neuen Websites. Jede Anzeige hat eine ID; der Link #/stelle/<ID> öffnet sie in der App.
 - Score (0–100 %): Das Suchprofil hat vier Kategorien mit Einträgen und 1 bis 3 Herzen. Eine Kategorie ist voll, sobald drei Herzen getroffen sind; Angaben, die in der Anzeige fehlen (z. B. Entgelt), zählen halb. „Lieber nicht“ zieht 5 Punkte je Herz ab. Der Score beruht auf Stichwörtern und sortiert nur; er ist ein Hinweis, kein Urteil. Dein Urteil beruht auf dem Volltext.
 - Begriffe im Profil und in Brücken: kleingeschrieben, ein Wortanfang reicht („kognit“ passt auf kognitive), ein * am Anfang passt überall im Wort („*psycholog“ auch auf Neuropsychologie), in Anführungszeichen nur das ganze Wort ("ki", "r"). Umlaute sind erlaubt.
-- Ringe: Kern = trifft ein Kernthema (Kategorie Thema). Horizont = anderes Feld, aber eine Brücke passt (ein Feld-Begriff UND ein Anknüpfungs-Begriff im Text; ohne eigene Anknüpfung gelten Standardbegriffe für Menschen, Verhalten und Empirie). Weite = keine Brücke, aber beim Einsammeln hielt eine KI die Fähigkeiten der Person für übertragbar. Horizont- und Weite-Karten werden im Stapel eingestreut.
+- Ringe (Werte der Werkzeuge in Klammern): normale Anzeigen (kern) treffen ein Kernthema (Kategorie Thema) und haben eine Passung in Prozent; nenne sie nie „Kern“, sie heißen in der App einfach Anzeigen. Brücken-Karten (horizont) liegen in einem anderen Feld, aber eine Brücke passt (ein Feld-Begriff UND ein Anknüpfungs-Begriff im Text; ohne eigene Anknüpfung gelten Standardbegriffe für Menschen, Verhalten und Empirie). Horizont-Karten (weite) treffen keine Brücke, aber eine KI hält das Können der Person dort für tragfähig. Brücken- und Horizont-Karten haben keine Passung in Prozent (nenne für sie keine Prozentzahl), tragen ein lavendelfarbenes Symbol und werden im Stapel unabhängig von den Filtern eingestreut.
 - Fristen haben eine Sicherheit: ok (mit Jahr aus dem Text), jahr (Jahr ergänzt), ki (von einer KI im Text belegt), unsicher (unplausibel oder mehrdeutig; im Original prüfen).
 - Die Person markiert Anzeigen: gemerkt, weggelegt, Herzensjob (mit Erinnerungen vor der Frist), beworben; dazu Notizen.
 
@@ -401,13 +402,13 @@ export const ASSISTANT_PRESETS: AssistantPreset[] = [
     fuer: 'horizont',
     frage: 'Welche meiner Brücken bringen Fehltreffer?',
     anweisung:
-      'Sieh dir für jede aktive Brücke die offenen Horizont-Anzeigen an (anzeigen_suchen mit ringe ["horizont"] und passendem Text, bei Bedarf Volltexte). Finde Begriffe, die unpassende Anzeigen hereinholen, und solche, die fehlen. Teste geänderte Begriffe mit bruecke_testen und lege Verbesserungen mit bruecke_vorschlagen (ersetzt_id) an.',
+      'Sieh dir für jede aktive Brücke die offenen Brücken-Karten an (anzeigen_suchen mit ringe ["horizont"] und passendem Text, bei Bedarf Volltexte). Finde Begriffe, die unpassende Anzeigen hereinholen, und solche, die fehlen. Teste geänderte Begriffe mit bruecke_testen und lege Verbesserungen mit bruecke_vorschlagen (ersetzt_id) an.',
   },
   {
     id: 'woche',
     fuer: 'allgemein',
     frage: 'Was ist diese Woche Gutes reingekommen?',
-    anweisung: 'Suche die offenen Anzeigen der letzten 7 Tage (nach Score und nach Neuheit), auch im Horizont. Lies die vielversprechendsten 3 bis 6 vollständig und stelle sie vor: je zwei, drei Sätze, warum sie passen könnten, mit Frist. Erwähne kurz, wie viele neue es insgesamt gab.',
+    anweisung: 'Suche die offenen Anzeigen der letzten 7 Tage (nach Score und nach Neuheit), auch Brücken- und Horizont-Karten. Lies die vielversprechendsten 3 bis 6 vollständig und stelle sie vor: je zwei, drei Sätze, warum sie passen könnten, mit Frist. Erwähne kurz, wie viele neue es insgesamt gab.',
   },
   {
     id: 'fristen',

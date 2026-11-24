@@ -139,7 +139,7 @@ describe('Kontext zu jeder Frage', () => {
   });
 
   it('zählt beim Horizont die Anzeigen je Brücke', () => {
-    expect(turnContext(snap, { jobId: null, thema: 'horizont', entscheidungen: [] }, true)).toMatch(/Offene Horizont-Anzeigen je Brücke: Mensch & KI: \d+/);
+    expect(turnContext(snap, { jobId: null, thema: 'horizont', entscheidungen: [] }, true)).toMatch(/Offene Brücken-Karten je Brücke: Mensch & KI: \d+/);
   });
 
   it('lässt die KI in der Sprache der Oberfläche antworten; was sie liest, bleibt deutsch', () => {

@@ -1,6 +1,7 @@
 // Kleine Bausteine: Herzchen, Score-Kreis, Stempel, leerer Zustand, Meldungen.
 
 import type { ReactNode } from 'react';
+import { isOuterLane, type Lane } from '@stellen/core';
 import { IconHeart } from './icons';
 import { useAppState, useStore } from '../data/hooks';
 import { fmtNum, srForm, texts } from '../i18n';
@@ -11,18 +12,24 @@ const t = texts({
     importance: 'Wichtigkeit',
     hearts: (n: number) => `${n} ${n === 1 ? 'Herz' : 'Herzen'}`,
     match: (v: number) => `Passt zu ${v} Prozent`,
+    bridgeCard: 'Brücken-Karte, ohne Prozentzahl',
+    horizonCard: 'Horizont-Karte, ohne Prozentzahl',
   },
   en: {
     heartsOf: (v, max) => `${fmtNum(v)} of ${max} hearts`,
     importance: 'Importance',
     hearts: (n) => `${n} ${n === 1 ? 'heart' : 'hearts'}`,
     match: (v) => `${v} percent match`,
+    bridgeCard: 'Bridge card, no match percentage',
+    horizonCard: 'Horizon card, no match percentage',
   },
   sr: {
     heartsOf: (v, max) => `${fmtNum(v)} od ${max} srca`,
     importance: 'Važnost',
     hearts: (n) => `${n} ${srForm(n, 'srce', 'srca', 'srca')}`,
     match: (v) => `Poklapanje ${v} posto`,
+    bridgeCard: 'Kartica preko mosta, bez procenta poklapanja',
+    horizonCard: 'Kartica sa horizonta, bez procenta poklapanja',
   },
 });
 
@@ -100,6 +107,78 @@ export function ScoreRing({ value, size = 64, className = '' }: { value: number;
       </span>
     </div>
   );
+}
+
+/**
+ * Symbole der Karten außerhalb des Kerns (gleiche Farbe, anderes Bild): Brücke (intern „horizont“) als kleine
+ * Bogenbrücke, Horizont (intern „weite“) als halbe Sonne über der Linie. Koordinaten im 70er-Raster des Score-Kreises.
+ */
+function OuterSymbol({ lane }: { lane: Lane }) {
+  if (lane === 'horizont') {
+    // Bogenbrücke mit Geländer über dem Wasser
+    return (
+      <>
+        <path d="M15 37.2c6.8-.4 13.6.3 20.2 0 6.8-.3 13.3.2 19.8-.1" />
+        <path d="M15.6 31.6c6.6-.3 13.2.2 19.6 0 6.6-.2 12.9.2 19.2 0" />
+        <path d="M16.5 31.8v5.2M53.6 31.6v5.4M35 31.7v5.3" />
+        <path d="M18 48.5c3.6-7.4 9.6-11.2 17-11.2s13.4 3.8 17 11.2" />
+        <path d="M18.5 54.2c2.4-1.5 4.8-1.5 7.2 0s4.8 1.5 7.2 0 4.8-1.5 7.2 0 4.8 1.5 7.2 0 4.8-1.5 7.2 0" />
+      </>
+    );
+  }
+  return (
+    <>
+      <path d="M25.5 41.5a9.5 9.5 0 0 1 19 0" />
+      <path d="M18.5 41.8c5.6-.5 11.6.3 17.2-.2 5.4-.4 10.4.2 15.8 0" />
+      <path d="M24 48.2c4.2-.3 8.6.2 12.6-.1 3.4-.2 6.6.1 9.6 0" />
+      <path d="M35 24.5v4" />
+      <path d="M23.6 29.4l2.6 2.6" />
+      <path d="M46.4 29.4l-2.6 2.6" />
+    </>
+  );
+}
+
+const outerLabel = (lane: Lane) => (lane === 'horizont' ? t.bridgeCard : t.horizonCard);
+
+/**
+ * Kennung der Brücken- und Horizont-Karten: derselbe handgezeichnete Kreis wie bei der Passung, aber lavendelfarben
+ * und mit Symbol statt Zahl. Diese Karten haben bewusst keine Passung in Prozent.
+ */
+export function OuterRing({ lane, size = 64, className = '' }: { lane: Lane; size?: number; className?: string }) {
+  const color = 'var(--secondary-strong)';
+  return (
+    <div className={`score score--outer ${className}`} style={{ width: size, height: size }} aria-label={outerLabel(lane)} role="img">
+      <svg viewBox="0 0 70 70" aria-hidden="true">
+        <ellipse cx="35" cy="35.5" rx="27.5" ry="26.5" fill="var(--secondary-soft)" opacity="0.95" />
+        <path
+          d="M36 7.5C52.5 6.6 63.6 18.3 63.4 34.6 63.2 51.7 51.2 63.7 34.4 63.4 17.6 63.1 6.4 51 6.7 34.6 7 18.9 18.7 7.9 35.4 8.4c8.1.3 14.2 3.6 18.4 8.6"
+          fill="none"
+          stroke={color}
+          strokeWidth="2.8"
+          strokeLinecap="round"
+        />
+        <g fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+          <OuterSymbol lane={lane} />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+/** Kleines Symbol für Listen (an der Stelle der Prozentzahl). */
+export function OuterIcon({ lane, size = 28 }: { lane: Lane; size?: number }) {
+  return (
+    <svg className="mini-outer" width={size} height={size} viewBox={lane === 'horizont' ? '12 25 46 34' : '15 20 40 32'} role="img" aria-label={outerLabel(lane)}>
+      <g fill="none" stroke="var(--secondary-strong)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <OuterSymbol lane={lane} />
+      </g>
+    </svg>
+  );
+}
+
+/** Passung in Prozent; bei Brücken- und Horizont-Karten stattdessen ihr Symbol. */
+export function MatchMark({ value, lane, size = 64, className = '' }: { value: number; lane: Lane; size?: number; className?: string }) {
+  return isOuterLane(lane) ? <OuterRing lane={lane} size={size} className={className} /> : <ScoreRing value={value} size={size} className={className} />;
 }
 
 export function Empty({ title, text, children, art = 'teacup' }: { title: string; text?: string; children?: ReactNode; art?: 'teacup' | 'map' | 'heart' | 'search' }) {

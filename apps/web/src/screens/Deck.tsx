@@ -1,14 +1,14 @@
 // Der Stapel: Karteikarten zum Wischen. Rechts = merken, links = weglegen, hoch/tippen = alles lesen.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { countActiveFilters, deckTier, todayBerlin, topReasons } from '@stellen/core';
+import { countActiveFilters, deckTier, isOuterLane, todayBerlin, topReasons } from '@stellen/core';
 import { useAppState, useDeck, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
 import { alertChip, savedFilterFor } from '../lib/savedFilters';
 import { deadlineOf, employerName, factChips, jobImage, laneLabel, placeLabel } from '../lib/format';
 import { useTestPhotos } from '../data/testPhotos';
 import { Polaroid } from '../ui/Polaroid';
-import { Empty, ScoreRing } from '../ui/bits';
+import { Empty, MatchMark } from '../ui/bits';
 import { IconArrowUp, IconFilter, IconHeart, IconHistory, IconPin, IconStar, IconUndo, IconX } from '../ui/icons';
 import { FilterSheet } from './FilterSheet';
 import { HistorySheet } from './HistorySheet';
@@ -272,7 +272,7 @@ function DeckCard({
   return (
     <article
       ref={ref}
-      className={`card ${top ? 'card--top' : 'card--behind'} card--settle ${hl ? 'card--highlight' : ''}`}
+      className={`card ${top ? 'card--top' : 'card--behind'} card--settle ${hl ? 'card--highlight' : isOuterLane(view.lane.lane) ? 'card--outer' : ''}`}
       style={{ ['--tilt' as string]: `${tilt}deg`, transform: top ? undefined : baseTransform, zIndex: 3 - depth }}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -293,7 +293,7 @@ function DeckCard({
               tilt={-tilt * 0.8}
             />
           </div>
-          <ScoreRing className="card__score" value={view.score.score} size={68} />
+          <MatchMark className="card__score" value={view.score.score} lane={view.lane.lane} size={68} />
           {view.favorite && (
             <span className="card__fav chip chip--primary">
               <IconHeart filled width={14} height={14} /> {t.favorite}
@@ -314,7 +314,7 @@ function DeckCard({
               </span>
             )}
           </div>
-          <ScoreRing value={view.score.score} size={58} />
+          <MatchMark value={view.score.score} lane={view.lane.lane} size={58} />
         </div>
       )}
       <div className="card__body">

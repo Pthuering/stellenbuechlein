@@ -19,6 +19,7 @@ import {
   passesFilter,
   placeOf,
   reminderText,
+  isOuterLane,
   scoreJob,
   searchTextOf,
   starterProfile,
@@ -212,6 +213,8 @@ async function sendFilterAlerts(db: Db, cfg: IngestConfig, log: RunLog, runStart
     const cutoff = cutoffs.get(f.id)!;
     const hits = views
       .filter((v) => v.job.firstSeenAt >= cutoff && !sentBefore.has(`${f.id}:${v.job.id}`))
+      // Brücken- und Horizont-Karten haben keine Passung in Prozent und laufen im Stapel ohnehin an den Filtern vorbei
+      .filter((v) => !isOuterLane(v.lane))
       .filter((v) => passesFilter(v.job, f.filter, v.place, geo, v.norm, today, v.lane, v.score))
       .map((v) => ({ id: v.job.id, title: v.job.title, score: v.score }));
     if (hits.length) found.push({ filter: f, hits });

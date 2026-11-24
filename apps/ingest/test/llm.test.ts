@@ -36,7 +36,7 @@ beforeAll(async () => {
       if (/steuerst einen Browser/.test(system)) {
         const m = /\[(\d+)\] a „Hier entlang zu allen Details“/.exec(user);
         answer = m ? { action: 'click', index: Number(m[1]), reason: 'Link zur vollständigen Anzeige' } : { action: 'done', index: null, reason: 'fertig' };
-      } else if (/Person mit Psychologie-Hintergrund, Stellen außerhalb/.test(system)) {
+      } else if (/Person mit Psychologie-Hintergrund .{0,20}Stellen außerhalb/.test(system)) {
         if (/Usable Security/.test(user)) answer = { verdict: 'passt', reason_de: 'Nutzerstudien und Experimente zu Phishing sind angewandte Verhaltensforschung.', label: 'IT-Sicherheit × Verhalten' };
         else if (/Studienberatung/.test(user)) answer = { verdict: 'passt', reason_de: 'Beratung und Lernstrategien knüpfen an Pädagogische Psychologie an.', label: 'Beratung × Lernen' };
         else if (/Mobilitätsplanung/.test(user)) answer = { verdict: 'eher', reason_de: 'Die Befragung braucht empirische Methoden, der Rest ist Planung.', label: 'Mobilität × Befragung' };

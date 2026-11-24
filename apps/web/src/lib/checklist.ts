@@ -76,7 +76,7 @@ const t = texts({
       },
       ki: {
         title: 'KI-Schlüssel (DeepSeek)',
-        what: 'Ohne KI fehlen Kurzfassungen, die Weite, KI-Urteile im Horizont, die Nachprüfung unsicherer Fristen und das Urteil im Probelauf.',
+        what: 'Ohne KI fehlen Kurzfassungen, der Horizont, KI-Urteile zu Brücken-Karten, die Nachprüfung unsicherer Fristen und das Urteil im Probelauf.',
         where: 'GitHub-Secret DEEPSEEK_API_KEY und Worker-Secret LLM_API_KEY (docs/BETRIEB.md, Schritte 4 und 5a). Erkannt wird nur der Worker-Teil.',
       },
       jetzt: {
@@ -172,7 +172,7 @@ const t = texts({
       },
       ki: {
         title: 'AI key (DeepSeek)',
-        what: 'Without AI there are no summaries, no Beyond, no AI verdicts in the Horizon, no double-check of uncertain deadlines and no verdict in the test run.',
+        what: 'Without AI there are no summaries, no Horizon, no AI verdicts on bridge cards, no double-check of uncertain deadlines and no verdict in the test run.',
         where: 'GitHub secret DEEPSEEK_API_KEY and Worker secret LLM_API_KEY (docs/BETRIEB.md, steps 4 and 5a). Only the Worker part is detected.',
       },
       jetzt: {
@@ -268,7 +268,7 @@ const t = texts({
       },
       ki: {
         title: 'AI ključ (DeepSeek)',
-        what: 'Bez AI-ja nema sažetaka, Daljine, AI ocena u Horizontu, provere nesigurnih rokova ni ocene u probnom prolazu.',
+        what: 'Bez AI-ja nema sažetaka, Horizonta, AI ocena kartica preko mosta, provere nesigurnih rokova ni ocene u probnom prolazu.',
         where: 'GitHub tajna DEEPSEEK_API_KEY i Worker tajna LLM_API_KEY (docs/BETRIEB.md, koraci 4 i 5a). Prepoznaje se samo deo u Workeru.',
       },
       jetzt: {

@@ -166,10 +166,12 @@ const SORTS: Table<SortKey> = {
   sr: { empfohlen: 'Omiljena mesta i poklapanje', frist: 'Po roku', neu: 'Najnovije', entfernung: 'Najbliže' },
 };
 
+// Intern „horizont“ = über eine Brücke, „weite“ = ohne Brücke. In der App: Brücke und Horizont; „kern“ hat keinen
+// eigenen Namen (normale Einträge werden nicht gekennzeichnet).
 const LANES: Table<Lane> = {
-  de: { kern: 'Kern', horizont: 'Horizont', weite: 'Weite' },
-  en: { kern: 'Core', horizont: 'Horizon', weite: 'Beyond' },
-  sr: { kern: 'Jezgro', horizont: 'Horizont', weite: 'Daljina' },
+  de: { kern: 'normale Einträge', horizont: 'Brücke', weite: 'Horizont' },
+  en: { kern: 'regular entries', horizont: 'Bridge', weite: 'Horizon' },
+  sr: { kern: 'obični oglasi', horizont: 'Most', weite: 'Horizont' },
 };
 
 const DOSIS: Table<HorizontDosis> = {

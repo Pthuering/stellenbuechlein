@@ -37,6 +37,8 @@ import {
   isEurope,
   fachSignale,
   fachlichEinschlaegig,
+  isOuterLane,
+  laneAllowed,
 } from '@stellen/core';
 import type { SavedSort, State, Store } from './store';
 
@@ -129,7 +131,8 @@ export function useViews(): Map<string, JobView> {
         norm,
         lane,
         abroadOk: isAbroad(job) ? score.score >= ABROAD_MIN_SCORE && fachlichEinschlaegig(fachSignale(job, job.descriptionMd, norm, s.settings.profile)) : undefined,
-        alerts: pushFilters.length ? pushFilters.filter((f) => passesFilter(job, f.filter, place, geo, norm, today, lane.lane, score.score)) : [],
+        // Gespeicherte Filter melden nur Kern-Karten (Horizont-Karten haben keine Passung in Prozent)
+        alerts: pushFilters.length && !isOuterLane(lane.lane) ? pushFilters.filter((f) => passesFilter(job, f.filter, place, geo, norm, today, lane.lane, score.score)) : [],
       });
     }
     return out;
@@ -147,11 +150,20 @@ export function filterViews(views: Iterable<JobView>, filter: JobFilter, geo: Ge
   return out;
 }
 
+/**
+ * Passung zum Sortieren: Horizont-Karten haben keine Prozentzahl und stehen bei der Sortierung nach Passung hinter
+ * den Kern-Karten (untereinander: „passt“ vor „eher“).
+ */
+export function sortScore(v: JobView): number {
+  if (!isOuterLane(v.lane.lane)) return v.score.score;
+  return v.lane.verdict === 'passt' ? -1 : v.lane.verdict === 'eher' ? -2 : -3;
+}
+
 export function sortViews(list: JobView[], key: SortKey): JobView[] {
   return [...list].sort((a, b) =>
     compareJobs(
-      { job: a.job, score: a.score.score, favorite: a.favorite, distanceKm: a.place.distanceKm },
-      { job: b.job, score: b.score.score, favorite: b.favorite, distanceKm: b.place.distanceKm },
+      { job: a.job, score: sortScore(a), favorite: a.favorite, distanceKm: a.place.distanceKm },
+      { job: b.job, score: sortScore(b), favorite: b.favorite, distanceKm: b.place.distanceKm },
       key,
     ),
   );
@@ -166,7 +178,7 @@ function sortCore(list: JobView[], seed: string): JobView[] {
 
 export function sortSaved(list: JobView[], key: SavedSort): JobView[] {
   const k: SortKey = key === 'frist' ? 'frist' : key === 'neu' ? 'neu' : key === 'ort' ? 'entfernung' : 'empfohlen';
-  if (key === 'score') return [...list].sort((a, b) => b.score.score - a.score.score);
+  if (key === 'score') return [...list].sort((a, b) => sortScore(b) - sortScore(a));
   return sortViews(list, k);
 }
 
@@ -176,13 +188,15 @@ export function openViews(views: Map<string, JobView>, today = todayBerlin()): J
 }
 
 /**
- * Der Stapel: offene, noch nicht entschiedene Anzeigen, die zu den Filtern passen.
- * Kern-Karten nach Lieblingsorten und Score (leicht gemischt: bis zu fünf Punkte auf oder ab, pro Tag fest),
- * dazwischen etwa jede 3. bis 6. Karte eine von der KI geprüfte Horizont-Karte.
+ * Der Stapel: offene, noch nicht entschiedene Anzeigen.
+ * Kern-Karten, die zu den Filtern passen, nach Lieblingsorten und Score (leicht gemischt: bis zu fünf Punkte auf
+ * oder ab, pro Tag fest), dazwischen etwa jede 3. bis 6. Karte eine von der KI geprüfte Horizont-Karte.
  * Mit der Reihenfolge aus den Einstellungen (deckTier) kommen die Kern-Karten in Teilen: erst die gut passenden
- * (ab der Schwelle), dann der Rest, in beiden Teilen auf Wunsch die mit naher Frist zuerst. Horizont-Karten
- * werden über den ganzen Stapel eingestreut, nicht je Teil: Ihre Passung ist naturgemäß niedrig, sie kämen
- * sonst erst nach allen gut passenden Karten.
+ * (ab der Schwelle), dann der Rest, in beiden Teilen auf Wunsch die mit naher Frist zuerst.
+ * Horizont-Karten (über eine Brücke oder ohne) haben keine Passung in Prozent. Sie laufen an den Filtern vorbei
+ * und kommen über den ganzen Stapel im eingestellten Rhythmus; zurückhalten lassen sie sich nur ausdrücklich
+ * (Ring-Filter ohne Horizont, Horizont in den Einstellungen aus, Brücke pausiert). Noch ungeprüfte warten auf
+ * das Urteil der KI und kommen bis dahin gar nicht in den Stapel.
  * Stellen außerhalb Deutschlands kommen wie die Horizont-Karten dazwischen: nach jeweils 2 bis 5 anderen Karten
  * eine, also höchstens jede dritte Karte, nach Passung geordnet und Europa zuerst.
  * Gemischt wird über alle offenen Anzeigen (auch schon entschiedene) und erst danach gefiltert, damit sich
@@ -195,19 +209,19 @@ export function useDeck(): JobView[] {
   return useMemo(() => {
     const today = todayBerlin();
     const h = horizontOf(s.settings.profile);
-    const all = filterViews(openViews(views, today), s.settings.filter, geo, today);
+    const open = openViews(views, today);
+    const all = filterViews(open, s.settings.filter, geo, today);
     const tiers = new Map<number, JobView[]>();
-    const extra: JobView[] = [];
+    // Horizont-Karten: alle geprüften, die der Ring-Filter zulässt, unabhängig von den übrigen Filtern
+    const extra = open.filter((v) => v.lane.promoted && !isAbroad(v.job) && laneAllowed(s.settings.filter, v.lane.lane));
     const abroad: JobView[] = [];
     for (const v of all) {
       if (isAbroad(v.job)) {
         abroad.push(v);
         continue;
       }
-      if (v.lane.promoted) {
-        extra.push(v);
-        continue;
-      }
+      // Horizont-Karten kommen oben dazu; ungeprüfte warten auf das Urteil der KI
+      if (isOuterLane(v.lane.lane)) continue;
       const k = deckTier({ score: v.score.score, deadline: v.job.deadline }, s.settings.deck, today);
       const part = tiers.get(k);
       if (part) part.push(v);

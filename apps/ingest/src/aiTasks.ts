@@ -240,7 +240,7 @@ export async function exportAiTasks(db: Db, opts: { max?: number; arten?: AiTask
       },
       frist: { anweisung: deadlinePrompt(heute), antwort: 'deadline (YYYY-MM-DD oder null), quote (wörtliche Textstelle oder null), still_open (bool oder null)' },
       horizont: { anweisung: `${HORIZON_PROMPT} Die Anzeige kam über die genannte Brücke herein.`, antwort: 'verdict (passt | eher | nein), reason_de, label' },
-      weite: { anweisung: `${HORIZON_PROMPT} Die Anzeige trifft keine Brücke; prüfe, ob die Fähigkeiten der Person dort tragen.`, antwort: 'verdict (passt | eher | nein), reason_de, label' },
+      weite: { anweisung: `${HORIZON_PROMPT} Die Anzeige trifft keine Brücke; urteile allein nach den Aufgaben.`, antwort: 'verdict (passt | eher | nein), reason_de, label' },
     },
     ergebnis_format: 'JSON-Liste [{"id": <id der Aufgabe>, "ergebnis": { …Felder wie unter anleitung[art].antwort… }}], eine Zeile pro Aufgabe; Aufgaben, die du nicht sicher beurteilen kannst, weglassen.',
     aufgaben,

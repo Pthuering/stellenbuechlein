@@ -269,8 +269,8 @@ const t = texts({
  * deutsch (darauf sind sie abgestimmt); gespeicherte Bezeichnungen in Profil und Brücken auch.
  */
 const ANSWER_LANGUAGE: Record<Exclude<Lang, 'de'>, string> = {
-  en: 'Sprache: Die Person nutzt die App auf Englisch. Antworte auf Englisch statt auf Deutsch, auch wenn Anweisungen und Daten deutsch sind, und übersetze auch Überschriften, die die Arbeitsweise vorgibt. Daten im Format „15 Nov 2026“. Begriffe der App auf Englisch: Anzeige = posting, Stelle = job, Stapel = stack, Gemerkt = Saved, weglegen = pass, Herzensjob = dream job, Frist = deadline, Score = match, Suchprofil = search profile, Brücke = bridge, Feld = field, Anknüpfung = link, Kern/Horizont/Weite = core/Horizon/Beyond. Titel und Zitate aus Anzeigen bleiben im Original. In Vorschlägen für Suchprofil und Brücken bleiben Namen und Bezeichnungen deutsch wie im Profil (so werden sie gespeichert) und Begriffe in der Schreibweise des Profils; Begründungen und Notizen schreibst du auf Englisch.',
-  sr: 'Sprache: Die Person nutzt die App auf Serbisch. Antworte auf Serbisch statt auf Deutsch, in lateinischer Schrift, ekavisch und per du (ti), auch wenn Anweisungen und Daten deutsch sind, und übersetze auch Überschriften, die die Arbeitsweise vorgibt. Sprich die Person geschlechtsneutral an: keine Partizipien, die ein Geschlecht verraten (nicht „sačuvala si“ oder „prijavio si se“), sondern Präsens, Imperativ oder unpersönlich („prijava je poslata“). Daten im Format „15. 11. 2026.“. Begriffe der App auf Serbisch: Anzeige = oglas, Stelle = pozicija, Stapel = špil, Gemerkt = Sačuvano, weglegen = preskoči, Herzensjob = posao iz snova, Frist = rok, Score = poklapanje, Suchprofil = profil pretrage, Brücke = most, Feld = oblast, Anknüpfung = veza, Kern/Horizont/Weite = jezgro/Horizont/Daljina. Titel und Zitate aus Anzeigen bleiben im Original. In Vorschlägen für Suchprofil und Brücken bleiben Namen und Bezeichnungen deutsch wie im Profil (so werden sie gespeichert) und Begriffe in der Schreibweise des Profils; Begründungen und Notizen schreibst du auf Serbisch.',
+  en: 'Sprache: Die Person nutzt die App auf Englisch. Antworte auf Englisch statt auf Deutsch, auch wenn Anweisungen und Daten deutsch sind, und übersetze auch Überschriften, die die Arbeitsweise vorgibt. Daten im Format „15 Nov 2026“. Begriffe der App auf Englisch: Anzeige = posting, Stelle = job, Stapel = stack, Gemerkt = Saved, weglegen = pass, Herzensjob = dream job, Frist = deadline, Score = match, Suchprofil = search profile, Brücke = bridge, Feld = field, Anknüpfung = link, Brücken-Karte/Horizont-Karte = Bridge card/Horizon card (normale Anzeigen bekommen keinen eigenen Namen). Titel und Zitate aus Anzeigen bleiben im Original. In Vorschlägen für Suchprofil und Brücken bleiben Namen und Bezeichnungen deutsch wie im Profil (so werden sie gespeichert) und Begriffe in der Schreibweise des Profils; Begründungen und Notizen schreibst du auf Englisch.',
+  sr: 'Sprache: Die Person nutzt die App auf Serbisch. Antworte auf Serbisch statt auf Deutsch, in lateinischer Schrift, ekavisch und per du (ti), auch wenn Anweisungen und Daten deutsch sind, und übersetze auch Überschriften, die die Arbeitsweise vorgibt. Sprich die Person geschlechtsneutral an: keine Partizipien, die ein Geschlecht verraten (nicht „sačuvala si“ oder „prijavio si se“), sondern Präsens, Imperativ oder unpersönlich („prijava je poslata“). Daten im Format „15. 11. 2026.“. Begriffe der App auf Serbisch: Anzeige = oglas, Stelle = pozicija, Stapel = špil, Gemerkt = Sačuvano, weglegen = preskoči, Herzensjob = posao iz snova, Frist = rok, Score = poklapanje, Suchprofil = profil pretrage, Brücke = most, Feld = oblast, Anknüpfung = veza, Brücken-Karte/Horizont-Karte = kartica preko mosta/kartica sa horizonta (obični oglasi nemaju poseban naziv). Titel und Zitate aus Anzeigen bleiben im Original. In Vorschlägen für Suchprofil und Brücken bleiben Namen und Bezeichnungen deutsch wie im Profil (so werden sie gespeichert) und Begriffe in der Schreibweise des Profils; Begründungen und Notizen schreibst du auf Serbisch.',
 };
 
 export type VorschlagStatus = 'offen' | 'uebernommen' | 'abgelehnt';
@@ -359,7 +359,7 @@ function fristText(v: JobView, today: string): string {
 }
 
 function laneText(v: JobView): string {
-  if (v.lane.lane === 'kern') return 'Kern';
+  if (v.lane.lane === 'kern') return 'normale Anzeige';
   return `${LANE_LABELS[v.lane.lane]}${v.lane.label ? ` (${v.lane.label})` : ''}`;
 }
 
@@ -873,7 +873,7 @@ export function turnContext(snap: Snapshot, conv: Pick<Conversation, 'jobId' | '
   const lastRun = s.runs[0];
   const lines = [
     `Heute ist ${DATE_LONG.format(new Date())} (${today}, deutsche Zeit).`,
-    `Daten in der App: ${open} offene Anzeigen (Kern ${lanes.kern}, Horizont ${lanes.horizont}, Weite ${lanes.weite}), davon ${neu} in den letzten 7 Tagen entdeckt. Letzter Einsammel-Lauf: ${lastRun ? relativeTime(lastRun.finishedAt ?? lastRun.startedAt) : 'noch keiner'}.`,
+    `Daten in der App: ${open} offene Anzeigen (normale ${lanes.kern}, Brücken-Karten ${lanes.horizont}, Horizont-Karten ${lanes.weite}; Brücken- und Horizont-Karten haben keine Passung in Prozent), davon ${neu} in den letzten 7 Tagen entdeckt. Letzter Einsammel-Lauf: ${lastRun ? relativeTime(lastRun.finishedAt ?? lastRun.startedAt) : 'noch keiner'}.`,
     `Markierungen: ${gemerkt} gemerkt (${gemerktOffen} noch offen, davon ${baldFrist} mit Frist in den nächsten 14 Tagen), ${herz} Herzensjobs, ${beworben} beworben, ${weg} weggelegt.`,
     `Filter im Stapel: ${filterText(s.settings.filter, true, (id) => s.cities.get(id)?.name ?? id)}.`,
     `Lieblingsorte (stehen im Stapel oben): ${favs.join(', ') || 'keine'}.`,
@@ -891,7 +891,7 @@ export function turnContext(snap: Snapshot, conv: Pick<Conversation, 'jobId' | '
       if (isOpen(v.job, today) && v.lane.lane !== 'kern' && v.lane.bridge) per.set(v.lane.bridge.bridge.id, (per.get(v.lane.bridge.bridge.id) ?? 0) + 1);
     }
     const h = horizontOf(s.settings.profile);
-    lines.push(`Die Frage kommt aus der Horizont-Seite. Offene Horizont-Anzeigen je Brücke: ${h.bruecken.map((b) => `${b.name}${b.aktiv ? '' : ' (pausiert)'}: ${per.get(b.id) ?? 0}`).join('; ') || 'keine Brücken'}.`);
+    lines.push(`Die Frage kommt aus der Horizont-Seite. Offene Brücken-Karten je Brücke: ${h.bruecken.map((b) => `${b.name}${b.aktiv ? '' : ' (pausiert)'}: ${per.get(b.id) ?? 0}`).join('; ') || 'keine Brücken'}.`);
   }
   const l = lang();
   if (l !== 'de') lines.push(ANSWER_LANGUAGE[l]);

@@ -5,7 +5,9 @@ import { useAppState, useStore, type JobView } from '../data/hooks';
 import { openJob } from '../lib/router';
 import { alertChip } from '../lib/savedFilters';
 import { deadlineOf, employerName, shortDate, placeName } from '../lib/format';
+import { isOuterLane } from '@stellen/core';
 import { IconHeart, IconStar } from './icons';
+import { OuterIcon } from './bits';
 import { fmtKm, texts } from '../i18n';
 import { laneName } from '../i18n/labels';
 
@@ -115,10 +117,14 @@ export function JobRow({ v, showDecision = false, faded = false }: { v: JobView;
         ) : null}
       </div>
       <div className="row__meta">
-        <span className="mini-score" style={{ color: scoreTone(v.score.score) }}>
-          {v.score.score}
-          <small>%</small>
-        </span>
+        {isOuterLane(v.lane.lane) ? (
+          <OuterIcon lane={v.lane.lane} />
+        ) : (
+          <span className="mini-score" style={{ color: scoreTone(v.score.score) }}>
+            {v.score.score}
+            <small>%</small>
+          </span>
+        )}
         {dl ? (
           dl.unsure ? (
             <span className="deadline-unsure" title={dl.note ?? undefined}>
