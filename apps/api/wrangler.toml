@@ -12,6 +12,11 @@ binding = "ASSETS"
 not_found_handling = "single-page-application"
 run_worker_first = ["/api/*"]
 
+# Täglicher Startschuss fürs Einsammeln um 12 Uhr deutscher Zeit (Cloudflare rechnet in UTC: 10 Uhr im Sommer,
+# 11 Uhr im Winter; der Worker prüft, welcher von beiden gerade 12 Uhr ist, siehe isDailyIngestTime in src/app.ts).
+[triggers]
+crons = ["0 10 * * *", "0 11 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "stellenbuechlein"

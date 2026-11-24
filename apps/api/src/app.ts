@@ -166,8 +166,19 @@ const newInstitutionSchema = z.object({
   website: z.string().url().max(500).optional(),
 });
 
+/**
+ * Täglicher Start des Einsammelns um 12 Uhr deutscher Zeit. Der Worker hat zwei Cron-Auslöser (10 und 11 Uhr UTC,
+ * wrangler.toml); je nach Sommer- oder Winterzeit ist genau einer davon 12 Uhr in Deutschland. Der Zeitplan von
+ * GitHub Actions kam oft Stunden zu spät, ein Start über workflow_dispatch läuft dagegen sofort an.
+ */
+export function isDailyIngestTime(scheduledTime: number): boolean {
+  // formatToParts statt format: auf Deutsch hieße die Stunde allein „12 Uhr“
+  const parts = new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(scheduledTime));
+  return Number(parts.find((p) => p.type === 'hour')?.value) === 12;
+}
+
 /** Startet einen GitHub-Actions-Workflow (Einsammeln oder Probelauf). */
-async function dispatchWorkflow(env: ApiEnv, workflow: string, inputs?: Record<string, string>): Promise<{ ok: boolean; status: number }> {
+export async function dispatchWorkflow(env: ApiEnv, workflow: string, inputs?: Record<string, string>): Promise<{ ok: boolean; status: number }> {
   if (!env.GITHUB_TOKEN || !env.GITHUB_REPO) return { ok: false, status: 501 };
   const res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/actions/workflows/${workflow}/dispatches`, {
     method: 'POST',

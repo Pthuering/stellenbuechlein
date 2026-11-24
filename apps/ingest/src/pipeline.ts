@@ -122,6 +122,7 @@ import { sendHighScoreAlert, sendReminders } from './push';
 import { Registry } from './registry';
 import { exploreBa, exploreQueries, exploreWeb } from './explore';
 import { processPendingChecks } from './sourceCheck';
+import { lockForIngest, unlockAfterIngest } from './sperre';
 
 export interface PipelineOptions {
   only?: string[];
@@ -378,6 +379,12 @@ export class Pipeline {
   async run(): Promise<RunStats> {
     const runId = await startRun(this.db, this.now);
     let ok = false;
+    // KI-Warteschlange sperren, solange der Lauf noch Aufgaben einreiht: Die KI-Arbeiter (Cloud-Routine, lokale
+    // Sitzungen) fangen erst an, wenn alles Neue da ist. Stürzt der Lauf ab, läuft die Sperre von selbst aus.
+    const locked = await lockForIngest(this.db).catch((e) => {
+      this.log.warn(`KI-Sperre nicht gesetzt: ${errText(e)}`);
+      return false;
+    });
     try {
       if (this.opts.checks !== false) {
         const n = await processPendingChecks(this.db, this.ctx).catch((e) => {
@@ -420,6 +427,7 @@ export class Pipeline {
       if (this.pool) this.stats.browserSekunden = Math.round(this.pool.usedMs / 1000);
       this.log.info(`Fertig: ${JSON.stringify(this.stats)}`);
       await finishRun(this.db, runId, ok, this.stats, this.log.text()).catch((e) => console.error(e));
+      if (locked) await unlockAfterIngest(this.db).catch((e) => console.error(e));
     }
     return this.stats;
   }

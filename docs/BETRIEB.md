@@ -6,7 +6,7 @@ Die App läuft komplett in kostenlosen Kontingenten:
 |---|---|---|
 | App (PWA) und API | Cloudflare Worker mit statischen Dateien, unter eigener Domain oder `….workers.dev` | die Website selbst: Oberfläche, Abgleich, Einstellungen |
 | Datenbank | Cloudflare D1 | Anzeigen, Markierungen, Quellen, Läufe |
-| Einsammeln | GitHub Actions, täglich gegen 12 Uhr und per Knopf | Anzeigen holen, gezielt neue Websites erkunden, Erinnerungen verschicken |
+| Einsammeln | GitHub Actions, täglich um 12 Uhr (Start durch den Worker) und per Knopf | Anzeigen holen, gezielt neue Websites erkunden, Erinnerungen verschicken |
 | Probelauf neuer Quellen | GitHub Actions, per Knopf in der App | eine Website prüfen, bevor sie ins Register kommt |
 | KI beim Aufbereiten der Anzeigen | Claude über dein Claude-Abo: tägliche Cloud-Aufgabe, ein Orchestrator (Opus) verteilt die Anzeigen an Haiku-Subagenten (Schritt 4b) | Anzeigen auswerten (Titel, Eckdaten, Kurzfassung, ist es überhaupt eine Anzeige?), unklare Fristen nachprüfen, Horizont und Weite beurteilen |
 | KI in der App (optional) | DeepSeek-API oder ein anderer OpenAI-kompatibler Dienst | KI-Assistent, Brücken-Vorschläge und Probelauf neuer Quellen, also nur, was du in der App selbst anstößt |
@@ -72,7 +72,9 @@ Im Repository unter *Settings → Secrets and variables → Actions → New repo
 
 Danach unter *Actions → Einsammeln → Run workflow* den ersten Lauf starten. Der Lauf legt zuerst die Startdaten an (Städte, Einrichtungen, Quellen) und sammelt dann ein. Das Protokoll steht in der App unter *Ich → Quellen & Läufe → Läufe*.
 
-**Zeitplan:** Der Workflow läuft täglich um 12 Uhr deutscher Zeit. GitHub rechnet in UTC, deshalb stehen zwei Zeiten im Workflow (10 und 11 Uhr UTC); ein kleiner erster Schritt prüft, welche davon gerade 12 Uhr in Deutschland ist, und lässt nur diese laufen. Sommer- und Winterzeit gehen so von selbst. Bei viel Betrieb startet GitHub geplante Läufe manchmal ein paar Minuten später. Eine andere Uhrzeit: die beiden `cron`-Zeilen und die Prüfung in `.github/workflows/einsammeln.yml` anpassen.
+**Zeitplan:** Den täglichen Start um 12 Uhr deutscher Zeit gibt seit 24.11.2026 der Cloudflare-Worker: Er hat zwei Cron-Auslöser (10 und 11 Uhr UTC, `[triggers]` in `apps/api/wrangler.toml`), prüft, welcher davon gerade 12 Uhr in Deutschland ist (`isDailyIngestTime` in `apps/api/src/app.ts`), und startet den Workflow über `workflow_dispatch`, wie der Knopf „Jetzt einsammeln“ (braucht das Worker-Secret `GITHUB_TOKEN`). Der eigene Zeitplan von GitHub Actions ist abgeschaltet: Er startete die Läufe an den Tagen davor 7 bis 11 Stunden zu spät. Eine andere Uhrzeit: die beiden `crons` und `isDailyIngestTime` anpassen, dann deployen.
+
+**KI erst nach dem Einsammeln:** Solange ein Lauf läuft, sperrt er die KI-Warteschlange (Einstellung `kiSperre`, Grund „Einsammel-Lauf läuft …“, höchstens 6 Stunden; `apps/ingest/src/sperre.ts`). `ki-status` meldet dann „Gesperrt bis …“, und `ki-export` gibt nichts aus; die Cloud-Routine beendet sich und der nächste geplante Start macht weiter. Am Ende gibt der Lauf die Sperre selbst frei, eine Sperre einer anderen Sitzung lässt er stehen. Stürzt er ab, läuft sie von selbst aus.
 
 **Neue, sehr gut passende Anzeigen:** Am Ende jedes Laufs berechnet die Pipeline für alle neuen Anzeigen den Score mit deinem Suchprofil und schickt, wenn welche über der Schwelle liegen (Standard 85 %, in der App unter *Ich → Erinnerungen*), eine gebündelte Benachrichtigung. Braucht die Push-Schlüssel aus Schritt 3.
 

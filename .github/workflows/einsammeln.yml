@@ -1,6 +1,10 @@
-# Sammelt täglich gegen 12 Uhr (deutsche Zeit) neue Anzeigen ein, sucht gezielt nach Anzeigen von Websites,
+# Sammelt täglich um 12 Uhr (deutsche Zeit) neue Anzeigen ein, sucht gezielt nach Anzeigen von Websites,
 # die noch nicht im Register stehen, und verschickt fällige Fristen-Erinnerungen. Zusätzlich jederzeit per
 # Knopf in der App („Jetzt einsammeln“) oder hier über „Run workflow“.
+# Den täglichen Start gibt seit 24.11.2026 der Cloudflare-Worker (Cron-Auslöser, apps/api/wrangler.toml) über
+# workflow_dispatch: Der Zeitplan von GitHub kam an den Tagen davor 7 bis 11 Stunden zu spät.
+# Solange der Lauf läuft, ist die KI-Warteschlange gesperrt (apps/ingest/src/sperre.ts); die KI-Arbeiter fangen
+# also erst an, wenn alles Neue eingereiht ist.
 # Läuft kostenlos in GitHub Actions (öffentliches Repo: unbegrenzt, privates: 2.000 Minuten/Monat).
 # Seit 24.11.2026 ohne Mengengrenzen (alle neuen Anzeigen jeder Quelle, die ganze Browser-Warteschlange): Bekannte und
 # schon aussortierte Adressen erkennt der Lauf und liest sie nicht neu. Grenze ist nur die Laufzeit von 6 Stunden.
@@ -12,11 +16,7 @@
 name: Einsammeln
 
 on:
-  schedule:
-    # GitHub rechnet in UTC. Beide Zeiten sind 12 Uhr in Deutschland: die erste im Sommer, die zweite im Winter.
-    # Der Schritt „Uhrzeit prüfen“ lässt jeweils nur die passende laufen.
-    - cron: '0 10 * * *'
-    - cron: '0 11 * * *'
+  # Kein eigener Zeitplan mehr: Den täglichen Start um 12 Uhr gibt der Worker (siehe oben).
   workflow_dispatch: {}
 
 concurrency:
@@ -34,10 +34,8 @@ jobs:
         run: |
           offset=$(TZ=Europe/Berlin date +%z)
           los=0
-          if [ "${{ github.event_name }}" != "schedule" ]; then los=1
-          elif [ "${{ github.event.schedule }}" = "0 10 * * *" ] && [ "$offset" = "+0200" ]; then los=1
-          elif [ "${{ github.event.schedule }}" = "0 11 * * *" ] && [ "$offset" = "+0100" ]; then los=1
-          fi
+          # Ohne Zeitplan kommt jeder Start von Hand oder vom Worker und läuft sofort los
+          if [ "${{ github.event_name }}" != "schedule" ]; then los=1; fi
           echo "Deutsche Zeit: $(TZ=Europe/Berlin date '+%d.%m.%Y %H:%M') (UTC$offset), Start: $los"
           echo "los=$los" >> "$GITHUB_OUTPUT"
 
