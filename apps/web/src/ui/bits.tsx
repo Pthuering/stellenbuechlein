@@ -86,9 +86,15 @@ export function Hearts({ value, max = 3, onChange, label }: { value: number; max
   );
 }
 
+/**
+ * Farbe der Prozentzahlen: immer das kräftige Rot, auch bei niedriger Passung (Wunsch vom 24.11.2026; vorher
+ * wurde sie unter 75 % blasser und unter 50 % grau). Die Zahl selbst sagt, wie gut es passt.
+ */
+export const SCORE_COLOR = 'var(--primary-strong)';
+
 /** Handgezeichneter Kreis um die Prozentzahl. */
 export function ScoreRing({ value, size = 64, className = '' }: { value: number; size?: number; className?: string }) {
-  const color = value >= 75 ? 'var(--primary-strong)' : value >= 50 ? 'var(--primary-muted-strong)' : 'var(--text-muted)';
+  const color = SCORE_COLOR;
   return (
     <div className={`score ${className}`} style={{ width: size, height: size }} aria-label={t.match(value)} role="img">
       <svg viewBox="0 0 70 70" aria-hidden="true">

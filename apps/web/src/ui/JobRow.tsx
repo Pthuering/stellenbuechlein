@@ -7,7 +7,7 @@ import { alertChip } from '../lib/savedFilters';
 import { deadlineOf, employerName, shortDate, placeName } from '../lib/format';
 import { isOuterLane } from '@stellen/core';
 import { IconHeart, IconStar } from './icons';
-import { OuterIcon } from './bits';
+import { OuterIcon, SCORE_COLOR } from './bits';
 import { fmtKm, texts } from '../i18n';
 import { laneName } from '../i18n/labels';
 
@@ -56,8 +56,9 @@ const t = texts({
   },
 });
 
-export function scoreTone(score: number): string {
-  return score >= 75 ? 'var(--primary-strong)' : score >= 50 ? 'var(--primary-muted-strong)' : 'var(--text-muted)';
+/** Farbe der kleinen Prozentzahl: immer kräftig rot, unabhängig von der Passung (siehe SCORE_COLOR). */
+export function scoreTone(_score: number): string {
+  return SCORE_COLOR;
 }
 
 export function JobRow({ v, showDecision = false, faded = false }: { v: JobView; showDecision?: boolean; faded?: boolean }) {
