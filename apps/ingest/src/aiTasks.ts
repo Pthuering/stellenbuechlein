@@ -19,6 +19,7 @@ import {
   stripMarkdown,
   todayBerlin,
   verifyDeadlineQuote,
+  countryCode,
   type BridgeHit,
   type JobHorizon,
   type JobKind,
@@ -32,6 +33,8 @@ import {
   gateSkipStmt,
   getSetting,
   setSetting,
+  listCities,
+  listInstitutions,
   listOpenAiTasks,
   NOT_A_POSTING,
   releaseCheckedJobs,
@@ -45,6 +48,7 @@ import {
 } from '@stellen/db';
 import { DEADLINE_SCHEMA, deadlinePrompt, EXTRACT_FIELDS, EXTRACT_PROMPT, EXTRACT_SCHEMA, HORIZON_PROMPT, HORIZON_SCHEMA } from './llm';
 import { cleanTitle, GENERIC_TITLE, gateHashFor } from './pipeline';
+import { CityMatcher, InstitutionMatcher } from './matching';
 
 /** Wie viel Anzeigentext eine Aufgabe mitbekommt (Zeichen). */
 const TEXT_MAX: Record<AiTaskKind, number> = { auswerten: 12_000, frist: 12_000, horizont: 6_000, weite: 6_000 };
@@ -106,6 +110,9 @@ interface JobRow {
   employer: string | null;
   institution_id: string | null;
   institution_name: string | null;
+  location_text: string | null;
+  city_id: string | null;
+  country: string | null;
   posted_at: string | null;
   pay_grade: string | null;
   pay_level: number | null;
@@ -133,7 +140,7 @@ async function allIn<T>(db: Db, sql: (marks: string) => string, ids: readonly (s
 async function loadJobs(db: Db, ids: string[]): Promise<Map<string, JobRow>> {
   const rows = await allIn<JobRow>(
     db,
-    (marks) => `SELECT j.id, j.title, j.url, j.canonical_url, j.description_md, j.employer, j.institution_id, i.name AS institution_name, j.posted_at, j.pay_grade, j.pay_level,
+    (marks) => `SELECT j.id, j.title, j.url, j.canonical_url, j.description_md, j.employer, j.institution_id, i.name AS institution_name, j.location_text, j.city_id, j.country, j.posted_at, j.pay_grade, j.pay_level,
             j.workload_pct, j.fixed_term, j.start_text, j.department, j.kind, j.horizon, j.lane,
             (SELECT js.source_id FROM job_sources js WHERE js.job_id = j.id ORDER BY js.first_seen_at LIMIT 1) AS source_id
      FROM jobs j LEFT JOIN institutions i ON i.id = j.institution_id WHERE j.id IN (${marks})`,
@@ -327,6 +334,9 @@ export async function importAiResults(
   const jobs = await loadJobs(db, [...new Set(rows.filter((r) => r.art !== 'weite').map((r) => r.job_id))]);
   const { gateHash } = await loadProfileAndGate(db);
   const today = todayBerlin();
+  // Städte und Einrichtungen aus dem Register, erst beim ersten Ergebnis zu „auswerten“ geladen
+  let matchers: { city: CityMatcher; inst: InstitutionMatcher } | null = null;
+  const places = async () => (matchers ??= { city: new CityMatcher(await listCities(db)), inst: new InstitutionMatcher(await listInstitutions(db)) });
 
   for (const res of results) {
     const t = tasks.get(Number(res.id));
@@ -370,10 +380,21 @@ export async function importAiResults(
           const payLevel = job.pay_level ?? (payGrade ? Number(/(\d{1,2})/.exec(payGrade)?.[1] ?? NaN) || null : null);
           const workload = job.workload_pct ?? (r.workload_pct && r.workload_pct <= 100 ? Math.round(r.workload_pct) : null);
           const summary = r.summary_de && r.summary_de.length > 30 ? r.summary_de : null;
+          // Was nach den Regeln noch fehlt (Ort, Land, Arbeitgeber), aus dem KI-Ergebnis ergänzen; Vorhandenes bleibt
+          const p = await places();
+          const location = job.location_text ?? r.location ?? null;
+          const cityId = job.city_id ? null : p.city.match(location);
+          const employer = job.employer ?? r.institution ?? null;
+          const institutionId = job.institution_id ? null : p.inst.match(employer, job.url);
+          const code = countryCode(r.country);
+          // Ein Auslandsland nur, wenn kein deutscher Ort bekannt ist; „DE“ wird nicht gespeichert (ohne Land = Deutschland)
+          const country = !job.country && !job.city_id && !cityId && code && code !== 'DE' ? code : null;
           stmts.push({
             sql: `UPDATE jobs SET title = ?, kind = ?, pay_grade = ?, pay_level = ?, workload_pct = ?, fixed_term = COALESCE(fixed_term, ?), start_text = COALESCE(start_text, ?),
-                  department = COALESCE(department, ?), summary = COALESCE(?, summary), summary_ai = CASE WHEN ? IS NULL THEN summary_ai ELSE 1 END, updated_at = ? WHERE id = ?`,
-            params: [title, classifyKind(title, job.description_md), payGrade, payLevel, workload, r.fixed_term, r.start, r.department, summary, summary, now, job.id],
+                  department = COALESCE(department, ?), summary = COALESCE(?, summary), summary_ai = CASE WHEN ? IS NULL THEN summary_ai ELSE 1 END,
+                  location_text = COALESCE(location_text, ?), city_id = COALESCE(city_id, ?), employer = COALESCE(employer, ?), institution_id = COALESCE(institution_id, ?),
+                  country = COALESCE(country, ?), updated_at = ? WHERE id = ?`,
+            params: [title, classifyKind(title, job.description_md), payGrade, payLevel, workload, r.fixed_term, r.start, r.department, summary, summary, location, cityId, employer, institutionId, country, now, job.id],
           });
         }
       } else if (t.art === 'frist') {

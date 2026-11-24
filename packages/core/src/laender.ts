@@ -177,10 +177,48 @@ function countryField(text: string): string | null {
   return null;
 }
 
+/** US-Bundesstaaten als Kürzel (ohne „DE“: Delaware wäre sonst nicht von Deutschland zu unterscheiden). */
+const US_STATES = new Set(
+  'AL AK AZ AR CA CO CT FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC'.split(' '),
+);
+/** Ländernamen, längste zuerst (damit „united states of america“ vor „united states“ geprüft wird). */
+const HEAD_NAMES = [...NAME_TO_CODE.entries()].sort((a, b) => b[0].length - a[0].length);
+
 /**
- * Land einer Stelle. Reihenfolge: Länderangabe des Portals, dann Ortsangabe (Land oder große Stadt), dann ein
- * ausdrückliches Feld „Country“ im Text, dann die Ortsteile des Titels („Psychotherapeut:in – Region Zürich“,
- * „Developer (Lisboa, PT)“).
+ * Ort am Anfang des Anzeigentexts, wie ihn manche Portale vor die Anzeige setzen: „Zug, Switzerland University of
+ * Lucerne“, „Rome, Italy John Cabot University“, „Orlando, FL The University of Central Florida“. Geprüft wird nur
+ * die erste Textzeile und nur die Form „Ort, Land …“ (Land am Anfang des Teils nach dem Komma) bzw. „Ort, US-Kürzel …“.
+ * Ein Land irgendwo im Fließtext zählt nicht („Kooperation mit Partnern in der Schweiz“).
+ */
+export function headPlace(text: string | null | undefined): { place: string; code: string } | null {
+  if (!text) return null;
+  const line = text
+    .slice(0, 600)
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((l) => l.replace(/[#*_>|]/g, ' ').replace(/\s+/g, ' ').trim())
+    .find((l) => l.length > 0);
+  if (!line) return null;
+  const m = /^([^\d,()]{2,40}),\s*(.{2,})$/.exec(line.slice(0, 160));
+  if (!m) return null;
+  const city = m[1].trim();
+  const rest = m[2].trim();
+  const n = normalizeText(rest);
+  for (const [name, code] of HEAD_NAMES) {
+    if (n === name || n.startsWith(`${name} `)) {
+      const words = name.split(' ').length;
+      return { place: `${city}, ${rest.split(/\s+/).slice(0, words).join(' ')}`, code };
+    }
+  }
+  const st = /^([A-Z]{2})(?:\s|$)/.exec(rest);
+  if (st && US_STATES.has(st[1])) return { place: `${city}, ${st[1]}`, code: 'US' };
+  return null;
+}
+
+/**
+ * Land einer Stelle. Reihenfolge: Länderangabe des Portals, dann Ortsangabe (Land oder große Stadt), dann ein Ort
+ * am Textanfang („Zug, Switzerland …“, siehe headPlace), dann ein ausdrückliches Feld „Country“ im Text, dann die
+ * Ortsteile des Titels („Psychotherapeut:in – Region Zürich“, „Developer (Lisboa, PT)“).
  * germanCity: Die Ortsangabe nennt eine deutsche Stadt aus dem Register (dann zählt der Titel nicht mehr).
  * „DE“ heißt: sicher in Deutschland. null heißt: unbekannt (wird wie eine deutsche Stelle behandelt).
  */
@@ -192,6 +230,8 @@ export function countryOf(p: { country?: string | null; locationText?: string | 
     if (byPlace) return byPlace;
   }
   if (p.text) {
+    const byHead = headPlace(p.text)?.code;
+    if (byHead) return byHead;
     const byField = countryField(p.text);
     if (byField) return byField;
   }

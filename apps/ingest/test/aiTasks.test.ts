@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { SqliteDb, migrateSqlite } from '@stellen/db/sqlite';
-import { countOpenAiTasks, enqueueAiTaskStmt, listGateSkips, syncJobs, upsertJobStmt, type JobWrite } from '@stellen/db';
+import { countOpenAiTasks, enqueueAiTaskStmt, listGateSkips, syncJobs, upsertCityStmt, upsertJobStmt, type JobWrite } from '@stellen/db';
 import { canonicalUrl, contentHash, jobIdForUrl } from '@stellen/core';
 import { exportAiTasks, importAiResults, splitAiPackage } from '../src/aiTasks';
 
@@ -38,6 +38,7 @@ beforeEach(async () => {
   db = new SqliteDb(':memory:');
   migrateSqlite(db);
   await db.batch([
+    upsertCityStmt({ id: 'halle-saale', name: 'Halle (Saale)', state: 'ST', lat: 51.48, lon: 11.97 }),
     upsertJobStmt(a),
     upsertJobStmt(b),
     upsertJobStmt(c),
@@ -145,6 +146,27 @@ describe('KI-Warteschlange für Claude', () => {
     await importAiResults(db, [{ id: task.id, ergebnis: { is_job_posting: true, title: 'Doctoral Researcher (m/f/d)', title_falsch: true } }], NOW);
     const { jobs } = await syncJobs(db, '', 50);
     expect(jobs.find((j) => j.id === g.id)?.title).toBe('Doctoral Researcher (m/f/d)');
+  });
+
+  it('ergänzt fehlenden Ort, Arbeitgeber und Auslandsland; Vorhandenes bleibt', async () => {
+    const f = job('f', { title: 'Professor of Psychology and Blockchain' });
+    const g = job('g', { title: 'Postdoc Kognitionspsychologie', locationText: null, employer: 'Uni Halle' });
+    await db.batch([upsertJobStmt(f), upsertJobStmt(g), enqueueAiTaskStmt('auswerten', f.id, null, NOW), enqueueAiTaskStmt('auswerten', g.id, null, NOW)]);
+    const id = await ids();
+    await importAiResults(
+      db,
+      [
+        { id: id['Professor of Psychology and Blockchain'], ergebnis: { is_job_posting: true, location: 'Zug', country: 'CH', institution: 'University of Lucerne' } },
+        { id: id['Postdoc Kognitionspsychologie'], ergebnis: { is_job_posting: true, location: 'Halle (Saale)', country: 'DE', institution: 'Martin-Luther-Universität' } },
+      ],
+      NOW,
+    );
+    const { jobs } = await syncJobs(db, '', 50);
+    const jf = jobs.find((j) => j.id === f.id)!;
+    expect([jf.locationText, jf.country, jf.employer]).toEqual(['Zug', 'CH', 'University of Lucerne']);
+    const jg = jobs.find((j) => j.id === g.id)!;
+    // Deutschland wird nicht als Land gespeichert, der vorhandene Arbeitgeber bleibt, die Stadt wird zugeordnet
+    expect([jg.locationText, jg.country ?? null, jg.employer, jg.cityId]).toEqual(['Halle (Saale)', null, 'Uni Halle', 'halle-saale']);
   });
 
   it('lässt fehlerhafte Ergebnisse offen und meldet sie', async () => {

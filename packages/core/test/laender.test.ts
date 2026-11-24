@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ABROAD_GAPS, countryCode, countryOf, interleaveGaps, isAbroad, isEurope, parseAusland } from '../src';
+import { ABROAD_GAPS, countryCode, countryOf, headPlace, interleaveGaps, isAbroad, isEurope, parseAusland } from '../src';
 
 describe('Land einer Stelle', () => {
   it('liest die Länderangabe eines Portals', () => {
@@ -71,5 +71,22 @@ describe('Auslandskarten im Stapel', () => {
     // Reihenfolge innerhalb beider Sorten bleibt erhalten
     expect(deck.filter((x) => x.startsWith('a'))).toEqual(ausland);
     expect(deck.filter((x) => x.startsWith('d'))).toEqual(inland);
+  });
+});
+
+describe('Ort am Textanfang', () => {
+  it('liest „Ort, Land …“ und „Ort, US-Kürzel …“ aus der ersten Zeile', () => {
+    expect(headPlace('Zug, Switzerland University of Lucerne\n\n# Vacancies\n\nThe University …')).toEqual({ place: 'Zug, Switzerland', code: 'CH' });
+    expect(headPlace('Rome, Italy John Cabot University\n\nText')).toEqual({ place: 'Rome, Italy', code: 'IT' });
+    expect(headPlace('Orlando, FL The University of Central Florida **The Opportunity**')).toEqual({ place: 'Orlando, FL', code: 'US' });
+    expect(headPlace('Christchurch, New Zealand Haines Attract')?.code).toBe('NZ');
+    expect(countryOf({ text: 'Zug, Switzerland University of Lucerne\n\nText' })).toBe('CH');
+  });
+
+  it('nimmt nichts aus dem Fließtext und kein „DE“ als Delaware', () => {
+    expect(headPlace('Christophsbad Klinikgruppe, Christophsbad Klinikgruppe\n\nText')).toBeNull();
+    expect(headPlace('Wir suchen eine Psychologin.\n\nKooperation mit Partnern in Zürich, Schweiz.')).toBeNull();
+    expect(headPlace('Berlin, DE Musterfirma')).toBeNull();
+    expect(headPlace(null)).toBeNull();
   });
 });

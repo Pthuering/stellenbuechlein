@@ -53,6 +53,7 @@ import {
   weiteCandidate,
   DEFAULT_GATE_TERMS,
   GATE_RULES_KEY,
+  headPlace,
   gateTitleText,
   titleExclusion,
   type City,
@@ -871,6 +872,9 @@ export class Pipeline {
     let department: string | null = data.department ?? null;
     let summary: string | null = null;
     let summaryAi = false;
+    // Fehlende Angaben: zuerst nach Regeln (Ort am Textanfang, „Zug, Switzerland …“), dann aus dem KI-Ergebnis
+    let locationText: string | null = data.locationText ?? headPlace(data.descriptionMd)?.place ?? null;
+    let hiringOrg: string | null = data.hiringOrg ?? null;
 
     const url = data.url || c.url;
     const jobId = jobIdForUrl(url);
@@ -887,6 +891,8 @@ export class Pipeline {
         fixedTerm = fixedTerm ?? r.fixed_term;
         startText = startText ?? r.start;
         department = department ?? r.department;
+        locationText = locationText ?? r.location;
+        hiringOrg = hiringOrg ?? r.institution;
         if (r.summary_de && r.summary_de.length > 30) {
           summary = r.summary_de;
           summaryAi = true;
@@ -897,12 +903,12 @@ export class Pipeline {
     summary = summary ?? heuristicSummary(data.descriptionMd);
     const dl = await this.checkDeadline(plain, fields, data, postedAt, meta.isNew, jobId);
 
-    const institutionId = source.institutionId ?? this.instMatcher.match(data.hiringOrg, data.hiringOrgUrl ?? data.url);
+    const institutionId = source.institutionId ?? this.instMatcher.match(hiringOrg, data.hiringOrgUrl ?? data.url);
     const inst = institutionId ? this.institutions.get(institutionId) : undefined;
-    const placeCity = this.cityMatcher.match(data.locationText);
+    const placeCity = this.cityMatcher.match(locationText);
     const cityId = placeCity ?? inst?.cityId ?? null;
     const foundVia: FoundVia = source.id === this.exploreSource.id ? 'erkundung' : source.kind === 'portal' ? 'portal' : 'quelle';
-    const newSite = !this.registry.known(url, institutionId, data.hiringOrg ?? c.hints?.org ?? null);
+    const newSite = !this.registry.known(url, institutionId, hiringOrg ?? c.hints?.org ?? null);
     const job: JobWrite = {
       id: jobId,
       institutionId,
@@ -910,7 +916,7 @@ export class Pipeline {
       canonicalUrl: canonicalUrl(url),
       title,
       department,
-      locationText: data.locationText ?? null,
+      locationText,
       cityId,
       lat: data.lat ?? null,
       lon: data.lon ?? null,
@@ -949,7 +955,7 @@ export class Pipeline {
       horizon: meta.horizon,
       newSite,
       foundVia,
-      employer: data.hiringOrg ?? c.hints?.org ?? null,
+      employer: hiringOrg ?? c.hints?.org ?? null,
       country: meta.country ?? null,
       extra: { via: c.via, sourceId: source.id, fetchedAt: this.now, incompleteReason: data.incompleteReason ?? null, query: c.hints?.query ?? null },
     };

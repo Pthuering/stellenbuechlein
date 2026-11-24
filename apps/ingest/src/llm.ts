@@ -30,6 +30,8 @@ export const EXTRACT_SCHEMA = z.object({
   institution: optText,
   department: optText,
   location: optText,
+  /** Land der Stelle (Kürzel wie DE, CH, US oder Name); ergänzt beim Einspielen nur, was nach den Regeln fehlt */
+  country: optText,
   deadline: optText,
   pay_grade: optText,
   workload_pct: optNum,
@@ -39,12 +41,13 @@ export const EXTRACT_SCHEMA = z.object({
 });
 
 export const EXTRACT_PROMPT =
-  'Du liest Stellenausschreibungen deutscher Hochschulen und Forschungsinstitute. Antworte ausschließlich mit JSON. ' +
+  'Du liest Stellenausschreibungen von Hochschulen, Forschungsinstituten, Kliniken und Unternehmen, meist aus Deutschland, teils aus dem Ausland. Antworte ausschließlich mit JSON. ' +
   'Erfinde nichts: Was nicht im Text steht, ist null. Datumsangaben als YYYY-MM-DD. ' +
   'summary_de: 2 kurze Sätze auf Deutsch, was die Stelle inhaltlich ist (Thema, Aufgaben), ohne Floskeln.';
 
 export const EXTRACT_FIELDS =
-  'is_job_posting, title (Stellenbezeichnung wie in der Anzeige), institution, department, location (Ort), ' +
+  'is_job_posting, title (Stellenbezeichnung wie in der Anzeige), institution (ausschreibende Einrichtung oder Arbeitgeber, Name wie im Text), department, ' +
+  'location (Ort der Stelle, die Stadt wie im Text), country (Land der Stelle als zweistelliges Kürzel, z. B. DE, CH, AT, NL, US; null, wenn es der Text nicht hergibt), ' +
   'deadline (Bewerbungsfrist), pay_grade (z. B. "E 13 TV-L"), ' +
   'workload_pct (Zahl, Prozent einer Vollzeitstelle; eine Prozentangabe neben der Entgeltgruppe wie "E 13, 65 %" ist der Stellenumfang; ' +
   'steht nur die Wochenstundenzahl da, umrechnen: Vollzeit sind im TV-L 39,8 Stunden, im TVöD 39, sonst 40; ist die Stelle ausdrücklich in Vollzeit, ist es 100), ' +
