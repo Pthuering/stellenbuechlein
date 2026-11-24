@@ -145,7 +145,7 @@ const zentralList = page(
 <ul>
   <li><a href="/zentral/usable-security.html">Wissenschaftliche:r Mitarbeiter:in (m/w/d) Usable Security</a></li>
   <li><a href="/zentral/mobilitaet.html">Referent:in (m/w/d) Mobilitätsplanung</a></li>
-  <li><a href="/zentral/steuern.html">Sachbearbeitung (m/w/d) Steuern und Abgaben</a></li>
+  <li><a href="/zentral/steuern.html">Referent:in (m/w/d) Steuern und Abgaben</a></li>
   <li><a href="/zentral/hausmeister.html">Hausmeister:in (m/w/d) Campus Süd</a></li>
   <li><a href="/zentral/studienberatung.html">Koordinator:in (m/w/d) Studienberatung</a></li>
   <li><a href="/zentral/frist-ohne-jahr.html">Wissenschaftliche Mitarbeiterin (m/w/d) Klinische Psychologie</a></li>
@@ -173,7 +173,7 @@ const mobilitaet = page(
 
 const steuern = page(
   'Steuern',
-  `<h1>Sachbearbeitung (m/w/d) Steuern und Abgaben</h1>
+  `<h1>Referent:in (m/w/d) Steuern und Abgaben</h1>
 <p>In der Finanzabteilung bearbeiten Sie Umsatzsteuer-Voranmeldungen und Abgaben.</p>
 <h2>Ihre Aufgaben</h2><ul><li>Umsatzsteuer und Ertragsteuern der Betriebe gewerblicher Art</li><li>Statistik der Abgaben für das Ministerium</li><li>Auskünfte zur Befragung durch das Finanzamt; auch hier zählt der Faktor Mensch</li></ul>
 <h2>Ihr Profil</h2><ul><li>Ausbildung als Steuerfachangestellte:r</li><li>Erfahrung im Steuerrecht</li></ul>
@@ -271,7 +271,7 @@ const auslandList = page(
   'Stellen weltweit',
   `<h1>Stellen weltweit</h1><ul>
   <li><a href="/ausland/zuerich.html">Postdoc (m/w/d) Kognitive Psychologie – Universität Zürich</a></li>
-  <li><a href="/ausland/wien.html">Sachbearbeitung Buchhaltung (m/w/d), Wien</a></li>
+  <li><a href="/ausland/wien.html">Referent:in Finanzen (m/w/d), Wien</a></li>
   <li><a href="/ausland/boston.html">Research Scientist Cognitive Psychology (Boston, USA)</a></li></ul>`,
 );
 const auslandZuerich = page(
@@ -283,7 +283,7 @@ const auslandZuerich = page(
 );
 const auslandWien = page(
   'Buchhaltung Wien',
-  `<article><h1>Sachbearbeitung Buchhaltung (m/w/d), Wien</h1>
+  `<article><h1>Referent:in Finanzen (m/w/d), Wien</h1>
 <p>Das Institut für Psychologie sucht Unterstützung in der Buchhaltung.</p>
 <h2>Ihre Aufgaben</h2><ul><li>Kontierung und Buchung von Rechnungen</li><li>Reisekostenabrechnung</li></ul>
 <h2>Ihr Profil</h2><ul><li>Kaufmännische Ausbildung</li></ul><p>Bewerbungsfrist: 15.12.2026.</p></article>`,

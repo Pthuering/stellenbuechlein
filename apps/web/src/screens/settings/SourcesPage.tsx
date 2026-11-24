@@ -34,6 +34,7 @@ const STAT_KEYS = [
   'aktualisiert',
   'abgelaufen',
   'grobfilter',
+  'titelAusschluss',
   'kiNein',
   'fristKiPruefung',
   'fristUnsicher',
@@ -84,6 +85,7 @@ const t = texts({
       dubletten: 'Dubletten zusammengeführt',
       keineAnzeigeRegel: 'keine Stellenanzeige (nach Regeln)',
       musterAusgelassen: 'Adressen ohne Anzeigen übersprungen',
+      titelAusschluss: 'am Titel aussortiert (Pflege, Arzt …)',
       inPruefung: 'warten auf die KI-Prüfung',
       browserNeu: 'per Browser gefunden',
       browserVervollstaendigt: 'per Browser vervollständigt',
@@ -146,7 +148,7 @@ const t = texts({
     gateAria: 'Grobfilter für diese Quelle',
     allPostings: 'alle Anzeigen',
     psychOnly: 'nur mit Psychologie-Bezug',
-    gateHintSource: 'Fachbereichs-Seiten nehmen alles. Zentrale Börsen laufen durch den Grobfilter, Aussortiertes steht unter „Aussortiert“.',
+    gateHintSource: 'Fachbereichs-Seiten nehmen alles außer Stellen, die schon am Titel herausfallen (Pflege, Arzt, Verwaltung …). Zentrale Börsen laufen außerdem durch den Grobfilter, Aussortiertes steht unter „Aussortiert“.',
     advanced: 'Für Fortgeschrittene',
     render: 'Seite im Browser öffnen',
     renderHint: 'für Listen, die erst per JavaScript erscheinen',
@@ -208,7 +210,7 @@ const t = texts({
     takeAs: 'Übernehmen als',
     sourceKindAria: 'Art der Quelle',
     psychAndHorizon: 'Psychologie-Bezug und Horizont',
-    gateHintCheck: 'Fachbereichs-Seiten nehmen alles. Breite Seiten laufen durch Grobfilter, Brücken und Weite.',
+    gateHintCheck: 'Fachbereichs-Seiten nehmen alles außer Stellen, die schon am Titel herausfallen. Breite Seiten laufen durch Grobfilter, Brücken und Weite.',
     applySettings: 'Einstellungen übernehmen',
     addAsSource: 'Als Quelle übernehmen',
     discard: 'Verwerfen',
@@ -225,7 +227,8 @@ const t = texts({
     gateTerms: (n: number) => `Grobfilter-Begriffe (${n})`,
     gateHintA: 'Gilt nur für breite Quellen (zentrale Stellenbörsen, Portale). Eine Anzeige kommt durch, wenn ',
     gateHintB: 'einer',
-    gateHintC: ' dieser Begriffe vorkommt. Im Zweifel lieber mehr Begriffe: Der Score sortiert danach ohnehin. Schreibweise wie im Suchprofil (* = überall im Wort).',
+    gateHintC:
+      ' dieser Fachbegriffe im Text vorkommt. Allerweltswörter wie „Persönlichkeit“, „psychisch“ oder „Psychiatrie“ zählen nur im Titel, weil sie in fast jeder Klinikanzeige als Floskel stehen. Pflege-, Arzt-, Verwaltungs- und Ausbildungsstellen fallen bei allen Quellen schon am Titel heraus, außer der Titel nennt eine Psychologen- oder Forschungsrolle. Schreibweise wie im Suchprofil (* = überall im Wort).',
     gateSaved: 'Grobfilter gespeichert. Aussortiertes wird beim nächsten Lauf neu geprüft.',
     defaultList: 'Standardliste',
 
@@ -277,6 +280,7 @@ const t = texts({
     aiNo: ', KI: passt nicht',
     notPosting: ', keine Stellenanzeige',
     notPostingRule: ', keine Stellenanzeige (Regeln)',
+    titleRule: ', am Titel aussortiert',
     demoNoRuns: 'In der Demo gibt es keine Läufe.',
     noRuns: 'Noch keine Läufe.',
     logUnavailable: 'Protokoll nicht verfügbar.',
@@ -309,6 +313,7 @@ const t = texts({
       dubletten: 'duplicates merged',
       keineAnzeigeRegel: 'not a job posting (rules)',
       musterAusgelassen: 'URLs without postings skipped',
+      titelAusschluss: 'filtered out by title (nursing, physician …)',
       inPruefung: 'waiting for the AI check',
       browserNeu: 'found via browser',
       browserVervollstaendigt: 'completed via browser',
@@ -366,7 +371,7 @@ const t = texts({
     gateAria: 'Pre-filter for this source',
     allPostings: 'all postings',
     psychOnly: 'only psychology-related',
-    gateHintSource: 'Department pages take everything. Central job boards go through the pre-filter; anything it removes shows up under “Filtered out.”',
+    gateHintSource: 'Department pages take everything except jobs already ruled out by their title (nursing, physician, administration …). Central job boards also go through the pre-filter; anything it removes shows up under “Filtered out.”',
     advanced: 'Advanced',
     render: 'Open the page in a browser',
     renderHint: 'for lists that only appear via JavaScript',
@@ -424,7 +429,7 @@ const t = texts({
     takeAs: 'Add as',
     sourceKindAria: 'Source type',
     psychAndHorizon: 'psychology-related and Horizon',
-    gateHintCheck: 'Department pages take everything. Broad sites go through the pre-filter, bridges and Beyond.',
+    gateHintCheck: 'Department pages take everything except jobs already ruled out by their title. Broad sites go through the pre-filter, bridges and Beyond.',
     applySettings: 'Apply settings',
     addAsSource: 'Add as source',
     discard: 'Discard',
@@ -439,7 +444,8 @@ const t = texts({
     gateTerms: (n) => `Pre-filter terms (${n})`,
     gateHintA: 'Only applies to broad sources (central job boards, portals). A posting gets through if it contains ',
     gateHintB: 'at least one',
-    gateHintC: ' of these terms. When in doubt, add more terms: the match score does the sorting afterward anyway. Same notation as in the search profile (* = anywhere in a word).',
+    gateHintC:
+      ' of these subject terms in its text. Everyday words like “personality,” “mental” or “psychiatry” only count in the title, because almost every clinic posting uses them as boilerplate. Nursing, physician, administration and apprenticeship jobs are ruled out by their title for all sources, unless the title names a psychologist or research role. Same notation as in the search profile (* = anywhere in a word).',
     gateSaved: 'Pre-filter saved. Filtered-out postings will be checked again on the next run.',
     defaultList: 'Default list',
 
@@ -491,6 +497,7 @@ const t = texts({
     aiNo: ', AI: not a match',
     notPosting: ', not a job posting',
     notPostingRule: ', not a job posting (rules)',
+    titleRule: ', filtered out by title',
     demoNoRuns: 'There are no runs in the demo.',
     noRuns: 'No runs yet.',
     logUnavailable: 'Log not available.',
@@ -523,6 +530,7 @@ const t = texts({
       dubletten: 'spojeni duplikati',
       keineAnzeigeRegel: 'nije oglas za posao (pravila)',
       musterAusgelassen: 'preskočene adrese bez oglasa',
+      titelAusschluss: 'odbačeni po naslovu (nega, lekar …)',
       inPruefung: 'čeka AI proveru',
       browserNeu: 'pronađeni pomoću pregledača',
       browserVervollstaendigt: 'dopunjeni pomoću pregledača',
@@ -580,7 +588,7 @@ const t = texts({
     gateAria: 'Grubi filter za ovaj izvor',
     allPostings: 'sve oglase',
     psychOnly: 'samo vezane za psihologiju',
-    gateHintSource: 'Stranice odseka preuzimaju sve. Centralne berze poslova prolaze kroz grubi filter, a ono što on odbaci nalazi se pod „Odbačeno“.',
+    gateHintSource: 'Stranice odseka preuzimaju sve osim poslova koji već po naslovu ispadaju (nega, lekar, administracija …). Centralne berze poslova prolaze i kroz grubi filter, a ono što on odbaci nalazi se pod „Odbačeno“.',
     advanced: 'Napredno',
     render: 'Otvori stranicu u pregledaču',
     renderHint: 'za liste koje se pojavljuju tek preko JavaScripta',
@@ -639,7 +647,7 @@ const t = texts({
     takeAs: 'Dodaj kao',
     sourceKindAria: 'Vrsta izvora',
     psychAndHorizon: 'vezane za psihologiju i Horizont',
-    gateHintCheck: 'Stranice odseka preuzimaju sve. Široki sajtovi prolaze kroz grubi filter, mostove i Daljinu.',
+    gateHintCheck: 'Stranice odseka preuzimaju sve osim poslova koji već po naslovu ispadaju. Široki sajtovi prolaze kroz grubi filter, mostove i Daljinu.',
     applySettings: 'Primeni podešavanja',
     addAsSource: 'Dodaj kao izvor',
     discard: 'Odbaci',
@@ -654,7 +662,8 @@ const t = texts({
     gateTerms: (n) => `Pojmovi grubog filtera (${n})`,
     gateHintA: 'Važi samo za široke izvore (centralne berze poslova, portale). Oglas prolazi ako sadrži ',
     gateHintB: 'bar jedan',
-    gateHintC: ' od ovih pojmova. U nedoumici je bolje više pojmova: redosled ionako posle određuje poklapanje. Zapis je isti kao u profilu pretrage (* = bilo gde u reči).',
+    gateHintC:
+      ' od ovih stručnih pojmova u tekstu. Svakodnevne reči kao „ličnost“, „psihički“ ili „psihijatrija“ računaju se samo u naslovu, jer ih skoro svaki oglas klinike koristi kao frazu. Poslovi u nezi, za lekare, u administraciji i za obuku ispadaju kod svih izvora već po naslovu, osim ako naslov navodi ulogu psihologa ili istraživača. Zapis je isti kao u profilu pretrage (* = bilo gde u reči).',
     gateSaved: 'Grubi filter je sačuvan. Odbačeni oglasi biće ponovo provereni u sledećem prolazu.',
     defaultList: 'Podrazumevana lista',
 
@@ -706,6 +715,7 @@ const t = texts({
     aiNo: ', AI: ne odgovara',
     notPosting: ', nije oglas za posao',
     notPostingRule: ', nije oglas za posao (pravila)',
+    titleRule: ', odbačeno po naslovu',
     demoNoRuns: 'U demo verziji nema prolaza.',
     noRuns: 'Još nema prolaza.',
     logUnavailable: 'Zapisnik nije dostupan.',
@@ -1626,7 +1636,15 @@ export function SourcesPage() {
                   </a>
                   <small className="hint">
                     {k.institutionId ? (s.institutions.get(k.institutionId)?.shortName ?? s.institutions.get(k.institutionId)?.name) : k.sourceId}, {relativeTime(k.seenAt)}
-                    {k.reason === 'ki-nein' ? t.aiNo : k.reason === 'keine-anzeige' ? t.notPosting : k.reason === 'regel-keine-anzeige' ? t.notPostingRule : ''}
+                    {k.reason === 'ki-nein'
+                      ? t.aiNo
+                      : k.reason === 'keine-anzeige'
+                        ? t.notPosting
+                        : k.reason === 'regel-keine-anzeige'
+                          ? t.notPostingRule
+                          : k.reason === 'titel'
+                            ? `${t.titleRule}${k.note ? ` („${k.note}“)` : ''}`
+                            : ''}
                   </small>
                   {k.reason === 'ki-nein' && k.note && <small className="skip__note">{k.note}</small>}
                 </li>

@@ -15,8 +15,9 @@ Quellen sind Einrichtungen mit Psychologie-Forschung oder Psychologie-Studiengan
 
 Zwei Arten von Quellen:
 
-- **Fachbereichs-Seiten** (Institut für Psychologie, Lehrstühle): Jede Anzeige wird übernommen.
-- **Breite Quellen** (zentrale Stellenbörsen, Portale): Eine Anzeige muss mindestens einen Begriff aus dem **Grobfilter** enthalten, etwa `*psych` (passt auch auf Neuropsychologie), Kognition, Bildungsforschung, Neurowissenschaft, Verhalten, Emotion, Suchtforschung, Psychotherapie. Die Liste ist bewusst weit und in der App änderbar. Alles, was dabei aussortiert wird, steht unter *Quellen → Aussortiert*. Wird ein Begriff ergänzt, prüft der nächste Lauf die aussortierten Anzeigen erneut.
+- **Titel-Ausschluss** (alle Quellen, seit 24.11.2026): Pflege, Arzt, Therapieberufe, Erziehung und Soziale Arbeit, Verwaltung und Büro, Technik und Handwerk, Ausbildung und Freiwilligendienst fallen schon am Titel heraus, die Anzeige wird gar nicht erst abgerufen. Ausgenommen sind Titel mit einer Psychologen- oder Forschungsrolle („Psycholog*in“, „Psychotherapeut*in“, „wiss. Mitarbeiter*in“, „Postdoc“, „Professur“): Psychologenstellen in Kliniken bleiben als äußerer Rand der Suche drin. Listen in `packages/core/src/gate.ts`.
+- **Fachbereichs-Seiten** (Institut für Psychologie, Lehrstühle): Sonst wird jede Anzeige übernommen.
+- **Breite Quellen** (zentrale Stellenbörsen, Portale): Eine Anzeige muss mindestens einen **Fachbegriff** aus dem Grobfilter im Text enthalten, etwa `*psycholog`, kognitiv, Neurowissenschaft, Human Factors, Bildungsforschung, Suchtforschung (in der App änderbar). Allerweltswörter wie „Persönlichkeit“, „Wohlbefinden“, „psychisch“ oder „Psychiatrie“ zählen nur im Titel, weil sie in fast jeder Klinikanzeige als Floskel stehen. Bis November 2026 reichte jedes dieser Wörter irgendwo im Text; damals kamen 70 % fachfremde Anzeigen in den Bestand (Pflege, Ärzte, Therapieberufe), die Hälfte unter 20 % Passung. Alles, was aussortiert wird, steht unter *Quellen → Aussortiert*. Wird ein Begriff ergänzt, prüft der nächste Lauf die aussortierten Anzeigen erneut.
 
 ## Horizont: über den Kern hinaus
 

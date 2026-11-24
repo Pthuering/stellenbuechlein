@@ -60,9 +60,9 @@ describe('Ausland', () => {
     // (den Zusatz „– Universität Zürich“ kürzt die Titelbereinigung weg; das Land ist da schon erkannt)
     expect(jobs.map((j) => [j.title, j.country, j.lane])).toEqual([['Postdoc (m/w/d) Kognitive Psychologie', 'CH', 'kern']]);
     expect(stats.neuAusland).toBe(1);
-    // Buchhaltung in Wien: Psychologie kommt vor, die Stelle passt aber nicht; wird vermerkt und nicht wieder gelesen
+    // Finanzstelle in Wien: Psychologie kommt vor, die Stelle passt aber nicht; wird vermerkt und nicht wieder gelesen
     expect(stats.auslandUnpassend).toBe(1);
-    expect((await listGateSkips(db)).map((s) => [s.reason, s.title])).toEqual([['ausland', 'Sachbearbeitung Buchhaltung (m/w/d), Wien']]);
+    expect((await listGateSkips(db)).map((s) => [s.reason, s.title])).toEqual([['ausland', 'Referent:in Finanzen (m/w/d), Wien']]);
     // Boston passt, aber der Deckel für Länder außerhalb Europas ist erreicht: kommt in einem späteren Lauf wieder
     expect(stats.auslandVertagt).toBe(1);
   });

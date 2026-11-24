@@ -58,7 +58,7 @@ afterAll(async () => {
 });
 
 // Weite-Kandidaten (Fähigkeit und Bezug zu Menschen im Text), über die ohne KI im Lauf Claude urteilt
-const KI_WEITE_TITEL = ['Koordinator:in (m/w/d) Studienberatung', 'Sachbearbeitung (m/w/d) Steuern und Abgaben'];
+const KI_WEITE_TITEL = ['Koordinator:in (m/w/d) Studienberatung', 'Referent:in (m/w/d) Steuern und Abgaben'];
 
 describe('Horizont und Fristen (ohne KI)', () => {
   it('nimmt Brücken-Anzeigen auf, sortiert Fremdes aus und sichert Fristen ab', async () => {
@@ -79,7 +79,7 @@ describe('Horizont und Fristen (ohne KI)', () => {
     // was nicht einmal Weite-Kandidat ist, bleibt draußen (steht unter „Aussortiert“)
     expect(byTitle(/Steuern|Hausmeister|Studienberatung/)).toBeUndefined();
     const skips = await listGateSkips(db);
-    expect(skips.map((s) => s.reason)).toEqual(['grobfilter']);
+    expect(skips.map((s) => [s.reason, s.note])).toEqual([['titel', 'hausmeister']]);
     const weite = await listOpenAiTasks(db, 10, ['weite']);
     expect(weite.map((t) => (t.payload as { job: { title: string } }).job.title).sort()).toEqual(KI_WEITE_TITEL);
     const offen = await countOpenAiTasks(db);

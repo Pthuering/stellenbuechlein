@@ -52,6 +52,9 @@ import {
   verifyDeadlineQuote,
   weiteCandidate,
   DEFAULT_GATE_TERMS,
+  GATE_RULES_KEY,
+  gateTitleText,
+  titleExclusion,
   type City,
   type DeadlineAssessment,
   type FoundVia,
@@ -544,7 +547,7 @@ export class Pipeline {
       budget.left--;
       const data = await this.readCandidate(source, c, stmts);
       if (!data) return null;
-      const terms = checkGate(searchTextOf({ title: data.title, descriptionMd: data.descriptionMd }), this.gateTerms).matched;
+      const terms = checkGate(searchTextOf({ title: data.title, descriptionMd: data.descriptionMd }), this.gateTerms, gateTitleText(data.title, data.department)).matched;
       const job = await this.buildJob(source, c, data, terms, { lane: 'kern', horizon: null, isNew: false });
       if (!job) return null;
       if (job.contentHash !== existing.contentHash || (existing.completeness === 'teilweise' && job.completeness === 'ok')) {
@@ -564,6 +567,8 @@ export class Pipeline {
       this.bump('musterAusgelassen');
       return null;
     }
+    // Titel aus der Liste: Pflege, Arzt, Ausbildung … gar nicht erst abrufen (spart Abrufe und Budget)
+    if (this.skipByTitle(source, canon, c.title, stmts)) return null;
     if (budget.left <= 0) {
       this.bump('verschoben');
       return null;
@@ -571,6 +576,7 @@ export class Pipeline {
     budget.left--;
     const data = await this.readCandidate(source, c, stmts);
     if (!data) return null;
+    if (data.title && data.title !== c.title && this.skipByTitle(source, canon, data.title, stmts)) return null;
     // Ausland (nur bei Portalen): ohne Freigabe verwerfen; mit Freigabe entscheidet unten abroadVerdict
     const place = data.locationText ?? c.hints?.locality ?? null;
     const land = source.kind === 'portal' ? countryOf({ country: data.country ?? c.hints?.country, locationText: place, title: data.title || c.title, text: data.descriptionMd, germanCity: !!this.cityMatcher.match(place) }) : null;
@@ -589,7 +595,7 @@ export class Pipeline {
       return null;
     }
     const norm = searchTextOf({ title: data.title, descriptionMd: data.descriptionMd });
-    const gate = checkGate(norm, this.gateTerms);
+    const gate = checkGate(norm, this.gateTerms, gateTitleText(data.title || c.title, data.department));
     const jobId = jobIdForUrl(data.url || c.url);
     let meta: JobMeta = { lane: 'kern', horizon: null, isNew: true };
     if (abroad) {
@@ -675,6 +681,19 @@ export class Pipeline {
       this.bump('browserVorgemerkt');
     }
     return job;
+  }
+
+  /**
+   * Titel-Ausschluss (Pflege, Arzt, Ausbildung, Verwaltung …, außer Psychologen- und Forschungsrollen): vermerken,
+   * damit die Adresse bei gleichen Regeln nicht wieder abgerufen wird. Gibt true zurück, wenn die Anzeige herausfällt.
+   */
+  private skipByTitle(source: Source, canon: string, title: string | null | undefined, stmts: Stmt[]): boolean {
+    const word = titleExclusion(title);
+    if (!word) return false;
+    stmts.push(gateSkipStmt({ url: canon, sourceId: source.id, institutionId: source.institutionId, title: truncate(title || canon, 200), textHash: this.gateHash, reason: 'titel', note: word }, this.now));
+    this.gateSkips.set(canon, this.gateHash);
+    this.bump('titelAusschluss');
+    return true;
   }
 
   // ---------------------------------------------------------------- KI-Warteschlange (Claude)
@@ -1106,7 +1125,8 @@ export class Pipeline {
       // Titel mit Psychologie-Bezug oder Brücke zuerst
       const rank = (c: Candidate) => {
         const n = normalizeText(c.title ?? '');
-        return (checkGate(n, this.gateTerms).pass ? 2 : 0) + (matchFeld(n, this.horizon).length ? 1 : 0);
+        if (titleExclusion(c.title)) return -1;
+        return (checkGate(n, this.gateTerms, n).pass ? 2 : 0) + (matchFeld(n, this.horizon).length ? 1 : 0);
       };
       fresh.sort((a, b) => rank(b) - rank(a));
       // Möglichst verschiedene Websites zuerst: reihum je eine Anzeige pro Website/Arbeitgeber
@@ -1195,10 +1215,12 @@ export class Pipeline {
         const canon = canonicalUrl(item.url);
         const existing = this.index.get(canon);
         const norm = searchTextOf({ title: res.data.title, descriptionMd: res.data.descriptionMd });
-        const gate = checkGate(norm, this.gateTerms);
+        const gate = checkGate(norm, this.gateTerms, gateTitleText(res.data.title, res.data.department));
         let meta: JobMeta | null = { lane: 'kern', horizon: null, isNew: !existing };
         const posting = this.checkPosting(res.data, { url: item.url, via: 'browser' });
-        if (!existing && posting.verdict === 'keine') {
+        if (!existing && this.skipByTitle(source, canon, res.data.title, stmts)) {
+          meta = null;
+        } else if (!existing && posting.verdict === 'keine') {
           stmts.push(gateSkipStmt({ url: canon, sourceId: source.id, institutionId: source.institutionId, title: truncate(res.data.title, 200), textHash: this.gateHash, reason: 'regel-keine-anzeige', note: posting.noise }, this.now));
           this.bump('keineAnzeigeRegel');
           meta = null;
@@ -1252,7 +1274,7 @@ export class Pipeline {
 
 /** Kennung für Grobfilter, Brücken und Weite: Ändert sie sich, wird Aussortiertes beim nächsten Fund neu geprüft. */
 export function gateHashFor(gateTerms: string[], profile: Suchprofil, ki: boolean): string {
-  return hash64(`${gateTerms.join('|')}#${horizonGateHash(profile)}#${ki ? 'ki' : 'regeln'}`);
+  return hash64(`${gateTerms.join('|')}#${GATE_RULES_KEY}#${horizonGateHash(profile)}#${ki ? 'ki' : 'regeln'}`);
 }
 
 export async function runPipeline(db: Db, cfg: IngestConfig, opts: PipelineOptions = {}, log?: RunLog): Promise<RunStats> {

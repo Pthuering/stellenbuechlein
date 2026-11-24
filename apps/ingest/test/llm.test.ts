@@ -131,7 +131,7 @@ describe('KI im Lauf: Horizont, Weite, Fristen', () => {
     expect(t(/Hausmeister/)).toBeUndefined();
     const skips = await listGateSkips(db);
     expect(skips.find((k) => /Steuern/.test(k.title ?? ''))).toMatchObject({ reason: 'ki-nein', note: expect.stringMatching(/steuerrechtliche/) });
-    expect(skips.find((k) => /Hausmeister/.test(k.title ?? ''))?.reason).toBe('grobfilter');
+    expect(skips.find((k) => /Hausmeister/.test(k.title ?? ''))?.reason).toBe('titel');
     expect(stats.neuWeite).toBe(1);
 
     // Ungewöhnlich weite Frist: von der KI mit wörtlichem Zitat belegt
