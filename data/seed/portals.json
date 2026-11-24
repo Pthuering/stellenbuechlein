@@ -7,7 +7,7 @@
     "gate": "none",
     "enabled": true,
     "verified": true,
-    "config": { "maxPages": 8, "note": "Stellenmarkt, über den auch DGPs-Mitglieder ihre Forschungsstellen schalten. ?page=N (ab 0), 20 je Seite, robots.txt Crawl-delay 10. Enthält auch Österreich/Schweiz – wird nachgefiltert." }
+    "config": { "note": "Stellenmarkt, über den auch DGPs-Mitglieder ihre Forschungsstellen schalten. ?page=N (ab 0), 20 je Seite, robots.txt Crawl-delay 10. Enthält auch Österreich/Schweiz – wird nachgefiltert." }
   },
   {
     "id": "ba-jobsuche",
@@ -94,7 +94,7 @@
     "gate": "psych",
     "enabled": true,
     "verified": true,
-    "config": {"linkPattern": "/jobs/\\d+$", "maxPages": 3, "note": "Filter Land Deutschland (794) und Psychological sciences (374), Liste ohne JavaScript. Geprüft am 25.10.2026."}
+    "config": {"linkPattern": "/jobs/\\d+$", "note": "Filter Land Deutschland (794) und Psychological sciences (374), Liste ohne JavaScript. Geprüft am 25.10.2026."}
   },
   {
     "id": "academics",
@@ -104,7 +104,7 @@
     "gate": "psych",
     "enabled": true,
     "verified": true,
-    "config": {"linkPattern": "academics\\.de/jobs/[a-z0-9-]+-\\d+$", "maxPages": 3, "note": "Branche Psychologie & Psychotherapie. academics.de untersagt in der robots.txt automatisierten Zugriff ohne Erlaubnis und behält sich Text- und Data-Mining vor (§ 44b UrhG); auf Wunsch rein privat genutzt, schonend (eine Liste am Tag). Eine Erlaubnis ließe sich über info@academics.de anfragen."}
+    "config": {"linkPattern": "academics\\.de/jobs/[a-z0-9-]+-\\d+$", "note": "Branche Psychologie & Psychotherapie. academics.de untersagt in der robots.txt automatisierten Zugriff ohne Erlaubnis und behält sich Text- und Data-Mining vor (§ 44b UrhG); auf Wunsch rein privat genutzt, schonend (eine Liste am Tag). Eine Erlaubnis ließe sich über info@academics.de anfragen."}
   },
   {
     "id": "helmholtz",
@@ -114,7 +114,7 @@
     "gate": "psych",
     "enabled": true,
     "verified": true,
-    "config": {"pageParam": "search[page]", "maxPages": 10, "note": "JSON-Schnittstelle der Stellenbörse (die Seite selbst lädt per JavaScript), gefiltert auf Promotion, PhD, Wissenschaft/Postdoc und Professur, 10 je Seite, Crawl-delay 30 s. Die Anzeigen liegen bei den Zentren."}
+    "config": {"pageParam": "search[page]", "note": "JSON-Schnittstelle der Stellenbörse (die Seite selbst lädt per JavaScript), gefiltert auf Promotion, PhD, Wissenschaft/Postdoc und Professur, 10 je Seite, Crawl-delay 30 s. Die Anzeigen liegen bei den Zentren."}
   },
   {
     "id": "interamt",
@@ -124,7 +124,7 @@
     "gate": "psych",
     "enabled": true,
     "verified": true,
-    "config": {"ats": "interamt", "queries": ["Psycholog"], "maxPages": 40, "maxDetails": 400, "note": "Eigener Adapter (apps/ingest/src/interamt.ts): Suche nur per Formular mit Sitzungs-Cookie. Die robots.txt sperrt nur einzelne Bots (z. B. Jooble), nicht allgemeine Programme."}
+    "config": {"ats": "interamt", "queries": ["Psycholog"], "note": "Eigener Adapter (apps/ingest/src/interamt.ts): Suche nur per Formular mit Sitzungs-Cookie. Die robots.txt sperrt nur einzelne Bots (z. B. Jooble), nicht allgemeine Programme."}
   },
   {
     "id": "euraxess-welt",
@@ -134,7 +134,7 @@
     "gate": "psych",
     "enabled": true,
     "verified": true,
-    "config": {"linkPattern": "/jobs/\\d+$", "maxPages": 6, "ausland": true, "note": "Wie „euraxess“, aber ohne Länderfilter: Stellen aus ganz Europa. Was davon aufgenommen wird, regelt die Einstellung „ausland“ (muss zum Kern passen, Deckel je Lauf). Geprüft am 23.11.2026."}
+    "config": {"linkPattern": "/jobs/\\d+$", "ausland": true, "note": "Wie „euraxess“, aber ohne Länderfilter: Stellen aus ganz Europa. Was davon aufgenommen wird, regelt die Einstellung „ausland“ (muss zum Kern passen, Deckel je Lauf). Geprüft am 23.11.2026."}
   },
   {
     "id": "aps-welt",
@@ -144,6 +144,6 @@
     "gate": "none",
     "enabled": true,
     "verified": true,
-    "config": {"maxPages": 3, "ausland": true, "note": "Stellenmarkt der Association for Psychological Science, überwiegend Nordamerika. Was davon aufgenommen wird, regelt die Einstellung „ausland“ (eigener Deckel für Länder außerhalb Europas). Geprüft am 23.11.2026."}
+    "config": {"ausland": true, "note": "Stellenmarkt der Association for Psychological Science, überwiegend Nordamerika. Was davon aufgenommen wird, regelt die Einstellung „ausland“ (eigener Deckel für Länder außerhalb Europas). Geprüft am 23.11.2026."}
   }
 ]

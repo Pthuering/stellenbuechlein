@@ -33,7 +33,7 @@ export interface DiscoveryResult {
 
 /** Voreinstellungen je Adapter/Portal. */
 export const ADAPTER_DEFAULTS: Record<string, Partial<SourceConfig>> = {
-  psychjob: { linkPattern: '/(?:de|en)/job/', maxPages: 8 },
+  psychjob: { linkPattern: '/(?:de|en)/job/' },
   bite: { linkPattern: '/jobposting/[0-9a-f]{16,}' },
   umantis: { linkPattern: '/Vacancies/\\d+' },
   successfactors: { linkPattern: '/job/[^/]+/\\d+' },
@@ -303,7 +303,8 @@ export async function discover(source: Source, ctx: DiscoverContext): Promise<Di
   if (source.adapter === 'interamt' || cfg.ats === 'interamt') {
     try {
       const session = new InteramtSession(ctx.cfg);
-      const list = await viaInteramt(session, { queries: cfg.queries?.length ? cfg.queries : ['Psycholog'], maxPages: cfg.maxPages ?? 40, maxDetails: Number(cfg.maxDetails ?? 400) }, ctx.log);
+      // „mehr laden“ endet ohnehin, wenn alle Treffer da sind; 100 (je 10 Treffer) nur als Schutz gegen eine Endlosschleife
+      const list = await viaInteramt(session, { queries: cfg.queries?.length ? cfg.queries : ['Psycholog'], maxPages: cfg.maxPages ?? 100, maxDetails: cfg.maxDetails != null ? Number(cfg.maxDetails) : Number.POSITIVE_INFINITY }, ctx.log);
       merge(found, list);
       return { candidates: [...found.values()], methods: ['portal:interamt'], status: list.length ? 'ok' : 'leer', note: `${session.requests} Abrufe` };
     } catch (e) {

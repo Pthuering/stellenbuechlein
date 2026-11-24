@@ -72,6 +72,13 @@ function num(v: string | undefined, d: number): number {
   return Number.isFinite(n) && v !== '' && v != null ? n : d;
 }
 
+/**
+ * „Ohne Grenze“ für Mengen (Anzeigen, Seiten, KI-Aufrufe). Seit 24.11.2026 hat auch der tägliche Lauf keine
+ * Mengengrenzen mehr: Bekannte und schon aussortierte Adressen erkennt der Lauf ohnehin und liest sie nicht neu,
+ * also kommt nur wirklich Neues dazu. Eine Zahl statt Infinity, weil manche Werte als SQL-LIMIT weitergehen.
+ */
+export const UNBEGRENZT = 1_000_000;
+
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfig {
   // `||` statt `??`: GitHub Actions setzt fehlende Secrets als leeren Text.
   const contact = env.CRAWLER_CONTACT || 'privates Jobsuche-Werkzeug';
@@ -83,40 +90,43 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
     minHostIntervalMs: num(env.HOST_INTERVAL_MS, 1500),
     maxCrawlDelayMs: num(env.MAX_CRAWL_DELAY_MS, 15_000),
     requestTimeoutMs: num(env.REQUEST_TIMEOUT_MS, 25_000),
-    maxPagesPerList: num(env.MAX_LIST_PAGES, 6),
-    maxNewDetailsPerSource: num(env.MAX_NEW_PER_SOURCE, 80),
+    // 30 Listenseiten nur als Schutz gegen endloses Blättern (kaputte Weiter-Links), keine Mengengrenze
+    maxPagesPerList: num(env.MAX_LIST_PAGES, 30),
+    maxNewDetailsPerSource: num(env.MAX_NEW_PER_SOURCE, UNBEGRENZT),
     refetchAfterDays: num(env.REFETCH_AFTER_DAYS, 6),
     goneAfterDays: num(env.GONE_AFTER_DAYS, 3),
     purgeAfterDays: num(env.PURGE_AFTER_DAYS, 14),
     sourceConcurrency: num(env.SOURCE_CONCURRENCY, 6),
-    sourceBudgetMs: num(env.SOURCE_BUDGET_MIN, 90) * 60_000,
-    runBudgetMs: num(env.RUN_BUDGET_MIN, 105) * 60_000,
+    // Zeitgrenzen passend zum 6-Stunden-Workflow (GitHub bricht danach ab)
+    sourceBudgetMs: num(env.SOURCE_BUDGET_MIN, 270) * 60_000,
+    runBudgetMs: num(env.RUN_BUDGET_MIN, 330) * 60_000,
     httpCacheMax: num(env.HTTP_CACHE_MAX, 200),
     llm: {
       baseUrl: env.LLM_BASE_URL ?? 'https://api.deepseek.com',
       apiKey: env.LLM_API_KEY || env.DEEPSEEK_API_KEY || null,
       model: bigModel(env.LLM_MODEL),
-      maxCalls: num(env.LLM_MAX_CALLS, 900),
+      maxCalls: num(env.LLM_MAX_CALLS, UNBEGRENZT),
       summaries: (env.LLM_SUMMARIES ?? '1') !== '0',
     },
     browser: {
       enabled: (env.BROWSER ?? '1') !== '0',
       executablePath: env.CHROMIUM_PATH || undefined,
-      maxQueueItemsPerRun: num(env.BROWSER_MAX_ITEMS, 30),
+      maxQueueItemsPerRun: num(env.BROWSER_MAX_ITEMS, UNBEGRENZT),
       concurrency: num(env.BROWSER_CONCURRENCY, 1),
-      timeBudgetMs: num(env.BROWSER_BUDGET_MS, 12 * 60_000),
+      // Ohne eigene Grenze: Es gilt nur die Uhrzeit-Grenze des Laufs (runBudgetMs)
+      timeBudgetMs: num(env.BROWSER_BUDGET_MS, UNBEGRENZT * 60_000),
     },
-    discovery: { maxInstitutionsPerRun: num(env.DISCOVERY_MAX, 20) },
+    discovery: { maxInstitutionsPerRun: num(env.DISCOVERY_MAX, UNBEGRENZT) },
     images: { maxPerRun: num(env.IMAGES_MAX, 60) },
     explore: {
       enabled: (env.EXPLORE ?? '1') !== '0',
       minNew: num(env.EXPLORE_MIN, 3),
-      maxReads: num(env.EXPLORE_MAX_READS, 40),
+      maxReads: num(env.EXPLORE_MAX_READS, UNBEGRENZT),
       queriesPerRun: num(env.EXPLORE_QUERIES, 6),
-      maxQueries: num(env.EXPLORE_MAX_QUERIES, 18),
+      maxQueries: num(env.EXPLORE_MAX_QUERIES, UNBEGRENZT),
     },
     horizon: {
-      maxWeiteChecks: num(env.WEITE_MAX_CHECKS, 60),
+      maxWeiteChecks: num(env.WEITE_MAX_CHECKS, UNBEGRENZT),
     },
     search: {
       braveKey: env.BRAVE_API_KEY || null,
@@ -130,22 +140,21 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): IngestConfi
 }
 
 /**
- * Großer Durchlauf nach einer Profil-Freigabe: keine Mengengrenzen, mehr gleichzeitig, Zeitgrenzen passend
- * zum 6-Stunden-Workflow (was dann noch offen ist, übernimmt eine Fortsetzung).
+ * Großer Durchlauf nach einer Profil-Freigabe: wie der tägliche Lauf (beide ohne Mengengrenzen), aber mit mehr
+ * gleichzeitig; was nach 6 Stunden noch offen ist, übernimmt eine Fortsetzung.
  */
 export function bigRunConfig(c: IngestConfig, env: NodeJS.ProcessEnv = process.env): IngestConfig {
-  const lots = 1_000_000;
   return {
     ...c,
     maxPagesPerList: Math.max(c.maxPagesPerList, 30),
-    maxNewDetailsPerSource: lots,
+    maxNewDetailsPerSource: UNBEGRENZT,
     sourceConcurrency: num(env.SOURCE_CONCURRENCY, 12),
     sourceBudgetMs: num(env.SOURCE_BUDGET_MIN, 270) * 60_000,
     runBudgetMs: num(env.RUN_BUDGET_MIN, 330) * 60_000,
-    llm: { ...c.llm, maxCalls: lots },
-    browser: { ...c.browser, maxQueueItemsPerRun: lots, timeBudgetMs: lots * 60_000, concurrency: num(env.BROWSER_CONCURRENCY, 4) },
-    discovery: { maxInstitutionsPerRun: lots },
-    explore: { ...c.explore, maxReads: Math.max(c.explore.maxReads, 200), queriesPerRun: Math.max(c.explore.queriesPerRun, 30), maxQueries: Math.max(c.explore.maxQueries, 60) },
-    horizon: { maxWeiteChecks: lots },
+    llm: { ...c.llm, maxCalls: UNBEGRENZT },
+    browser: { ...c.browser, maxQueueItemsPerRun: UNBEGRENZT, timeBudgetMs: UNBEGRENZT * 60_000, concurrency: num(env.BROWSER_CONCURRENCY, 4) },
+    discovery: { maxInstitutionsPerRun: UNBEGRENZT },
+    explore: { ...c.explore, maxReads: UNBEGRENZT, queriesPerRun: Math.max(c.explore.queriesPerRun, 30), maxQueries: UNBEGRENZT },
+    horizon: { maxWeiteChecks: UNBEGRENZT },
   };
 }

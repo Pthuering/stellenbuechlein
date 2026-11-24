@@ -1097,9 +1097,10 @@ export class Pipeline {
   // ---------------------------------------------------------------- Erkundung (blinde Flecken)
 
   /**
-   * Sucht gezielt Anzeigen von Websites, die noch nicht im Register stehen: wechselnde Suchwörter aus
-   * Kernbereich und Brücken bei der Arbeitsagentur (und optional in einer Websuche). Liest so lange,
-   * bis mindestens `explore.minNew` neue Anzeigen von neuen Websites dabei sind oder das Budget aufgebraucht ist.
+   * Sucht gezielt Anzeigen von Websites, die noch nicht im Register stehen: Suchwörter aus Kernbereich und
+   * Brücken bei der Arbeitsagentur (und optional in einer Websuche). Liest alles Unbekannte, das die Suchwörter
+   * bringen (höchstens `explore.maxQueries` Suchwörter und `explore.maxReads` Anzeigen, beides standardmäßig ohne
+   * Grenze); bleibt es unter `explore.minNew` neuen Anzeigen von neuen Websites, steht eine Warnung im Lauf.
    */
   private async explore(): Promise<void> {
     const target = this.cfg.explore.minNew;
@@ -1111,8 +1112,8 @@ export class Pipeline {
     let found = 0;
     let qi = 0;
     let searches = 0;
-    this.log.info(`Erkundung: Ziel sind mindestens ${target} Anzeigen von Websites außerhalb des Registers.`);
-    while (found < target && budget.left > 0 && qi < queries.length) {
+    this.log.info(`Erkundung: ${queries.length} Suchwörter, erwartet sind mindestens ${target} Anzeigen von Websites außerhalb des Registers.`);
+    while (budget.left > 0 && qi < queries.length) {
       const batch = queries.slice(qi, qi + (qi === 0 ? this.cfg.explore.queriesPerRun : 2));
       qi += batch.length;
       const cands: Candidate[] = [];
@@ -1147,7 +1148,7 @@ export class Pipeline {
         for (const list of groups.values()) if (list[round]) ordered.push(list[round]);
       }
       for (const c of ordered) {
-        if (found >= target || budget.left <= 0) break;
+        if (budget.left <= 0) break;
         try {
           const job = await this.handleCandidate(this.exploreSource, c, stmts, budget);
           if (job?.newSite) {

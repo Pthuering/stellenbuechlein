@@ -306,6 +306,22 @@ describe('Nur Browser-Warteschlange', () => {
   });
 });
 
+describe('Täglicher Lauf', () => {
+  it('hat keine Mengengrenzen, nur Zeitgrenzen für den 6-Stunden-Workflow', () => {
+    const c = configFromEnv({});
+    expect(c.maxNewDetailsPerSource).toBeGreaterThan(100_000);
+    expect(c.llm.maxCalls).toBeGreaterThan(100_000);
+    expect(c.horizon.maxWeiteChecks).toBeGreaterThan(100_000);
+    expect(c.browser.maxQueueItemsPerRun).toBeGreaterThan(100_000);
+    expect(c.browser.timeBudgetMs).toBeGreaterThan(c.runBudgetMs);
+    expect(c.explore.maxReads).toBeGreaterThan(100_000);
+    expect(c.explore.maxQueries).toBeGreaterThan(100_000);
+    expect(c.maxPagesPerList).toBe(30);
+    expect(c.runBudgetMs).toBeLessThan(355 * 60_000);
+    expect(c.sourceBudgetMs).toBeLessThan(c.runBudgetMs);
+  });
+});
+
 describe('Großer Durchlauf', () => {
   it('hebt die Mengengrenzen auf und arbeitet mehr gleichzeitig', () => {
     const big = bigRunConfig(configFromEnv({}), {});

@@ -116,27 +116,37 @@ describe('Horizont und Fristen (ohne KI)', () => {
 });
 
 describe('Erkundung (blinde Flecken)', () => {
-  it('bringt mindestens drei Anzeigen von Websites außerhalb des Registers', async () => {
+  it('liest alle Anzeigen von Websites außerhalb des Registers, ohne Mengengrenze', async () => {
     const db = await freshDb([source({ id: 'test-z1', url: `${srv.url}/stellen/` })]);
     const run = () => new Pipeline(db, cfg, { browser: false, images: false, discovery: false, reminders: false, explore: true, only: ['keine-quelle'], now: NOW }, new RunLog(false)).run();
     const stats = await run();
-    expect(stats.erkundet).toBe(3);
+    expect(stats.erkundet).toBe(4);
     expect(stats.erkundungFehlt).toBeUndefined();
     const { jobs } = await syncJobs(db, '', 100);
     const explored = jobs.filter((j) => j.foundVia === 'erkundung');
-    expect(explored).toHaveLength(3);
+    expect(explored).toHaveLength(4);
     expect(explored.every((j) => j.newSite && j.institutionId === null)).toBe(true);
     // Die Anzeige der bekannten Testuniversität wurde gar nicht erst gelesen
     expect(srv.hits.get('/fremd/job-5.html') ?? 0).toBe(0);
     // Die neue Website steht als Vorschlag bereit
     const disc = await listDiscoveries(db);
     expect(disc).toHaveLength(1);
-    expect(disc[0]).toMatchObject({ siteKey: 'localhost', jobs: 3 });
+    expect(disc[0]).toMatchObject({ siteKey: 'localhost', jobs: 4 });
 
-    // Zweiter Lauf: Nur noch eine unbekannte Anzeige übrig → Warnung statt stillem Unterschreiten
+    // Zweiter Lauf: alles schon bekannt → nichts neu gelesen, Warnung statt stillem Unterschreiten
+    const before = srv.hits.get('/fremd/job-1.html') ?? 0;
     const second = await run();
-    expect(second.erkundet).toBe(1);
-    expect(second.erkundungFehlt).toBe(2);
+    expect(second.erkundet).toBe(0);
+    expect(second.erkundungFehlt).toBe(3);
+    expect(srv.hits.get('/fremd/job-1.html') ?? 0).toBe(before);
+  });
+
+  it('hält eine von Hand gesetzte Lesegrenze ein', async () => {
+    const db = await freshDb([source({ id: 'test-z1', url: `${srv.url}/stellen/` })]);
+    const limited = { ...cfg, explore: { ...cfg.explore, maxReads: 2 } };
+    const stats = await new Pipeline(db, limited, { browser: false, images: false, discovery: false, reminders: false, explore: true, only: ['keine-quelle'], now: NOW }, new RunLog(false)).run();
+    expect(stats.erkundet).toBe(2);
+    expect(stats.erkundungFehlt).toBe(1);
   });
 
   it('Suchwörter rotieren täglich zwischen Kern und Brücken', () => {

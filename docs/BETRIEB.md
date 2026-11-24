@@ -78,11 +78,11 @@ Danach unter *Actions → Einsammeln → Run workflow* den ersten Lauf starten. 
 
 **Gespeicherte Filter mit Push:** Im Filter (Stapel oder Liste) lassen sich alle Kriterien kombinieren, darunter Städte, Mindest-Passung und Vertragsdauer („mind. X Jahre“, unbefristet zählt mit, oder „nur unbefristet“), und unter einem Namen speichern (Einstellung `savedFilters`). Für jeden gespeicherten Filter gibt es einen eigenen Push-Schalter, im Filter unten und unter *Ich → Erinnerungen*, unabhängig davon, welcher Filter gerade im Stapel gilt. Am Ende jedes Laufs meldet die Pipeline neue Treffer: offene Anzeigen, über die noch nicht entschieden ist, seit dem Einschalten (höchstens zwei Wochen zurück); so kommen auch Anzeigen dazu, die erst nach Claudes Auswertung sichtbar werden oder erst dann eine Vertragsdauer haben. Jeder Treffer kommt je Filter nur einmal (Tabelle `filter_alerts_sent`, Migration 0005), bis zu drei einzeln, sonst gebündelt; was so gemeldet wurde, fehlt in der Sammelmeldung. Die frühere Einstellung „Wunschstädte“ (`highlight`) wird beim Laden zu einem gespeicherten Filter.
 
-**Blinde Flecken:** Jeder Lauf endet mit der Erkundung. Sie sucht mit wechselnden Suchwörtern (Kernbereich und Brücken aus dem Horizont) bei der Jobsuche der Arbeitsagentur, mit `BRAVE_API_KEY` zusätzlich im Netz, und liest so lange Anzeigen von Websites, die noch nicht im Register stehen, bis mindestens drei neue dabei sind (`EXPLORE_MIN`). Schafft sie das nicht, steht eine Warnung im Lauf und in der App unter *Quellen & Läufe*.
+**Blinde Flecken:** Jeder Lauf endet mit der Erkundung. Sie sucht mit den Suchwörtern aus Kernbereich und Brücken (Horizont) bei der Jobsuche der Arbeitsagentur, mit `BRAVE_API_KEY` zusätzlich im Netz, und liest alle Anzeigen von Websites, die noch nicht im Register stehen (seit 24.11.2026 alle Suchwörter jeden Tag, ohne Lesegrenze). Bringt sie weniger als drei neue (`EXPLORE_MIN`), steht eine Warnung im Lauf und in der App unter *Quellen & Läufe*.
 
-**Browser-Warteschlange:** Seiten, deren Anzeigen erst per JavaScript erscheinen oder die unvollständig gelesen wurden, liest der Browser-Agent nach, im täglichen Lauf aber nur 30 (Zeitgrenze und Actions-Minuten). Nach einem großen Lauf den Rückstau unter *Actions → Browser-Warteschlange → Run workflow* abarbeiten (oder `gh workflow run browser.yml -R Pthuering/stellenbuechlein`): bis zu 300 Seiten in höchstens 105 Minuten, dabei fragt er für jede Seite die KI (grob 1 Cent pro Seite). Er läuft nie gleichzeitig mit dem Einsammeln.
+**Browser-Warteschlange:** Seiten, deren Anzeigen erst per JavaScript erscheinen oder die unvollständig gelesen wurden, liest der Browser-Agent nach, im täglichen Lauf seit 24.11.2026 die ganze Warteschlange (4 Seiten gleichzeitig, bis die 6 Stunden des Workflows um sind). Für einen Rückstau außerhalb des täglichen Laufs gibt es *Actions → Browser-Warteschlange → Run workflow* (oder `gh workflow run browser.yml -R Pthuering/stellenbuechlein`): bis zu 300 Seiten in höchstens 105 Minuten, dabei fragt er für jede Seite die KI (grob 1 Cent pro Seite). Er läuft nie gleichzeitig mit dem Einsammeln.
 
-**Großer Durchlauf:** Wird die Umfrage übernommen, startet die App den Workflow „Großer Durchlauf“ gleich mit (sobald der Worker ein GitHub-Token hat). Nach einem Steckbrief-Import oder einer späteren Profiländerung zeigt sie unter *Ich* den Kasten „Profil prüfen und freigeben“, und die Freigabe startet ihn. Solange kein Profil aus der Umfrage da ist oder der große Durchlauf noch nicht lief, erinnert beim Öffnen von *Ich* ein Blatt daran (auch bei angefangener Umfrage). Der Lauf: alle Quellen ohne Mengengrenzen (beliebig viele neue Anzeigen je Quelle, bis zu 30 Listenseiten, KI ohne Obergrenze, Weite für alles, früher Aussortiertes wird mit dem neuen Profil neu beurteilt), 12 Quellen und 4 Browser-Seiten gleichzeitig, die ganze Browser-Warteschlange. GitHub erlaubt höchstens 6 Stunden pro Lauf; ist dann noch etwas offen, startet der Workflow sich selbst neu und macht dort weiter (höchstens 8 Runden). Ändert sich das Profil später, bietet die App einen neuen großen Durchlauf an. Der Lauf selbst arbeitet ohne KI; alles, was eine KI beurteilen soll, landet in der KI-Warteschlange (Schritt 4b). Bei sehr vielen Aufgaben lässt sich die Aufbereitung über mehrere Tage verteilen.
+**Großer Durchlauf:** Wird die Umfrage übernommen, startet die App den Workflow „Großer Durchlauf“ gleich mit (sobald der Worker ein GitHub-Token hat). Nach einem Steckbrief-Import oder einer späteren Profiländerung zeigt sie unter *Ich* den Kasten „Profil prüfen und freigeben“, und die Freigabe startet ihn. Solange kein Profil aus der Umfrage da ist oder der große Durchlauf noch nicht lief, erinnert beim Öffnen von *Ich* ein Blatt daran (auch bei angefangener Umfrage). Der Lauf: alle Quellen ohne Mengengrenzen wie der tägliche Lauf auch (früher Aussortiertes wird mit dem neuen Profil neu beurteilt), aber 12 Quellen gleichzeitig statt 6. GitHub erlaubt höchstens 6 Stunden pro Lauf; ist dann noch etwas offen, startet der Workflow sich selbst neu und macht dort weiter (höchstens 8 Runden). Ändert sich das Profil später, bietet die App einen neuen großen Durchlauf an. Der Lauf selbst arbeitet ohne KI; alles, was eine KI beurteilen soll, landet in der KI-Warteschlange (Schritt 4b). Bei sehr vielen Aufgaben lässt sich die Aufbereitung über mehrere Tage verteilen.
 
 ## 4b. Claude bereitet die Anzeigen auf (Cloud-Aufgabe)
 
@@ -154,7 +154,7 @@ Stand Oktober 2026, bei den Anbietern nachprüfen, falls sich etwas ändert:
 - **GitHub Actions:** öffentlich unbegrenzt, privat 2.000 Minuten im Monat.
 - **Claude (Abo):** Die Aufbereitung der Anzeigen zählt gegen das Kontingent deines Claude-Abos (Fünf-Stunden-Fenster und Wochenlimit), gemeinsam mit deiner sonstigen Claude-Nutzung. Verbrauch unter claude.ai/settings/usage.
 - **DeepSeek:** nach Verbrauch, nur für den KI-Assistenten, Brücken-Vorschläge und Probeläufe; die Übersicht steht unter *Ich → KI-Assistent*.
-- **Brave Search API (optional):** Kontingent und Preis beim Anbieter prüfen. Die Erkundung stellt pro Lauf höchstens `EXPLORE_MAX_QUERIES` Suchanfragen.
+- **Brave Search API (optional):** Kontingent und Preis beim Anbieter prüfen. Die Erkundung stellt seit 24.11.2026 jeden Tag alle Suchwörter (Kern und Brücken, etwa 40 bis 60 Anfragen); ist das Kontingent erschöpft, meldet der Lauf eine Warnung und sucht nur noch bei der Arbeitsagentur. Begrenzen lässt es sich mit `EXPLORE_MAX_QUERIES`.
 
 ## Stellschrauben der Pipeline
 
@@ -165,28 +165,28 @@ Als Umgebungsvariablen im Workflow `einsammeln.yml` oder lokal:
 | `HOST_INTERVAL_MS` | 1500 | Mindestabstand zwischen zwei Abrufen bei derselben Website |
 | `ROBOTS` | 0 | `1` = Sperren aus der robots.txt beachten; Standard: nicht beachten (Abstand und Crawl-delay gelten immer) |
 | `MAX_CRAWL_DELAY_MS` | 15000 | Obergrenze für `Crawl-delay` aus der robots.txt |
-| `MAX_LIST_PAGES` | 6 | Wie viele Seiten einer Stellenliste verfolgt werden |
-| `MAX_NEW_PER_SOURCE` | 80 | Neue Anzeigen pro Quelle und Lauf |
+| `MAX_LIST_PAGES` | 30 | Wie viele Seiten einer Stellenliste höchstens verfolgt werden (Schutz gegen endloses Blättern; die meisten Listen enden vorher) |
+| `MAX_NEW_PER_SOURCE` | ohne Grenze | Neue Anzeigen pro Quelle und Lauf (bis 24.11.2026: 80) |
 | `REFETCH_AFTER_DAYS` | 6 | Bekannte Anzeigen nach so vielen Tagen neu lesen (Fristverlängerungen) |
 | `GONE_AFTER_DAYS` | 3 | Nicht mehr gelistet seit … Tagen = abgelaufen (nur wenn die Quelle fehlerfrei lief) |
 | `PURGE_AFTER_DAYS` | 14 | Abgelaufene, nicht gemerkte Anzeigen danach löschen |
 | `SOURCE_CONCURRENCY` | 6 | Quellen gleichzeitig |
-| `SOURCE_BUDGET_MIN` | 90 | Nach so vielen Minuten beginnt ein Lauf keine neuen Quellen mehr (Portale ab Minute 70 nur noch sie); die übrigen kommen im nächsten Lauf zuerst dran. Der Workflow bricht nach 120 Minuten ab. |
+| `SOURCE_BUDGET_MIN` | 270 | Nach so vielen Minuten beginnt ein Lauf keine neuen Quellen mehr (die letzten 20 Minuten nur noch Portale); die übrigen kommen im nächsten Lauf zuerst dran. Der Workflow bricht nach 355 Minuten ab. |
 | `HTTP_CACHE_MAX` | 200 | So viele abgerufene Seiten hält ein Lauf im Speicher (gegen doppeltes Abrufen) |
 | `LLM_BASE_URL`, `LLM_MODEL` | DeepSeek, `deepseek-v4-pro` | jeder OpenAI-kompatible Dienst geht; bei DeepSeek immer das große Modell (Flash, `deepseek-chat` und `deepseek-reasoner` werden durch `deepseek-v4-pro` ersetzt) |
-| `LLM_MAX_CALLS` | 900 | KI-Aufrufe pro Lauf (nur, wenn die Pipeline mit KI-Schlüssel läuft, etwa lokal; im Workflow arbeitet sie ohne KI) |
+| `LLM_MAX_CALLS` | ohne Grenze | KI-Aufrufe pro Lauf (nur, wenn die Pipeline mit KI-Schlüssel läuft, etwa lokal; im Workflow arbeitet sie ohne KI) |
 | `LLM_SUMMARIES` | 1 | `0` = keine KI-Kurzfassungen |
 | `BROWSER` | 1 | `0` = ohne Browser-Agent |
-| `BROWSER_MAX_ITEMS`, `BROWSER_BUDGET_MS` | 30, 12 Min. | Grenzen für den Browser-Agenten pro Lauf |
-| `BROWSER_CONCURRENCY` | 1 | Seiten, die der Browser-Agent gleichzeitig liest (großer Durchlauf: 4) |
-| `RUN_BUDGET_MIN` | 105 | Nach so vielen Minuten (Uhrzeit ab Laufbeginn) beginnt der Browser-Agent keine Seite mehr |
-| `DISCOVERY_MAX` | 20 | Einrichtungen ohne Adresse, für die pro Lauf eine Stellenseite gesucht wird |
+| `BROWSER_MAX_ITEMS`, `BROWSER_BUDGET_MS` | ohne Grenze | Grenzen für den Browser-Agenten pro Lauf (der Workflow „Browser-Warteschlange“ setzt eigene) |
+| `BROWSER_CONCURRENCY` | 1 | Seiten, die der Browser-Agent gleichzeitig liest (täglicher Lauf und großer Durchlauf: 4) |
+| `RUN_BUDGET_MIN` | 330 | Nach so vielen Minuten (Uhrzeit ab Laufbeginn) beginnt der Browser-Agent keine Seite mehr |
+| `DISCOVERY_MAX` | ohne Grenze | Einrichtungen ohne Adresse, für die pro Lauf eine Stellenseite gesucht wird |
 | `IMAGES_MAX` | 60 | Bilder (Wikipedia), die pro Lauf nachgeschlagen werden |
 | `EXPLORE` | 1 | `0` = keine Erkundung neuer Websites |
-| `EXPLORE_MIN` | 3 | So viele Anzeigen von Websites außerhalb des Registers soll jeder Lauf mindestens bringen |
-| `EXPLORE_MAX_READS` | 40 | Höchstens so viele Anzeigen liest die Erkundung pro Lauf |
-| `EXPLORE_QUERIES`, `EXPLORE_MAX_QUERIES` | 6, 18 | Suchwörter im ersten Durchgang und insgesamt (rotieren täglich) |
-| `WEITE_MAX_CHECKS` | 60 | KI-Prüfungen für die Weite pro Lauf; der Rest kommt im nächsten Lauf dran |
+| `EXPLORE_MIN` | 3 | Bringt die Erkundung weniger Anzeigen von Websites außerhalb des Registers, steht eine Warnung im Lauf |
+| `EXPLORE_MAX_READS` | ohne Grenze | Höchstens so viele Anzeigen liest die Erkundung pro Lauf |
+| `EXPLORE_QUERIES`, `EXPLORE_MAX_QUERIES` | 6, ohne Grenze | Suchwörter im ersten Durchgang und insgesamt (mit Grenze rotieren sie täglich) |
+| `WEITE_MAX_CHECKS` | ohne Grenze | KI-Prüfungen für die Weite pro Lauf; der Rest kommt im nächsten Lauf dran |
 | `BA_API_BASE` | Arbeitsagentur | Adresse der Jobsuche-Schnittstelle (nur für Tests ändern) |
 
 ## Ohne Cloudflare selbst betreiben
