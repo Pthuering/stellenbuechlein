@@ -109,12 +109,15 @@ try {
   await page.waitForSelector('.list .row');
   assert.ok((await page.locator('.list .row').count()) >= 1);
 
-  // Alle: Weggelegte bleiben in der Liste
+  // Alle: alle offenen Anzeigen, auch entschiedene (Weggelegte bleiben in der Liste) und Brücken-Karten, die im
+  // Stapel noch auf das KI-Urteil warten. Darum mindestens so viele wie im Stapel; gezeigt werden die ersten 40.
   await page.click('.tab:nth-child(4)');
   await page.waitForSelector('#all-title');
   await page.waitForSelector('.list .row');
   await page.waitForTimeout(200);
-  assert.equal(await page.locator('.list .row').count(), Math.min(40, start), 'Alle-Liste ist nicht vollständig');
+  const openAll = await waiting(page);
+  assert.ok(openAll >= start, `„Alle“ zählt weniger offene Anzeigen (${openAll}) als der Stapel (${start})`);
+  assert.equal(await page.locator('.list .row').count(), Math.min(40, openAll), 'Alle-Liste ist nicht vollständig');
   assert.ok((await page.locator('text=weggelegt').count()) >= 1, 'Weggelegte fehlt in „Alle“');
 
   // Umfrage: ein paar Antworten, bis zum Ergebnis blättern, Profil übernehmen
@@ -167,15 +170,31 @@ try {
   await page.waitForSelector('.card--top .card__head');
   assert.equal(await page.locator('.card--top .polaroid').count(), 0, 'Bild trotz ausgeschaltetem Schalter');
 
-  // Horizont: Filter auf den Ring „Horizont“ zeigt nur Horizont-Karten
+  // Brücke und Horizont: Die geprüften Karten kommen eingestreut in den Stapel, mit Begründung statt Prozentzahl.
+  // Allein zeigen lassen sie sich nicht mehr (normale Einträge kommen immer), also bis zur ersten weiterblättern.
   await page.click('.tab:nth-child(1)');
   await page.waitForSelector('.card--top');
+  const deckNow = await waiting(page);
+  let skipped = 0;
+  while (!(await page.locator('.card--top .lane-tag').count()) && skipped < 10) {
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(450);
+    skipped++;
+  }
+  assert.equal(await page.locator('.card--top .lane-tag').count(), 1, 'Keine Brücken- oder Horizont-Karte unter den ersten zehn Karten im Stapel');
+  assert.ok(((await page.locator('.card--top .card__why').textContent()) ?? '').includes('Warum das passen könnte'), 'Begründung fehlt auf der Brücken-Karte');
+  for (let i = 0; i < skipped; i++) {
+    await page.click('[aria-label="Rückgängig"]');
+    await page.waitForTimeout(300);
+  }
+  assert.equal(await waiting(page), deckNow, 'Rückgängig hat die übersprungenen Karten nicht zurückgeholt');
+  // Ausblenden geht nur ausdrücklich im Filter
   await page.click('[aria-label^="Filter"]');
-  await page.click('.sheet >> text=/^Horizont$/');
+  await page.click('.sheet button.chip >> text=Brücken-Karten');
+  await page.click('.sheet button.chip >> text=Horizont-Karten');
   await page.click('text=Fertig');
   await page.waitForTimeout(300);
-  assert.ok((await page.locator('.card--top .lane-tag').count()) === 1, 'Keine Horizont-Karte im Stapel');
-  assert.ok(((await page.locator('.card--top .card__why').textContent()) ?? '').includes('Warum das passen könnte'), 'Begründung fehlt auf der Horizont-Karte');
+  assert.ok((await waiting(page)) < deckNow, 'Ausblenden der Brücken- und Horizont-Karten wirkt nicht');
   await page.click('[aria-label^="Filter"]');
   await page.click('text=Alle Filter zurücksetzen');
   await page.click('text=Fertig');
